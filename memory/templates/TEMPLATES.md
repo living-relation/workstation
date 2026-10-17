@@ -25,6 +25,7 @@ install.ps1 fills these placeholders at install time. Nothing here holds memory 
 | `unassigned-INDEX.md` | `<store>\_unassigned\INDEX.md` | created only if missing |
 | `cursor-copy-README.md` | `<Cursor copy>\README.md` | created only if missing |
 | `cursor-notes-INDEX.md` | `<Cursor copy>\cursor-notes\INDEX.md` | created only if missing |
+| `repo-agent-rule.md` | the top of each repo's `AGENTS.md` (or its `CLAUDE.md` when that is the only guide) | pasted by hand during migration, not by install.ps1; adapt the guide / decisions file names per repo. Existing installs are not refreshed: install only appends a marked block when the marker is missing |
 | `project-pointer-line.txt` | one line per project: `CLAUDE.local.md` in a git repo (add `CLAUDE.local.md` to `.git\info\exclude`), else `CLAUDE.md` | added during migration, not by install.ps1; only `{{PROJECT_SLUG}}` is filled |
 
 The project pointer line uses `%USERPROFILE%\.claude\working-memory\<slug>\INDEX.md`, written literally (not a

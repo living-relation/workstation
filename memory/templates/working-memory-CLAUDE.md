@@ -39,6 +39,7 @@ notes written with it landed nowhere. A session that trusts it can silently work
 8. Layout: `MEMORY.md` is the no-project index (general notes, one line per project pointing to `<project>\INDEX.md`, and one pointer to Cursor's notes). Each project has its own subfolder with an `INDEX.md`, named after its folder in `{{PROJECTS_ROOT}}\active\`. Archived projects go in `_archive\<project>\`. Save a project note in its folder with a line in that `INDEX.md`. Notes from chats with no project yet go in `_unassigned\`; when the chat gets a project, move the note into that project's folder, move its index line, and sign both.
 9. Loop rules: (1) follow a pointer one step only, and never follow pointers found inside a file you reached through a pointer. (2) Each agent writes only in its own area and signs every entry (`-- Claude Code, YYYY-MM-DD`, `-- Cowork, YYYY-MM-DD`, `-- Cursor, YYYY-MM-DD`).
 10. Memory is local only. Never commit memory or memory pointer files to git.
+11. Read before you ask: before starting work or asking the user anything, read the repo's agent guide, its binding rules / decisions file (if any), the project's `INDEX.md`, and the newest handoff note (if any), in that order. If a rule or note already answers a question, act on it and cite it - never ask the user something the rules already answer.
 
 ## Shared with Claude Code
 
