@@ -22,6 +22,6 @@ Use for workstation installs, folder merges, archives, or any destructive-ish ch
 ## Hard rules
 - Destructive steps need the owner’s yes.
 - Only the owner deletes projects.
-- Don’t disable OneDrive.
+- Don’t disable the owner’s cloud sync client.
 - Protected destination folders (check shared memory, e.g. a permanent models home) are copy-into only: never archive, move, clean up, or delete them, and never pick them as a backup source to be moved away. Copy files in; leave the originals where they were until the owner says otherwise.
-- If a destination is under OneDrive, let sync finish before verifying hashes.
+- If a destination is under a cloud-synced folder, let sync finish before verifying hashes.
