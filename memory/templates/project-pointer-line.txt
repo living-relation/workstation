@@ -1,0 +1,1 @@
+Project memory: %USERPROFILE%\.claude\working-memory\{{PROJECT_SLUG}}\INDEX.md

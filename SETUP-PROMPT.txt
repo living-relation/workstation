@@ -1,0 +1,65 @@
+Grok Bot: please set up this PC with my workstation setup. Follow these steps in order. Stop and wait for me wherever it says so. Setup is NOT finished until every numbered step below is done, including the two pastes and the final Workstation Status check.
+
+0. The package is the "workstation-setup" folder wherever I unzipped workstation-setup.zip on this PC. Find it (ask me if you cannot). Work on this PC, as the signed-in Windows user. Do not use an elevated (admin) shell; I run the one admin command myself.
+
+1. FIRST: if REVIEW-NOTES.md exists in the package folder, read all of it before anything else. It holds notes for one specific PC (for example a different Projects folder, extra clean-up steps, and a suggested order). If it is for this PC, its notes override the defaults below, and every extra required step it lists is part of this setup. If you are not sure it is for this PC, ask me.
+   Then read README.md, REORGANIZE.md, MIGRATION.md and instructions\README.md in that folder.
+
+2. Preflight: in a normal PowerShell, from the package folder, run
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\preflight.ps1
+   It changes nothing and writes preflight-report-<time>.txt. Show me the report as a short list: every CONFLICT and WARN with what it means, then the counts. For each CONFLICT, propose how to resolve it and wait for my decision. Change nothing yourself unless I say so. Re-run preflight until it shows no CONFLICT, or until I tell you to accept a conflict.
+   If my Projects folder is not %USERPROFILE%\Projects (REVIEW-NOTES.md may say), ask me and use -ProjectsRoot for every script.
+
+3. Dry run: powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -WhatIf
+   (it runs preflight again first). Show me what it would create, change, and any warnings. Change nothing yet.
+
+4. Back up my memories BEFORE anything else changes: do MIGRATION.md step a (every Windows account on this PC, memory folders only). Verify the file counts and show me the totals.
+
+5. Reorganize: show me the plan from REORGANIZE.md step 1 (inventory -> proposed moves). Move nothing until I approve. Then do the moves I approved and the rest of REORGANIZE.md (steps 2 to 5). Step 5: merge the Projects-root CLAUDE.md into AGENTS.md yourself (the root is not a git repo; check first, back up first, keep every rule and the shared-memory marker block, then delete the root CLAUDE.md). Then list every CLAUDE.md / AGENTS.md in active\ projects and repos as a table and wait for my yes per file; a repo merge is a commit I make myself, and nothing is pushed. Leave every CLAUDE.local.md alone.
+
+6. Run install.ps1 for real (same parameters as the dry run). Add -AcceptConflicts only if I accepted the remaining conflicts in step 2. It also copies the Workstation toolkit into <Projects>\_workstation, creates the Desktop "Workstation" folder (Workers Start, Workers Stop, Workstation Status), installs the 80% handoff hooks and makes sure Cursor starts at sign-in. Show me the summary, the prerequisite results and any warnings.
+   At the end, install.ps1 runs Workstation Status (-NoPause) and prints its FAIL / WARN counts. FAIL or WARN lines are expected at this point; the steps below clear them. Exit code 0 is expected. Exit code 1 (error) or 2 (preflight conflict) is not: show me what went wrong.
+
+7. Admin command (manual, by me): give me the ONE admin command to paste (it is printed at the end of install.ps1; it runs install-admin.ps1). I run it in PowerShell opened with "Run as admin" under my own account. Wait for my "done". Then check that the tasks Claude-Memory-To-Cursor-Sync and Latch-EnsureGrokBot exist, the GrokBot startup entry is set, and the first memory sync worked.
+
+8. Memory migration: do MIGRATION.md steps b to e. Show me the plan and wait for my OK before merging anything. Give me the transcript-only findings for review.
+
+9. Paste 1 of 2 (manual, by me; MIGRATION.md step f): tell me to open
+      <package folder>\instructions\instructions-for-claude.md
+   copy ALL of it, and paste it into Claude desktop > Settings > Instructions for Claude (account-level; applies to chats and Cowork), replacing what is there. Give me the full path on this PC. Then STOP and wait until I say "done". Do not go on before that.
+
+10. Paste 2 of 2 (manual, by me): tell me to open
+      <package folder>\instructions\cowork-global-instructions.md
+   copy ALL of it, and paste it into Claude desktop > Cowork settings > Global instructions (Cowork only), replacing what is there. Give me the full path on this PC. Then STOP and wait until I say "done". After my "done", re-run preflight.ps1 and confirm the Cowork Global instructions line shows ALREADY-INSTALLED. If it does not, tell me what is wrong and repeat this step.
+   Never edit these two instruction texts or Claude's/Cowork's files yourself; I paste them.
+
+11. Old Cowork project lines (manual, by me): tell me to remove any old per-project Cowork memory lines from my Cowork projects' instructions (the global text replaces them). Wait for my "done".
+
+12. Cowork files location (manual, by me): if Cowork's "Cowork files" location is not <Projects>\_claude\Claude Projects (the memory store's parent), tell me to change it to that. Wait for my "done".
+
+13. Prerequisites and sign-ins (manual, by me): using the install results and Workstation Status, tell me what is missing and give me the exact steps for each, then wait for my "done":
+   - git, and the GitHub sign-in (per-repo pull/push needs git);
+   - the Cursor agent sign-in ("agent login");
+   - Claude Code sign-in ("claude") and the Claude desktop app sign-in;
+   - Python 3, if install skipped the Cursor 80% handoff hook because Python was missing (then re-run install.ps1 so the hook is installed).
+
+14. Bots (with me): read bots\README.md. On this PC, signed in to Grok Bot with my account, add each bot in its table that is not already here (open its share link, add it, answer its getting-started questions). Skip every bot that already exists: opening a card always adds a second bot, it never replaces one. Grok Bot has no card; never import one. A row that still says LINK PENDING is left for later: tell me. If a Grok Bot already exists here, give it bots\GROK-BOT-UPGRADE.md and have it follow that note (it shows me its conflict list before it forgets anything). Wait for my "done".
+
+15. Any other required step that REVIEW-NOTES.md lists for this PC and that is not done yet (for example removing old automations): do it as REVIEW-NOTES.md says, with my approval where it asks for it.
+
+16. LAST: run
+      powershell -NoProfile -ExecutionPolicy Bypass -File "<Projects>\_workstation\shortcuts\workstation-status.ps1" -NoPause
+   (-NoPause only reports; it never prompts or changes anything). Count the [FAIL] and [WARN] lines. Setup is finished ONLY when there are 0 [FAIL] and 0 [WARN]. For each one left, tell me what it means and how to fix it, fix it with my OK (or tell me what I must do), and run the check again. Startup toggles are mine: if an app's startup entry is off, tell me, and I turn it on (or I run Workstation Status without -NoPause, which asks me per app).
+
+17. Finish with a short report: each numbered step above with done / not done, the final Workstation Status counts (must be 0 FAIL, 0 WARN), what is left for me, and any warnings. Do not call setup finished while any step is not done.
+
+Notes:
+- Startup toggles for apps are mine: never turn one on or off yourself. Report them only.
+- Tell me which active projects have no git remote (pull/push is one repo at a time, by hand).
+
+Always:
+- Never commit memory or memory pointer files to git (use CLAUDE.local.md + .git\info\exclude in repos).
+- Never run git init on a plain project folder unless I ask.
+- Never force-push.
+- Never copy, ship, or print secrets (keys, credentials, .env files, anything that looks like an API key).
+- Never delete, overwrite, or move anything without my approval. Back up before you change a settings file.
