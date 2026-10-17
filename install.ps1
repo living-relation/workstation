@@ -21,9 +21,10 @@
   - The Projects root guide is AGENTS.md (memory section appended there). A root CLAUDE.md is merged into it
     by hand (REORGANIZE.md step 5), never by install.
   - Copies the toolkit (package folder and target folder named in toolkit.psd1, e.g. workstation\ -> <Projects>\_workstation\;
-    missing files added; a changed file is backed up to <Projects>\_scratch\ first, then replaced), then runs its
+    missing files added; a changed file is backed up to <Projects>\_archive\ first, then replaced), then runs its
     shortcuts installer
-    (Desktop "Workstation" folder + prerequisite checks).
+    (Workers Start / Workers Stop / Workstation Status links in this package's shortcuts\ folder, gitignored,
+    + prerequisite checks).
   - Creates the junction ~\.claude\working-memory -> the memory store (the same path on every PC;
     the Cowork Global instructions line uses it). An existing folder or link there is never changed.
   - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
@@ -55,7 +56,7 @@
   (test mode: under -UserHome).
 
 .PARAMETER ReportDir
-  Folder for the preflight report. Default: next to this script (or %TEMP%).
+  Folder for the preflight report. Default: %TEMP% (never the package/repo folder).
 
 
 .NOTES
@@ -118,7 +119,7 @@ $GuardCfg    = Join-Path $HooksDir 'memory-link-guard.config.json'
 $GuardScriptPre = Test-Path -LiteralPath $GuardDest
 $GuardCfgPre    = Test-Path -LiteralPath $GuardCfg
 $CursorRule  = Join-Path $UserHome '.cursor\rules\claude-shared-memory.mdc'
-$BackupDir   = Join-Path $ProjectsRoot ("_scratch\automation-install-backup-$Stamp")
+$BackupDir   = Join-Path $ProjectsRoot ("_archive\automation-install-backup-$Stamp")
 $BridgeDir   = Join-Path $ProjectsRoot $TK.ToolkitFolder
 $BridgePkg   = Join-Path $PkgRoot $TK.PackageFolder
 # Files this install newly created under <Projects> (uninstall.ps1 removes only these).
@@ -265,7 +266,7 @@ function Copy-PackageFile([string]$Source, [string]$Dest) {
   }
 }
 # Bridge files are copied byte for byte. A missing file is added; a changed file is backed up to
-# <Projects>\_scratch\automation-install-backup-<time>\<toolkit folder>\ and replaced.
+# <Projects>\_archive\automation-install-backup-<time>\<toolkit folder>\ and replaced.
 function Install-BridgeFile([string]$Source, [string]$Rel) {
   $dest = Join-Path $BridgeDir $Rel
   $bytes = [IO.File]::ReadAllBytes($Source)
@@ -781,7 +782,8 @@ if ($coworkWith.Count) {
   Note 'TODO' "Cowork Global instructions not found on this PC. Paste $CoworkText into Claude desktop > Cowork settings > Global instructions."
 }
 
-# 9. Toolkit: copy the package's toolkit folder into <Projects>\<toolkit folder>\, then create the Desktop shortcuts
+# 9. Toolkit: copy the package's toolkit folder into <Projects>\<toolkit folder>\, then create the shortcuts in
+#    <package>\<ShortcutFolder> (resolved from this script's folder; the .lnk files are gitignored)
 if (-not (Test-Path -LiteralPath $BridgePkg)) { Note 'ERROR' "bridge folder missing from the package: $BridgePkg" }
 else {
   foreach ($f in @(Get-ChildItem -LiteralPath $BridgePkg -Recurse -File -Force)) {
@@ -789,25 +791,24 @@ else {
   }
 }
 $shortcutScript = Join-Path $BridgeDir $TK.ShortcutsInstaller
-$desktopDir = [Environment]::GetFolderPath('Desktop')
-$shortcutPlan = "create or update '$desktopDir\$($TK.ShortcutFolder)' with " + (($TK.Shortcuts | ForEach-Object { $_.Name }) -join ', ') + "; remove old copies (loose links and the old '" + ($TK.LegacyShortcutFolders -join "', '") + "' folder; only links that run these scripts); then run the read-only prerequisite checks"
-if ($testMode) { Note 'SKIP' "test mode (-UserHome): not running $(Split-Path $shortcutScript -Leaf), it writes to the real Desktop. It would $shortcutPlan" }
-elseif ($WhatIf) { Note 'WOULD' "run $shortcutScript -NoPause: $shortcutPlan" }
+$scDir = [IO.Path]::GetFullPath((Join-Path $PkgRoot $TK.ShortcutFolder)).TrimEnd('\')
+$shortcutPlan = "create or update '$scDir' with " + (($TK.Shortcuts | ForEach-Object { $_.Name }) -join ', ') + "; remove old copies (loose Desktop links and links in the old Desktop '" + ($TK.LegacyShortcutFolders -join "', '") + "' folders, only links that run these scripts, then those folders once empty); then run the read-only prerequisite checks"
+if ($testMode) { Note 'SKIP' "test mode (-UserHome): not running $(Split-Path $shortcutScript -Leaf), it cleans old links on the real Desktop. It would $shortcutPlan" }
+elseif ($WhatIf) { Note 'WOULD' "run $shortcutScript -LinkDir `"$scDir`" -NoPause: $shortcutPlan" }
 elseif (-not (Test-Path -LiteralPath $shortcutScript)) { Note 'ERROR' "not found: $shortcutScript" }
 else {
   Write-Host ''
   # Record only the links (and the folder) this run creates, so uninstall removes exactly those.
-  $scDir = Join-Path $desktopDir $TK.ShortcutFolder
   $scDirPre = Test-Path -LiteralPath $scDir
   $scPre = @{}; foreach ($sc in $TK.Shortcuts) { $scPre[$sc.Name] = Test-Path -LiteralPath (Join-Path $scDir "$($sc.Name).lnk") }
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $shortcutScript -NoPause
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $shortcutScript -LinkDir $scDir -NoPause
   $scExit = $LASTEXITCODE
   if (-not $scDirPre -and (Test-Path -LiteralPath $scDir)) { Add-ManifestJson @{ kind = 'shortcut-dir'; path = $scDir } }
   foreach ($sc in $TK.Shortcuts) {
     $lp = Join-Path $scDir "$($sc.Name).lnk"
     if (-not $scPre[$sc.Name] -and (Test-Path -LiteralPath $lp)) { Add-ManifestJson @{ kind = 'shortcut'; path = $lp; script = (Join-Path $BridgeDir $sc.Script) } }
   }
-  if ($scExit -eq 0) { Note 'DONE' "shortcuts in $desktopDir\$($TK.ShortcutFolder) (prerequisite results are listed above)" }
+  if ($scExit -eq 0) { Note 'DONE' "shortcuts in $scDir (prerequisite results are listed above)" }
   else { Note 'WARN' "$(Split-Path $shortcutScript -Leaf) reported failures (exit $scExit). See its output above." }
 }
 # A toolkit folder under an older name is never moved or deleted; it is only reported.

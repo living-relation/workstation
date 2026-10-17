@@ -19,7 +19,7 @@ Pick this PC under My Machines; it is listed under the PC's host name (`$WorkerN
 
 ## Start and stop (manual)
 - No logon start and no scheduled tasks anymore: the Run entry `CursorWorker` and the tasks `Cursor-Worker` / `Cursor-Worker-Health` were removed 2026-10-07.
-- **Workers Start** (`Desktop\Workstation`) starts the supervisor hidden; **Workers Stop** stops the supervisor and `agent worker`; **Workstation Status** shows both and `/healthz`.
+- **Workers Start** (in the workstation repo's `shortcuts\` folder) starts the supervisor hidden; **Workers Stop** stops the supervisor and `agent worker`; **Workstation Status** shows both and `/healthz`.
 - Stop flag: while `_workstation\shortcuts\.bridge-stopped` exists (written by the **Workers Stop** desktop shortcut, removed by **Workers Start**), `health-check.ps1` exits at once and revives nothing. See `_workstation\shortcuts\README.md`.
 
 ## Status
