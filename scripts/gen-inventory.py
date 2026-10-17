@@ -6,9 +6,9 @@ import yaml
 root = Path(__file__).resolve().parent.parent
 lock = yaml.safe_load((root / "workstation.lock.yaml").read_text(encoding="utf-8"))
 out = ["# Inventory (generated from workstation.lock.yaml - do not edit)", ""]
-out += ["## Repos (cloned at a pinned commit, never copied)", "", "| Repo | URL | Ref | Commit | Setup |", "|---|---|---|---|---|"]
+out += ["## Repos (cloned, never copied; commit `follow` = tracks its ref, pulled ff-only after merges)", "", "| Repo | URL | Ref | Commit | Setup |", "|---|---|---|---|---|"]
 for name, r in (lock.get("repos") or {}).items():
-    out.append(f"| {name} | {r.get('url')} | {r.get('ref')} | {r.get('commit')} | {r.get('setup')} |")
+    out.append(f"| {name} | {r.get('url')} | {r.get('ref')} | {r.get('commit')}{' (last checked ' + str(r['last_checked']) + ')' if r.get('last_checked') else ''} | {r.get('setup')} |")
 out += ["", "## Upstream tools (pinned)", "", "| Tool | Version / pins |", "|---|---|"]
 for name, t in (lock.get("upstream") or {}).items():
     if isinstance(t, dict) and "version" in t:
