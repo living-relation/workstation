@@ -4,8 +4,8 @@ schema: 1
 repos:
   handbuilt-cad:
     url: https://github.com/living-relation/handbuilt-cad.git
-    ref: TBD            # annotated tag on main, once the repo exists
-    commit: TBD         # installer checks out this exact sha
+    ref: main           # no annotated tag yet; the commit below is the pin
+    commit: 9d7ca5965919cb607512543d6bf6412c6f5d8f64   # handbuilt-cad main 9d7ca59 (PR #5), 2026-10-17; installer checks out this exact sha
     path: "{wsl_projects}/handbuilt-cad"
     setup: setup.sh     # builds the repo's own .venv from its uv.lock
 upstream:
@@ -54,7 +54,6 @@ skills:
   - { from: self, dir: skills }
 models_dir: "{desktop}/models"   # created by setup if missing; add-only afterwards
 open_items:
-  - handbuilt-cad tag/commit (repo not created yet)
   - Fusion MCP Claude Desktop extension version
   - Blender MCP add-on source and version
   - windows-mcp installed version

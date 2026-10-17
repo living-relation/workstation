@@ -4,7 +4,7 @@
 
 | Repo | URL | Ref | Commit | Setup |
 |---|---|---|---|---|
-| handbuilt-cad | https://github.com/living-relation/handbuilt-cad.git | TBD | TBD | setup.sh |
+| handbuilt-cad | https://github.com/living-relation/handbuilt-cad.git | main | 9d7ca5965919cb607512543d6bf6412c6f5d8f64 | setup.sh |
 
 ## Upstream tools (pinned)
 
@@ -40,7 +40,6 @@ CAD models included: none. Patches: 0.
 
 ## Open items
 
-- handbuilt-cad tag/commit (repo not created yet)
 - Fusion MCP Claude Desktop extension version
 - Blender MCP add-on source and version
 - windows-mcp installed version
