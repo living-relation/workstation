@@ -15,17 +15,17 @@ Pick this PC under My Machines; it is listed under the PC's host name (`$WorkerN
 - `health-check.ps1` - manual only (its scheduled task was removed 2026-10-07); exits at once if the stop flag exists, otherwise: checks `/healthz`; revives the supervisor; restarts after 2 failed checks; restarts (when idle) if the project list changed
 - `repair-sqlite.ps1` - fixes the Cursor CLI Windows bug (`better-sqlite3` built for the wrong Node). Runs before every worker start, so it self-heals after `agent update`
 - `install.ps1` - retired 2026-10-07 (it created the logon start and scheduled tasks); not shipped
-- `logs\` - `worker.log`, `supervisor.log`, `health.log`
+- `%LOCALAPPDATA%\Workstation\cursor-worker\logs\` - `worker.log`, `supervisor.log`, `health.log` (plus `state\` and `sqlite-cache\` there; nothing is written into the repo clone)
 
 ## Start and stop (manual)
 - No logon start and no scheduled tasks anymore: the Run entry `CursorWorker` and the tasks `Cursor-Worker` / `Cursor-Worker-Health` were removed 2026-10-07.
 - **Workers Start** (in the workstation repo's `shortcuts\` folder) starts the supervisor hidden; **Workers Stop** stops the supervisor and `agent worker`; **Workstation Status** shows both and `/healthz`.
-- Stop flag: while `_workstation\shortcuts\.bridge-stopped` exists (written by the **Workers Stop** desktop shortcut, removed by **Workers Start**), `health-check.ps1` exits at once and revives nothing. See `_workstation\shortcuts\README.md`.
+- Stop flag: while `%LOCALAPPDATA%\Workstation\workers-stopped.flag` exists (written by the **Workers Stop** shortcut, removed by **Workers Start**), `health-check.ps1` exits at once and revives nothing.
 
 ## Status
 ```powershell
 Invoke-WebRequest http://127.0.0.1:8787/readyz -UseBasicParsing | Select-Object -ExpandProperty Content
-Get-Content <Projects>\_workstation\cursor-worker\logs\health.log -Tail 10
+Get-Content $env:LOCALAPPDATA\Workstation\cursor-worker\logs\health.log -Tail 10
 ```
 `/readyz` returns 503 with `"claimed":true` while a session is running. That is normal.
 

@@ -3,13 +3,14 @@
   Admin part of the setup: registers the scheduled task(s). Run AFTER install.ps1.
 
 .DESCRIPTION
-  Open PowerShell with "Run as admin", go to the unzipped workstation-setup folder, then:
+  Open PowerShell with "Run as admin", go to the workstation repo clone (normally <Projects>\active\workstation), then:
     powershell -NoProfile -ExecutionPolicy Bypass -File .\install-admin.ps1
   1. Copies the memory sync scripts into <Projects>\_claude (if missing or changed) and runs
      <Projects>\_claude\register-memory-sync-task.ps1: task Claude-Memory-To-Cursor-Sync, every 15 minutes.
-  2. Runs the toolkit's latch\register-ensure-grokbot-task.ps1 (folder from toolkit.psd1, e.g. <Projects>\_workstation): task Latch-EnsureGrokBot (weekdays 8:30
-     and on unlock), copies ensure-grokbot.ps1 to %USERPROFILE%\.grokbot\latch\, and adds the GrokBot startup
-     entry if it is missing. Both use Register-ScheduledTask. Safe to re-run.
+  2. Runs the toolkit's latch\register-ensure-grokbot-task.ps1 from this clone (PackageFolder in toolkit.psd1, e.g.
+     <clone>\workstation\): task Latch-EnsureGrokBot (weekdays 8:30 and on unlock) running ensure-grokbot.ps1
+     straight from the clone (no copy; its log stays in %USERPROFILE%\.grokbot\latch\), and adds the GrokBot
+     startup entry if it is missing. Both use Register-ScheduledTask (an existing task is replaced). Safe to re-run.
   The task is registered for the account this admin window runs as, so that must be the same
   account that uses Claude / Cursor (checked below).
 
@@ -89,16 +90,16 @@ else {
 }
 
 # 3. Latch-EnsureGrokBot task + GrokBot startup entry (Latch's script; idempotent)
-$latch = Join-Path (Join-Path $ProjectsRoot $TK.ToolkitFolder) $TK.LatchRegister
+$latch = Join-Path (Join-Path $PkgRoot $TK.PackageFolder) $TK.LatchRegister
 if (-not (Test-Path -LiteralPath $latch)) {
   $failed = $true
-  Write-Host "Not found: $latch. Run install.ps1 (normal PowerShell) first." -ForegroundColor Red
+  Write-Host "Not found: $latch. Run this from the workstation repo clone." -ForegroundColor Red
 } else {
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $latch -NoPause
   if ($LASTEXITCODE -ne 0) { $failed = $true; Write-Host 'Latch-EnsureGrokBot was NOT registered (see the message above).' -ForegroundColor Red }
   else {
     $t = Get-ScheduledTask -TaskName 'Latch-EnsureGrokBot' -ErrorAction SilentlyContinue
-    if ($t) { Write-Host "Verified: task Latch-EnsureGrokBot is $($t.State)." -ForegroundColor Green }
+    if ($t) { Write-Host "Verified: task Latch-EnsureGrokBot is $($t.State); runs $(@($t.Actions)[0].Arguments)" -ForegroundColor Green }
     else { $failed = $true; Write-Host 'Task Latch-EnsureGrokBot not found after registering.' -ForegroundColor Red }
     $run = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'GrokBot' -ErrorAction SilentlyContinue).GrokBot
     if ($run) { Write-Host "Verified: startup entry GrokBot = $run" -ForegroundColor Green }

@@ -1,6 +1,6 @@
 Grok Bot: please set up this PC with my workstation setup. Follow these steps in order. Stop and wait for me wherever it says so. Setup is NOT finished until every numbered step below is done, including the two pastes and the final Workstation Status check.
 
-0. The package is the "workstation-setup" folder wherever I unzipped workstation-setup.zip on this PC. Find it (ask me if you cannot). Work on this PC, as the signed-in Windows user. Do not use an elevated (admin) shell; I run the one admin command myself.
+0. The package is the workstation repo clone, normally <Projects>\active\workstation (clone it there if it is missing; ask me for the URL). The Workstation toolkit runs straight from this clone, so it must stay on main. Find it (ask me if you cannot). Work on this PC, as the signed-in Windows user. Do not use an elevated (admin) shell; I run the one admin command myself.
 
 1. FIRST: if REVIEW-NOTES.md exists in the package folder, read all of it before anything else. It holds notes for one specific PC (for example a different Projects folder, extra clean-up steps, and a suggested order). If it is for this PC, its notes override the defaults below, and every extra required step it lists is part of this setup. If you are not sure it is for this PC, ask me.
    Then read README.md, REORGANIZE.md, MIGRATION.md and instructions\README.md in that folder.
@@ -17,7 +17,7 @@ Grok Bot: please set up this PC with my workstation setup. Follow these steps in
 
 5. Reorganize: show me the plan from REORGANIZE.md step 1 (inventory -> proposed moves). Move nothing until I approve. Then do the moves I approved and the rest of REORGANIZE.md (steps 2 to 5). Step 5: merge the Projects-root CLAUDE.md into AGENTS.md yourself (the root is not a git repo; check first, back up first, keep every rule and the shared-memory marker block, then delete the root CLAUDE.md). Then list every CLAUDE.md / AGENTS.md in active\ projects and repos as a table and wait for my yes per file; a repo merge is a commit I make myself, and nothing is pushed. Leave every CLAUDE.local.md alone.
 
-6. Run install.ps1 for real (same parameters as the dry run). Add -AcceptConflicts only if I accepted the remaining conflicts in step 2. It also copies the Workstation toolkit into <Projects>\_workstation, creates the Workers Start, Workers Stop and Workstation Status shortcuts in the package's shortcuts\ folder, installs the 80% handoff hooks and makes sure Cursor starts at sign-in. Show me the summary, the prerequisite results and any warnings.
+6. Run install.ps1 for real (same parameters as the dry run). Add -AcceptConflicts only if I accepted the remaining conflicts in step 2. It copies no toolkit files (the toolkit runs from the clone's workstation\ folder); it writes %LOCALAPPDATA%\Workstation\workstation.json (the Projects root), creates the Workers Start, Workers Stop and Workstation Status shortcuts in the package's shortcuts\ folder, installs the 80% handoff hooks and makes sure Cursor starts at sign-in. Show me the summary, the prerequisite results and any warnings.
    At the end, install.ps1 runs Workstation Status (-NoPause) and prints its FAIL / WARN counts. FAIL or WARN lines are expected at this point; the steps below clear them. Exit code 0 is expected. Exit code 1 (error) or 2 (preflight conflict) is not: show me what went wrong.
 
 7. Admin command (manual, by me): give me the ONE admin command to paste (it is printed at the end of install.ps1; it runs install-admin.ps1). I run it in PowerShell opened with "Run as admin" under my own account. Wait for my "done". Then check that the tasks Claude-Memory-To-Cursor-Sync and Latch-EnsureGrokBot exist, the GrokBot startup entry is set, and the first memory sync worked.
@@ -48,7 +48,7 @@ Grok Bot: please set up this PC with my workstation setup. Follow these steps in
 15. Any other required step that REVIEW-NOTES.md lists for this PC and that is not done yet (for example removing old automations): do it as REVIEW-NOTES.md says, with my approval where it asks for it.
 
 16. LAST: run
-      powershell -NoProfile -ExecutionPolicy Bypass -File "<Projects>\_workstation\shortcuts\workstation-status.ps1" -NoPause
+      powershell -NoProfile -ExecutionPolicy Bypass -File "<package folder>\workstation\shortcuts\workstation-status.ps1" -NoPause
    (-NoPause only reports; it never prompts or changes anything). Count the [FAIL] and [WARN] lines. Setup is finished ONLY when there are 0 [FAIL] and 0 [WARN]. For each one left, tell me what it means and how to fix it, fix it with my OK (or tell me what I must do), and run the check again. Startup toggles are mine: if an app's startup entry is off, tell me, and I turn it on (or I run Workstation Status without -NoPause, which asks me per app).
 
 17. Finish with a short report: each numbered step above with done / not done, the final Workstation Status counts (must be 0 FAIL, 0 WARN), what is left for me, and any warnings. Do not call setup finished while any step is not done.

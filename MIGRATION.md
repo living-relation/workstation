@@ -16,7 +16,7 @@ Hard rules
 - Never copy, print or move secrets (keys, credentials, `.env`, anything that looks like an API key).
   If a note contains one, leave that part out and tell Dan where it is.
 - Memory stays local. Never commit memory or pointer files to git.
-- Skip `node_modules`, `_workstation`, `_bridge` (old name of `_workstation`), `extensions`, `plugins` folders everywhere.
+- Skip `node_modules`, `_workstation` and `_bridge` (old installed toolkit copies), `extensions`, `plugins` folders everywhere.
 
 ## 0. Start from the preflight report
 

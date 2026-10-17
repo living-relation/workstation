@@ -1,10 +1,13 @@
 # Shared settings for the Cursor "this PC" worker. Dot-sourced by the other scripts.
 # Compatible with Windows PowerShell 5.1.
 
+# Toolkit paths: $WsProjectsRoot, $WsStateDir (runtime folder under %LOCALAPPDATA%), ...
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'paths.ps1')
+
 # Full host name (not $env:COMPUTERNAME, which Windows cuts to 15 characters).
 $WorkerName   = [System.Net.Dns]::GetHostName()
-# Projects root = two levels up from this folder (cursor-worker -> _workstation -> Projects).
-$WorkerDir    = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+# Projects root (from paths.ps1: install.ps1's config file, else the clone's <Projects>\active\<repo> location).
+$WorkerDir    = $WsProjectsRoot
 $MgmtAddr     = '127.0.0.1:8787'
 $HealthUrl    = "http://$MgmtAddr/healthz"
 
@@ -17,9 +20,11 @@ if (-not $AgentPs1) { $AgentPs1 = Join-Path $env:LOCALAPPDATA 'cursor-agent\agen
 $AgentRoot    = Split-Path -Parent $AgentPs1
 
 $BaseDir      = $PSScriptRoot
-$LogDir       = Join-Path $BaseDir 'logs'
-$StateDir     = Join-Path $BaseDir 'state'
-$CacheDir     = Join-Path $BaseDir 'sqlite-cache'
+# Runtime files live outside the repo clone: %LOCALAPPDATA%\<StateFolder>\cursor-worker\.
+$RunDir       = Join-Path $WsStateDir 'cursor-worker'
+$LogDir       = Join-Path $RunDir 'logs'
+$StateDir     = Join-Path $RunDir 'state'
+$CacheDir     = Join-Path $RunDir 'sqlite-cache'
 $PidFile      = Join-Path $StateDir 'supervisor.pid'
 $FailFile     = Join-Path $StateDir 'health-fails.txt'
 $DirsSigFile  = Join-Path $StateDir 'dirs.sig'
