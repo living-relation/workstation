@@ -4,8 +4,10 @@ schema: 1
 repos:
   handbuilt-cad:
     url: https://github.com/living-relation/handbuilt-cad.git
-    ref: main           # no annotated tag yet; the commit below is the pin
-    commit: 9d7ca5965919cb607512543d6bf6412c6f5d8f64   # handbuilt-cad main 9d7ca59 (PR #5), 2026-10-17; installer checks out this exact sha
+    ref: main           # FOLLOWS main: clone main, later updates are `git pull --ff-only` after a merge (no sha pin)
+    commit: follow      # not pinned on purpose: a sha pin went stale on every handbuilt-cad PR. Pin a sha here only for a
+                        # frozen install (then set ref to that sha and say why); see README "handbuilt-cad follows main"
+    last_checked: c6dae5c4   # informational only: handbuilt-cad main checked with this workstation on 2026-10-17 (after PR #6)
     path: "{wsl_projects}/handbuilt-cad"
     setup: setup.sh     # builds the repo's own .venv from its uv.lock
 upstream:
