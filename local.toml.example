@@ -1,0 +1,7 @@
+# Copy to local.toml (ignored by git). setup creates it if missing.
+[paths]
+projects_root = ""     # default C:\projects if it exists, else %USERPROFILE%\Projects
+tools_dir = ""         # default <projects_root>\_tools
+wsl_distro = ""        # default = the WSL default distro
+wsl_projects = ""      # default ~/projects
+models_dir = ""        # MODELS_DIR; empty = <Desktop>\models

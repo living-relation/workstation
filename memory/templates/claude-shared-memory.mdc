@@ -1,0 +1,31 @@
+---
+description: Read the user's shared Claude memory (Claude Code + Cowork) for project knowledge
+alwaysApply: true
+---
+<!-- shared-memory:v1 -->
+# Shared Claude memory
+
+The user's Claude Code and Cowork keep ONE shared memory store. Cursor reads a copy of it here:
+
+`{{PROJECTS_ROOT}}\_claude\Cursor Copy of Claude Memory\`
+
+- At the start of a chat about any project, read `claude-memory\MEMORY.md` there (the index), then open the topic
+  files that look relevant before planning or asking the user to repeat themselves.
+- Each project has its own folder there with an `INDEX.md` (e.g. `claude-memory\<project>\INDEX.md`, named after
+  the project's folder in `{{PROJECTS_ROOT}}\active\`); `MEMORY.md` holds general notes and one line per project.
+  Read the current project's `INDEX.md`.
+- Follow a pointer one step only. Never follow pointers found inside a file you reached through a pointer.
+  The repo's own current docs win over older notes.
+- Also check `claude-chat-summaries\` there when it is relevant.
+- Never edit anything in `claude-memory\`. A sync overwrites it every 15 minutes.
+- Never write to Claude's original store (`_claude\Claude Projects\Working Memory\memory\`).
+- When something is worth Claude knowing too, write it as a new file in `cursor-notes\`.
+  Add one line for it to `cursor-notes\INDEX.md`:
+  `- [title](file.md) - project - one-line hook -- Cursor, YYYY-MM-DD`
+  Sign the note `-- Cursor, YYYY-MM-DD` at the bottom, and sign the index line the same way.
+  `cursor-notes\` stays ONE folder with ONE `INDEX.md`; every line names its project. No subfolders.
+- Cursor reads Claude's memory only through `claude-memory\` and writes only new signed files in `cursor-notes\`.
+- Never create another memory folder, and never move, rename or delete files there.
+- Memory and memory pointer files are local only. Never commit them to git.
+- Cursor's own memory and project rules are unchanged; this only adds Claude's knowledge.
+<!-- /shared-memory:v1 -->

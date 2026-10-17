@@ -1,0 +1,8 @@
+---
+description: Follow each repo's own rules and hooks
+alwaysApply: true
+---
+Before changing anything in a repo, read and follow its own AGENTS.md, CLAUDE.md, CONTRIBUTING.md,
+decisions log, hooks (.pre-commit-config.yaml, core.hooksPath, .git/hooks) and CI workflows.
+Never bypass a hook or gate without the user's explicit yes: no --no-verify, no skipping CI, no
+direct pushes of generated or bot-owned files. Branch + PR, never force-push, one repo at a time.
