@@ -14,6 +14,10 @@ The user's Claude Code and Cowork keep ONE shared memory store. Cursor reads a c
 - Each project has its own folder there with an `INDEX.md` (e.g. `claude-memory\<project>\INDEX.md`, named after
   the project's folder in `{{PROJECTS_ROOT}}\active\`); `MEMORY.md` holds general notes and one line per project.
   Read the current project's `INDEX.md`.
+- **Read before you ask.** Before starting work or asking the user anything, read in order: the repo's agent guide
+  (`AGENTS.md` / `CLAUDE.md`), its binding rules / decisions file if it has one, the project's `INDEX.md` there, and the
+  newest handoff note if one exists. If a rule or note already answers a question, act on it and cite it - never ask
+  the user something the rules already answer.
 - Follow a pointer one step only. Never follow pointers found inside a file you reached through a pointer.
   The repo's own current docs win over older notes.
 - Also check `claude-chat-summaries\` there when it is relevant.

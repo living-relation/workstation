@@ -2,6 +2,9 @@
 description: Follow each repo's own rules and hooks
 alwaysApply: true
 ---
+Before starting work or asking the user anything, read in order: the repo's agent guide, its binding
+rules / decisions file, the project's INDEX.md in the shared working memory, and the newest handoff note.
+If a rule or note already answers a question, act on it and cite it; never ask what the rules answer.
 Before changing anything in a repo, read and follow its own AGENTS.md, CLAUDE.md, CONTRIBUTING.md,
 decisions log, hooks (.pre-commit-config.yaml, core.hooksPath, .git/hooks) and CI workflows.
 Never bypass a hook or gate without the user's explicit yes: no --no-verify, no skipping CI, no

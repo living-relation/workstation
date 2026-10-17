@@ -2,6 +2,14 @@
 
 Claude, Cursor, Grok Bot and any other agent read this file. A repo's own rules add to it.
 
+## 0. Read first, before starting work or asking
+Before starting work or asking the maintainer anything, read in order: (1) this repo's agent guide
+(`AGENTS.md` / `CLAUDE.md`), (2) its binding rules / decisions file if it has one, (3) the shared
+working memory `%USERPROFILE%\.claude\working-memory\<project>\INDEX.md` (WSL:
+`/mnt/c/Users/<user>/.claude/working-memory/<project>/INDEX.md`), (4) the newest handoff note if one
+exists. If a rule or note already answers a question, act on it and cite it - never ask the
+maintainer something the rules already answer.
+
 ## 1. Follow each repo's own rules
 Before changing anything in any repo, read and follow that repo's own rules: `AGENTS.md`,
 `CLAUDE.md`, `CONTRIBUTING.md`, any decisions log, its hooks (`.pre-commit-config.yaml`,
