@@ -3,7 +3,7 @@
   Workstation setup: removes what install.ps1 added for the CURRENT user. Never deletes memory or project folders.
 
 .DESCRIPTION
-  Run as a normal user from the unzipped workstation-setup folder:
+  Run as a normal user from the workstation repo clone:
     powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1 -WhatIf
     powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1
   Removes ONLY what <Projects>\_claude\automation-installed-files.txt (the manifest install.ps1 writes) lists as
@@ -20,8 +20,10 @@
   - in ~\.cursor\hooks.json: the handoff-at-80.py entries install added; the file if install created it and it is
     empty again,
   - files install created (guard script and config, context-guard.ps1, handoff-at-80.py, the armed flag, the
-    handoff-sync-continue skill, sync scripts and toolkit files under <Projects>) only while unchanged, and
-    folders install created (only if empty),
+    handoff-sync-continue skill, the runtime config %LOCALAPPDATA%\<StateFolder>\<ConfigFile>, sync scripts, and
+    toolkit files an older install copied into <Projects>\_workstation or _bridge) only while unchanged, and
+    folders install created (only if empty). The toolkit itself runs from the repo clone; uninstall never touches
+    the clone's files. Runtime logs under %LOCALAPPDATA%\<StateFolder> stay (that folder is kept while not empty),
   - junctions install created (the link only; the notes stay in the store),
   - the shortcuts and shortcut folder install created (in the package's shortcuts\ folder, or an older Desktop one) (only while they still run the toolkit scripts),
   - the Cursor.lnk autostart if install created it. Existing Cursor autostarts are never touched.
@@ -81,7 +83,7 @@ $Placeholders = [ordered]@{
   '{{PROJECTS_ROOT}}'     = $ProjectsRoot
   '{{CLAUDE_PROJECT_KEY}}' = $ProjectKey
   '{{USERNAME}}'          = $env:USERNAME
-  '{{TOOLKIT_DIR}}'       = $TK.ToolkitFolder
+  '{{TOOLKIT_PATH}}'      = (Join-Path $PkgRoot $TK.PackageFolder)
   '{{TOOLKIT_PULL}}'      = $TK.PullScript
   '{{TOOLKIT_STATUS}}'    = $TK.StatusScript
 }
@@ -383,7 +385,8 @@ if (Test-Path -LiteralPath $ManifestPath) {
     $p = Join-Path $ProjectsRoot $rel
     if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { continue }
     $topDir = ($rel -split '\\')[0]
-    if ((@('_claude', $TK.ToolkitFolder) + @($TK.LegacyFolders)) -notcontains $topDir -or $rel -notmatch '\\') { Note 'WARN' "manifest entry outside the toolkit folder / _claude ignored: $rel"; continue }
+    # toolkit files under <Projects> only come from older installs that copied the toolkit (LegacyFolders)
+    if ((@('_claude') + @($TK.LegacyFolders)) -notcontains $topDir -or $rel -notmatch '\\') { Note 'WARN' "manifest entry outside an old toolkit copy / _claude ignored: $rel"; continue }
     Invoke-Change "remove $p (added by install)" { Backup-File $p; Remove-Item -LiteralPath $p -Force }
   }
   Invoke-Change "remove $ManifestPath" { Backup-File $ManifestPath; Remove-Item -LiteralPath $ManifestPath -Force }
@@ -433,10 +436,10 @@ Write-Host "  Unregister-ScheduledTask -TaskName 'Latch-EnsureGrokBot' -Confirm:
 Write-Host ''
 Write-Host 'Only if Grok Bot should stop starting at sign-in, remove the GrokBot startup entry (normal PowerShell, no admin):' -ForegroundColor White
 Write-Host "  Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'GrokBot'"
-Write-Host '  (or turn off "Grok Bot" in Task Manager > Startup apps). The launcher copy stays in %USERPROFILE%\.grokbot\latch\ (harmless).'
+Write-Host '  (or turn off "Grok Bot" in Task Manager > Startup apps). The launcher log (and any old launcher copy) stays in %USERPROFILE%\.grokbot\latch\ (harmless).'
 
 Write-Host ''
-Write-Host 'Kept on purpose: memory store, Cursor copy, every note, the Projects layout folders, all projects, and any toolkit / _claude script that was there before install.'
+Write-Host 'Kept on purpose: memory store, Cursor copy, every note, the Projects layout folders, all projects, the workstation repo clone (the toolkit runs from it), and any toolkit / _claude script that was there before install.'
 if ($WhatIf) { Write-Host 'Dry run only. Nothing was changed.' -ForegroundColor Cyan }
 if (@($Summary | Where-Object Status -eq 'ERROR').Count) { exit 1 }
 exit 0

@@ -1,12 +1,18 @@
 # Workstation toolkit names: the ONE place to change when the toolkit or its scripts are renamed.
 # Read by install.ps1, install-admin.ps1, uninstall.ps1 and preflight.ps1. Script paths are relative to the toolkit.
 @{
-  # Folder under <Projects> the toolkit is copied to, and the folder inside this package that holds it.
-  ToolkitFolder      = '_workstation'
+  # The toolkit runs straight from this package (the workstation repo clone, normally <Projects>\active\workstation):
+  # PackageFolder is the folder inside the package that holds the scripts. Nothing is copied under <Projects>.
   PackageFolder      = 'workstation'
-  # Older names of the toolkit folder (it was _bridge until 2026-10-08). If one still exists next to the current
-  # one, preflight WARNs (legacy); install never moves or deletes it.
-  LegacyFolders      = @('_bridge')
+  # Folders under <Projects> that held an installed COPY of the toolkit in older setups: '_bridge' (until 2026-10-08)
+  # and '_workstation' (until the toolkit ran from the repo clone). Preflight and Workstation Status WARN while one
+  # still exists; install never moves or deletes it (stop its workers, then archive it by hand).
+  LegacyFolders      = @('_bridge', '_workstation')
+
+  # Per-user runtime folder under %LOCALAPPDATA% (never inside the clone): the config file install.ps1 writes
+  # (ConfigFile: projectsRoot), the Workers Stop flag and the Cursor worker's logs, state and sqlite cache.
+  StateFolder        = 'Workstation'
+  ConfigFile         = 'workstation.json'
 
   # Scripts inside the toolkit.
   ShortcutsInstaller = 'shortcuts\install-shortcuts.ps1'

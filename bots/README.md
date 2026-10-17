@@ -9,7 +9,7 @@ Each bot is carried by a shareable template link. The link brings the bot's setu
 | Bot | What it does | Share link |
 |---|---|---|
 | dr eggbot | Owns this workstation setup package (builds, checks and ships it). | https://x.ai/bot/bZPYmFpgB3LIuoMMKF8Hh (added last, after Dan publishes it) |
-| Latch | Keeps the Workstation toolkit (the manual Desktop shortcuts in `<Projects>\_workstation`). | https://x.ai/bot/KkCUAbqzzGb4ZvXPsozEg |
+| Latch | Keeps the Workstation toolkit (the manual shortcuts; scripts run from the workstation repo clone, `<Projects>\active\workstation\workstation`). | https://x.ai/bot/KkCUAbqzzGb4ZvXPsozEg |
 | Grok Bot | Primary router: sends tasks to the right bot and keeps the shared memory tidy. | Already on that PC; don't import a card; follow GROK-BOT-UPGRADE.md. |
 | Agent Coordinator | Coordinates work between agents. | On hold, no link yet; add it only when Dan says go. |
 

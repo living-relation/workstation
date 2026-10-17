@@ -4,7 +4,9 @@
   Report git status for every entry under Projects\active\
 #>
 $ErrorActionPreference = 'Continue'
-$ProjectsRoot = Split-Path -Parent $PSScriptRoot
+# Projects root from paths.ps1 (install.ps1's config file, else the clone's <Projects>\active\<repo> location).
+. (Join-Path $PSScriptRoot 'paths.ps1')
+$ProjectsRoot = $WsProjectsRoot
 $ActiveRoot = Join-Path $ProjectsRoot 'active'
 
 Write-Host "=== repo-status ===" -ForegroundColor Cyan

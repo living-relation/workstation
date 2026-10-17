@@ -8,9 +8,14 @@ from the repos listed in the pin file.
 
 ## Setup
 ```powershell
-git clone <repo-url> C:\projects\_workstation-repo
+git clone <repo-url> <Projects>\active\workstation
 powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1      # hooks, gitleaks, models folder, local.toml
+powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -ProjectsRoot <Projects> -WhatIf   # then without -WhatIf
 ```
+The Workstation toolkit (`workstation\`: Workers Start/Stop, Workstation Status, Cursor worker, Latch) runs
+straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`, since the
+shortcuts and the Latch task run whatever is checked out. Runtime files (the config install.ps1 writes, the Workers
+Stop flag, worker logs and state) live in `%LOCALAPPDATA%\Workstation\`, never in the clone.
 WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `bash setup.sh`.
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).

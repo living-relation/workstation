@@ -11,11 +11,11 @@ All durable work for this PC lives under this root. Prefer paths here over Downl
 ```
 Projects/
   AGENTS.md          this file (orientation + rules for Claude, Cursor and other agents)
-  active/            all live projects, including finished ones
+  active/            all live projects, including finished ones (the workstation repo clone too: its
+                     workstation/ folder is the Workstation toolkit, run straight from the clone)
   _archive/          obsolete projects only, in dated subfolders (do not treat as active)
   _scratch/          throwaway experiments; OK to clean
   _claude/           shared Claude memory, Cursor's copy of it, memory sync scripts
-  {{TOOLKIT_DIR}}/   Claude/Cursor/local sync toolkit (see {{TOOLKIT_DIR}}/README.md)
   _refs/             optional: reference material, specs, vendor docs, third-party clones
 ```
 
@@ -35,7 +35,7 @@ Read-only-ish references (datasheets, clones used as examples, design notes). Do
 
 If this root also has `.cursor\rules\projects-structure.mdc`, keep the same rules there. If you change one, change both.
 
-1. **Live projects go in `active\<project>\`.** No project folders directly under `Projects\`. The only things allowed at the root are `active\`, `_archive\`, `_scratch\`, `_claude\`, `{{TOOLKIT_DIR}}\`, the optional `_refs\`, `AGENTS.md` and `.cursor\`.
+1. **Live projects go in `active\<project>\`.** No project folders directly under `Projects\`. The only things allowed at the root are `active\`, `_archive\`, `_scratch\`, `_claude\`, the optional `_refs\`, `AGENTS.md` and `.cursor\`.
 2. **`_archive\` is only for obsolete work** (superseded, abandoned or no longer relevant). Finished or completed projects stay in `active\`. Ask the user before moving anything into `_archive\`, and never keep the same project in both `active\` and `_archive\`.
 3. **Throwaway work goes in `_scratch\`** (or the project's own `_scratch\`). Do not create new root folders, `*_tmp` folders or loose files at the root.
 4. **Third-party clones and vendor docs go in `_refs\`** or a clearly named folder inside the project that uses them.
@@ -54,12 +54,12 @@ Claude Code reaches it through the junction `{{USERPROFILE}}\.claude\projects\{{
 
 Inside the store, `MEMORY.md` is the no-project index (general notes, one line per project, one pointer to Cursor's notes). Each project has a subfolder with an `INDEX.md`, named after its `active\` folder (`_archive\<project>\` for archived ones, `_unassigned\` for chats with no project yet; move a note to its project folder when the chat gets one). Follow a pointer one step only, never a pointer inside a file reached through a pointer. Each agent writes only in its own area and signs every entry (`-- Claude Code, YYYY-MM-DD`, `-- Cowork, ...`, `-- Cursor, ...`). Each `active\<project>\` has a one-line pointer to its memory folder: in a git repo, put the pointer in `CLAUDE.local.md` (excluded via `.git/info/exclude`), never in tracked files; memory is never committed. Outside git, it goes in the project's `CLAUDE.md`.
 
-## Workstation toolkit (`{{TOOLKIT_DIR}}\`)
+## Workstation toolkit (`{{TOOLKIT_PATH}}\`)
 
-Operator scripts for syncing remote Claude/Cursor sessions into local `active\` trees. **Git is the primary bridge** (commit + push remotely, then `git pull --ff-only` in that one repo on this PC). Shortcuts in the workstation repo's `shortcuts\` folder: **Workers Start**, **Workers Stop**, **Workstation Status** (scripts in `{{TOOLKIT_DIR}}\shortcuts\`). There are no batch pull/push shortcuts. Nothing auto-starts bridge pieces; only Grok Bot launching is automatic. See `{{TOOLKIT_DIR}}\README.md`.
+Operator scripts for syncing remote Claude/Cursor sessions into local `active\` trees. **Git is the primary bridge** (commit + push remotely, then `git pull --ff-only` in that one repo on this PC). The scripts run straight from the workstation repo clone (keep that clone on `main`); there is no installed copy under the Projects root. Shortcuts in the workstation repo's `shortcuts\` folder: **Workers Start**, **Workers Stop**, **Workstation Status** (scripts in `{{TOOLKIT_PATH}}\shortcuts\`). Runtime files (stop flag, worker logs) live in `%LOCALAPPDATA%\Workstation\`, never in the clone. There are no batch pull/push shortcuts. Nothing auto-starts bridge pieces; only Grok Bot launching is automatic. See `{{TOOLKIT_PATH}}\README.md`.
 
 ```powershell
-powershell -File "{{PROJECTS_ROOT}}\{{TOOLKIT_DIR}}\{{TOOLKIT_STATUS}}"
+powershell -File "{{TOOLKIT_PATH}}\{{TOOLKIT_STATUS}}"
 # pull/push: one repo at a time, e.g. git -C <repo> pull --ff-only
 ```
 

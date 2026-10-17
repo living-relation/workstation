@@ -4,7 +4,8 @@
   autostart, for the CURRENT Windows user.
 
 .DESCRIPTION
-  Run as a normal user (not elevated) from the unzipped workstation-setup folder:
+  Run as a normal user (not elevated) from the workstation repo clone (normally <Projects>\active\workstation; the
+  toolkit scripts, shortcuts and the Latch task run straight from this clone, so keep it on main):
     powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -WhatIf
     powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
@@ -20,11 +21,12 @@
     Claude Code 2.1.285). WARN if Claude Code is older than 2.1.281. uninstall.ps1 reverts only that key.
   - The Projects root guide is AGENTS.md (memory section appended there). A root CLAUDE.md is merged into it
     by hand (REORGANIZE.md step 5), never by install.
-  - Copies the toolkit (package folder and target folder named in toolkit.psd1, e.g. workstation\ -> <Projects>\_workstation\;
-    missing files added; a changed file is backed up to <Projects>\_archive\ first, then replaced), then runs its
-    shortcuts installer
-    (Workers Start / Workers Stop / Workstation Status links in this package's shortcuts\ folder, gitignored,
-    + prerequisite checks).
+  - Does NOT copy the toolkit anywhere: it runs from this package's toolkit folder (PackageFolder in toolkit.psd1,
+    e.g. <clone>\workstation\). Writes %LOCALAPPDATA%\<StateFolder>\<ConfigFile> (projectsRoot) so the scripts find
+    the Projects root; runtime files (stop flag, worker logs/state) also go under %LOCALAPPDATA%\<StateFolder>\,
+    never into the clone. Then runs the toolkit's shortcuts installer (Workers Start / Workers Stop / Workstation
+    Status links in this package's shortcuts\ folder, gitignored, + prerequisite checks).
+    An old installed copy (<Projects>\_workstation or _bridge, LegacyFolders) is only reported, never moved.
   - Creates the junction ~\.claude\working-memory -> the memory store (the same path on every PC;
     the Cowork Global instructions line uses it). An existing folder or link there is never changed.
   - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
@@ -34,7 +36,8 @@
     even if it is turned off in Startup apps (warning only); otherwise adds Cursor.lnk to the Startup folder.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
   - Does NOT migrate old memory. See MIGRATION.md.
-  Scheduled tasks need admin: run install-admin.ps1 afterwards in an elevated PowerShell.
+  Scheduled tasks need admin: run install-admin.ps1 afterwards in an elevated PowerShell (it also re-points the
+  Latch-EnsureGrokBot task to <clone>\workstation\latch\ensure-grokbot.ps1).
   - Ends by running Workstation Status (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts.
     The manual steps (admin command, the two instruction pastes, sign-ins, bots) are walked through by the
     installing agent from SETUP-PROMPT.txt. Setup is finished only when Workstation Status shows 0 FAIL, 0 WARN.
@@ -120,8 +123,10 @@ $GuardScriptPre = Test-Path -LiteralPath $GuardDest
 $GuardCfgPre    = Test-Path -LiteralPath $GuardCfg
 $CursorRule  = Join-Path $UserHome '.cursor\rules\claude-shared-memory.mdc'
 $BackupDir   = Join-Path $ProjectsRoot ("_archive\automation-install-backup-$Stamp")
-$BridgeDir   = Join-Path $ProjectsRoot $TK.ToolkitFolder
-$BridgePkg   = Join-Path $PkgRoot $TK.PackageFolder
+# The toolkit runs straight from this package (no copy under <Projects>).
+$BridgeDir   = Join-Path $PkgRoot $TK.PackageFolder
+$StateDir    = Join-Path $LocalAppData $(if ($TK.StateFolder) { $TK.StateFolder } else { 'Workstation' })
+$WsConfig    = Join-Path $StateDir $(if ($TK.ConfigFile) { $TK.ConfigFile } else { 'workstation.json' })
 # Files this install newly created under <Projects> (uninstall.ps1 removes only these).
 $ManifestPath = Join-Path $ClaudeDir 'automation-installed-files.txt'
 $AddedFiles  = New-Object System.Collections.Generic.List[string]
@@ -161,7 +166,7 @@ $Placeholders = [ordered]@{
   '{{CLAUDE_PROJECT_KEY}}' = $ProjectKey
   '{{USERNAME}}'          = $env:USERNAME
   '{{DATE}}'              = $Today
-  '{{TOOLKIT_DIR}}'       = $TK.ToolkitFolder
+  '{{TOOLKIT_PATH}}'      = $BridgeDir
   '{{TOOLKIT_PULL}}'      = $TK.PullScript
   '{{TOOLKIT_STATUS}}'    = $TK.StatusScript
 }
@@ -263,29 +268,6 @@ function Copy-PackageFile([string]$Source, [string]$Dest) {
     New-Item -ItemType Directory -Path (Split-Path $Dest -Parent) -Force | Out-Null
     Copy-Item -LiteralPath $Source -Destination $Dest
     Add-Manifest $Dest
-  }
-}
-# Bridge files are copied byte for byte. A missing file is added; a changed file is backed up to
-# <Projects>\_archive\automation-install-backup-<time>\<toolkit folder>\ and replaced.
-function Install-BridgeFile([string]$Source, [string]$Rel) {
-  $dest = Join-Path $BridgeDir $Rel
-  $bytes = [IO.File]::ReadAllBytes($Source)
-  if (Test-Path -LiteralPath $dest) {
-    $sha = [Security.Cryptography.SHA256]::Create()
-    $same = ([BitConverter]::ToString($sha.ComputeHash([IO.File]::ReadAllBytes($dest))) -eq [BitConverter]::ToString($sha.ComputeHash($bytes)))
-    if ($same) { Note 'OK' "up to date: $dest"; return }
-    $bk = Join-Path $BackupDir (Join-Path $TK.ToolkitFolder $Rel)
-    Invoke-Change "replace changed $dest (old copy backed up to $bk)" {
-      New-Item -ItemType Directory -Path (Split-Path $bk -Parent) -Force | Out-Null
-      Copy-Item -LiteralPath $dest -Destination (Get-FreePath $bk)
-      [IO.File]::WriteAllBytes($dest, $bytes)
-    }
-    return
-  }
-  Invoke-Change "add $dest" {
-    New-Item -ItemType Directory -Path (Split-Path $dest -Parent) -Force | Out-Null
-    [IO.File]::WriteAllBytes($dest, $bytes)
-    Add-Manifest $dest
   }
 }
 # PowerShell 5.1 writes \u0027-style escapes and very wide indentation. Undo the escapes (only where the
@@ -433,6 +415,8 @@ Write-Host "  Memory store  : $Store"
 Write-Host "  Junction      : $LinkPath"
 Write-Host "  Store alias   : $WmLink"
 Write-Host "  Startup folder: $StartupFolder"
+Write-Host "  Toolkit (runs from the clone): $BridgeDir"
+Write-Host "  Runtime folder: $StateDir"
 Write-Host ''
 
 $isAdmin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole((New-Object Security.Principal.SecurityIdentifier 'S-1-5-32-544'))
@@ -462,9 +446,9 @@ Write-Host ''
 
 # 1. Projects root layout (create missing folders only; never move anything)
 Ensure-Dir $ProjectsRoot 'Projects root'
-foreach ($sub in @('active', '_archive', '_scratch', $TK.ToolkitFolder, '_claude')) { Ensure-Dir (Join-Path $ProjectsRoot $sub) "layout folder $sub" }
+foreach ($sub in @('active', '_archive', '_scratch', '_claude')) { Ensure-Dir (Join-Path $ProjectsRoot $sub) "layout folder $sub" }
 if (Test-Path -LiteralPath $ProjectsRoot) {
-  $extra = @(Get-ChildItem -LiteralPath $ProjectsRoot -Force | Where-Object { (@('active', '_archive', '_scratch', $TK.ToolkitFolder, '_claude', '_refs', 'CLAUDE.md', 'AGENTS.md') + @($TK.LegacyFolders)) -notcontains $_.Name -and $_.Name -notlike '.*' })
+  $extra = @(Get-ChildItem -LiteralPath $ProjectsRoot -Force | Where-Object { (@('active', '_archive', '_scratch', '_claude', '_refs', 'CLAUDE.md', 'AGENTS.md') + @($TK.LegacyFolders)) -notcontains $_.Name -and $_.Name -notlike '.*' })
   if ($extra.Count -gt 0) { Note 'INFO' ("$($extra.Count) other item(s) in the Projects root (not moved). See REORGANIZE.md: " + (($extra | Select-Object -First 8 | ForEach-Object Name) -join ', ')) }
 }
 
@@ -782,12 +766,35 @@ if ($coworkWith.Count) {
   Note 'TODO' "Cowork Global instructions not found on this PC. Paste $CoworkText into Claude desktop > Cowork settings > Global instructions."
 }
 
-# 9. Toolkit: copy the package's toolkit folder into <Projects>\<toolkit folder>\, then create the shortcuts in
-#    <package>\<ShortcutFolder> (resolved from this script's folder; the .lnk files are gitignored)
-if (-not (Test-Path -LiteralPath $BridgePkg)) { Note 'ERROR' "bridge folder missing from the package: $BridgePkg" }
-else {
-  foreach ($f in @(Get-ChildItem -LiteralPath $BridgePkg -Recurse -File -Force)) {
-    Install-BridgeFile $f.FullName $f.FullName.Substring($BridgePkg.Length + 1)
+# 9. Toolkit: runs straight from this package's toolkit folder (no copy). Write the runtime config the scripts read
+#    (%LOCALAPPDATA%\<StateFolder>\<ConfigFile>: projectsRoot), then create the shortcuts in <package>\<ShortcutFolder>
+#    (resolved from this script's folder; the .lnk files are gitignored).
+if (-not (Test-Path -LiteralPath $BridgeDir)) { Note 'ERROR' "toolkit folder missing from the package: $BridgeDir" }
+else { Note 'OK' "toolkit runs from the package (nothing copied under $ProjectsRoot): $BridgeDir" }
+$gitDir = Join-Path $PkgRoot '.git'
+if (Test-Path -LiteralPath $gitDir) {
+  $ErrorActionPreference = 'Continue'
+  $br = $null; try { $br = (& git -C $PkgRoot rev-parse --abbrev-ref HEAD 2>$null | Select-Object -First 1) } catch { }
+  $ErrorActionPreference = 'Stop'
+  if ($br -and @('main', 'master') -notcontains [string]$br) { Note 'WARN' "this clone is on branch '$br', not main: the shortcuts, the Cursor worker and the Latch task run whatever is checked out here. Switch it back to main." }
+  elseif ($br) { Note 'OK' "package clone is on $br (the toolkit runs what is checked out)" }
+  else { Note 'INFO' "could not read this clone's branch with git (keep it on main: the toolkit runs what is checked out)" }
+}
+$cfgWant = [ordered]@{ projectsRoot = $ProjectsRoot; toolkit = $BridgeDir }
+$cfgText = (ConvertTo-Json -InputObject ([pscustomobject]$cfgWant)) + "`r`n"
+$cfgCur = $null
+if (Test-Path -LiteralPath $WsConfig) { try { $cfgCur = [IO.File]::ReadAllText($WsConfig) | ConvertFrom-Json } catch { } }
+if ($cfgCur -and ([string]$cfgCur.projectsRoot -ieq $ProjectsRoot) -and ([string]$cfgCur.toolkit -ieq $BridgeDir)) { Note 'OK' "runtime config up to date: $WsConfig" }
+elseif (Test-Path -LiteralPath $WsConfig) {
+  Invoke-Change "update runtime config $WsConfig (projectsRoot = $ProjectsRoot; toolkit = $BridgeDir; old copy kept as .bak-$Stamp)" {
+    Copy-Item -LiteralPath $WsConfig -Destination (Get-FreePath "$WsConfig.bak-$Stamp")
+    [IO.File]::WriteAllText($WsConfig, $cfgText, $Utf8NoBom)
+  }
+} else {
+  Invoke-Change "create runtime config $WsConfig (projectsRoot = $ProjectsRoot; toolkit = $BridgeDir)" {
+    New-RecordedDir $StateDir
+    [IO.File]::WriteAllText($WsConfig, $cfgText, $Utf8NoBom)
+    Add-ManifestJson @{ kind = 'file'; path = $WsConfig; sha256 = (Get-Sha $WsConfig) }
   }
 }
 $shortcutScript = Join-Path $BridgeDir $TK.ShortcutsInstaller
@@ -801,20 +808,30 @@ else {
   # Record only the links (and the folder) this run creates, so uninstall removes exactly those.
   $scDirPre = Test-Path -LiteralPath $scDir
   $scPre = @{}; foreach ($sc in $TK.Shortcuts) { $scPre[$sc.Name] = Test-Path -LiteralPath (Join-Path $scDir "$($sc.Name).lnk") }
+  # Links an earlier install recorded (it created them): when they are re-pointed, record the new script too, so
+  # uninstall still recognizes them.
+  $scRecorded = @()
+  if (Test-Path -LiteralPath $ManifestPath) {
+    foreach ($ln in @([IO.File]::ReadAllLines($ManifestPath) | Where-Object { $_ -like 'json|*' })) {
+      try { $j = $ln.Substring(5) | ConvertFrom-Json; if ($j.kind -eq 'shortcut') { $scRecorded += $j } } catch { }
+    }
+  }
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $shortcutScript -LinkDir $scDir -NoPause
   $scExit = $LASTEXITCODE
   if (-not $scDirPre -and (Test-Path -LiteralPath $scDir)) { Add-ManifestJson @{ kind = 'shortcut-dir'; path = $scDir } }
   foreach ($sc in $TK.Shortcuts) {
     $lp = Join-Path $scDir "$($sc.Name).lnk"
-    if (-not $scPre[$sc.Name] -and (Test-Path -LiteralPath $lp)) { Add-ManifestJson @{ kind = 'shortcut'; path = $lp; script = (Join-Path $BridgeDir $sc.Script) } }
+    $want = Join-Path $BridgeDir $sc.Script
+    $rec = @($scRecorded | Where-Object { [string]$_.path -ieq $lp })
+    if ((Test-Path -LiteralPath $lp) -and (-not $scPre[$sc.Name] -or ($rec.Count -and -not @($rec | Where-Object { [string]$_.script -ieq $want }).Count))) { Add-ManifestJson @{ kind = 'shortcut'; path = $lp; script = $want } }
   }
   if ($scExit -eq 0) { Note 'DONE' "shortcuts in $scDir (prerequisite results are listed above)" }
   else { Note 'WARN' "$(Split-Path $shortcutScript -Leaf) reported failures (exit $scExit). See its output above." }
 }
-# A toolkit folder under an older name is never moved or deleted; it is only reported.
-foreach ($lf in @($TK.LegacyFolders | Where-Object { $_ -and $_ -ne $TK.ToolkitFolder })) {
+# An old installed toolkit copy (LegacyFolders) is never moved or deleted; it is only reported.
+foreach ($lf in @($TK.LegacyFolders | Where-Object { $_ })) {
   $lp = Join-Path $ProjectsRoot $lf
-  if (Test-Path -LiteralPath $lp) { Note 'WARN' "legacy toolkit folder left in place: $lp (now $BridgeDir). Stop its workers (Workers Stop from the old shortcuts), check nothing else uses it, then archive it by hand." }
+  if (Test-Path -LiteralPath $lp) { Note 'WARN' "old toolkit copy left in place: $lp (the toolkit now runs from $BridgeDir). Stop its workers (Workers Stop), check nothing else uses it, then archive it by hand." }
 }
 
 # 9b. Cursor starts at sign-in: keep an existing entry (even if it is turned off), else add Cursor.lnk

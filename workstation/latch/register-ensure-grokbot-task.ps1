@@ -1,8 +1,10 @@
 #Requires -Version 5.1
 # One-time setup on a new PC for Grok Bot auto-launch. Run in an ELEVATED Windows PowerShell
 # (Run as administrator), signed in as the Windows user who uses Grok Bot. Safe to re-run.
-#   1. Copies ensure-grokbot.ps1 (next to this script) to %USERPROFILE%\.grokbot\latch\
-#   2. Registers/replaces task Latch-EnsureGrokBot: Mon-Fri at 8:30am + on session unlock, current user
+#   1. Uses ensure-grokbot.ps1 next to this script IN PLACE (the workstation repo clone; no copy). Its log and
+#      last-run marker stay in %USERPROFILE%\.grokbot\latch\ (outside the clone).
+#   2. Registers/replaces task Latch-EnsureGrokBot: Mon-Fri at 8:30am + on session unlock, current user, running
+#      that script from the clone (an older task that ran a copy in %USERPROFILE%\.grokbot\latch\ is re-pointed)
 #   3. Adds HKCU Run entry GrokBot -> Grok Bot.exe if it is missing (an existing value is left alone)
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File register-ensure-grokbot-task.ps1 [-At 8:30am] [-NoPause]
 param([string]$At = '8:30am', [switch]$NoPause)
@@ -11,8 +13,8 @@ $ErrorActionPreference = 'Stop'
 $TaskName = 'Latch-EnsureGrokBot'
 $user     = "$env:USERDOMAIN\$env:USERNAME"
 $src      = Join-Path $PSScriptRoot 'ensure-grokbot.ps1'
-$dstDir   = Join-Path $env:USERPROFILE '.grokbot\latch'
-$dst      = Join-Path $dstDir 'ensure-grokbot.ps1'
+$dstDir   = Join-Path $env:USERPROFILE '.grokbot\latch'   # log + marker only
+$dst      = $src                                          # the task runs the script straight from the clone
 $psExe    = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $runKey   = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 
@@ -38,11 +40,12 @@ Write-Host '  Note: task and Run entry go to the account running this window. If
 Write-Host '        different admin account, stop and re-run from the Grok Bot user''s own elevated window.' -ForegroundColor DarkGray
 
 try {
-    # 1. Copy the launcher script
+    # 1. The launcher script runs in place (no copy); its log folder stays outside the clone
     if (-not (Test-Path -LiteralPath $src)) { throw "missing $src" }
     New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
-    Copy-Item -LiteralPath $src -Destination $dst -Force
-    Write-Host "  [ OK ] copied ensure-grokbot.ps1 -> $dst" -ForegroundColor Green
+    $old = Join-Path $dstDir 'ensure-grokbot.ps1'
+    if (Test-Path -LiteralPath $old) { Write-Host "  [INFO] old launcher copy $old is no longer used (left in place; archive it by hand)" -ForegroundColor Gray }
+    Write-Host "  [ OK ] task will run $dst" -ForegroundColor Green
 
     # 2. Scheduled task (Register -Force replaces an existing one, so re-runs are safe)
     $action = New-ScheduledTaskAction -Execute $psExe `

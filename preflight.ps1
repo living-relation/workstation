@@ -65,10 +65,12 @@ $ProjectKey = $ProjectsRoot -replace '[^A-Za-z0-9]', '-'
 $ClaudeDir  = Join-Path $ProjectsRoot '_claude'
 $Store      = Join-Path $ClaudeDir 'Claude Projects\Working Memory\memory'
 $CursorCopy = Join-Path $ClaudeDir 'Cursor Copy of Claude Memory'
-$BridgeDir  = Join-Path $ProjectsRoot $TK.ToolkitFolder
+# The toolkit runs straight from this package (the workstation repo clone); nothing is copied under <Projects>.
+$BridgeDir  = Join-Path $PkgRoot $TK.PackageFolder
 # Shortcut folder inside this package (the repo clone); install.ps1 resolves it the same way.
 $ScDir      = [IO.Path]::GetFullPath((Join-Path $PkgRoot $TK.ShortcutFolder)).TrimEnd('\')
-$LegacyDirs = @($TK.LegacyFolders | Where-Object { $_ -and $_ -ne $TK.ToolkitFolder } | ForEach-Object { Join-Path $ProjectsRoot $_ })
+# Old installed toolkit copies under <Projects> (_bridge, _workstation).
+$LegacyDirs = @($TK.LegacyFolders | Where-Object { $_ } | ForEach-Object { Join-Path $ProjectsRoot $_ })
 $DotClaude  = Join-Path $UserHome '.claude'
 $DotCursor  = Join-Path $UserHome '.cursor'
 $LinkPath   = Join-Path $DotClaude "projects\$ProjectKey\memory"
@@ -234,7 +236,8 @@ else { Add-Finding 'OK' 'prereq' 'elevation' 'normal window (right for install.p
 # ---------------------------------------------------------------- 2. scheduled tasks
 $knownTasks = @{
   'Claude-Memory-To-Cursor-Sync' = @((Join-Path $ClaudeDir 'run-hidden.vbs'), (Join-Path $ClaudeDir 'sync-claude-memory-to-cursor.ps1'))
-  'Latch-EnsureGrokBot'          = @((Join-Path $realHome '.grokbot\latch\ensure-grokbot.ps1'))
+  # runs ensure-grokbot.ps1 straight from this clone (older installs ran a copy in ~\.grokbot\latch\: WARN, re-registered)
+  'Latch-EnsureGrokBot'          = @((Join-Path $BridgeDir 'latch\ensure-grokbot.ps1'))
 }
 $tasks = $null
 try { $tasks = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskPath -notlike '\Microsoft\*' }) }
@@ -636,19 +639,10 @@ if ($roots.Count -gt 1) { Add-Finding 'WARN' 'memory' 'memory stores' ("more tha
 else { Add-Finding 'OK' 'memory' 'memory stores' $(if ($roots.Count) { "one store: $($roots.Values -join '')" } else { 'none yet' }) }
 
 # ---------------------------------------------------------------- 10. Toolkit and Desktop shortcuts (names from toolkit.psd1)
-$bridgePkg = $pkgToolkit
-if (Test-Path -LiteralPath $BridgeDir) {
-  $same = 0; $diff = 0; $miss = 0
-  foreach ($f in @(Get-ChildItem -LiteralPath $bridgePkg -Recurse -File -Force -ErrorAction SilentlyContinue)) {
-    $d = Join-Path $BridgeDir $f.FullName.Substring($bridgePkg.Length + 1)
-    if (-not (Test-Path -LiteralPath $d)) { $miss++ } elseif ((Get-FileHash -LiteralPath $d).Hash -eq (Get-FileHash -LiteralPath $f.FullName).Hash) { $same++ } else { $diff++ }
-  }
-  Add-Finding 'ALREADY-INSTALLED' 'toolkit' $BridgeDir "toolkit present: $same file(s) same as the package, $diff differ (install backs them up and replaces them), $miss missing (install adds them)"
-  $oldNamed = @(Get-ChildItem -LiteralPath $BridgeDir -Recurse -File -Filter *.ps1 -Force -ErrorAction SilentlyContinue | Where-Object { $legacyLeaves -contains $_.Name -and $_.FullName -notmatch '\\(logs|state)\\' })
-  if ($oldNamed.Count) { Add-Finding 'WARN' 'toolkit' $BridgeDir ("legacy script names still in the toolkit (install does not delete them): " + (($oldNamed | ForEach-Object { $_.FullName.Substring($BridgeDir.Length + 1) }) -join ', ')) }
-} else { Add-Finding 'OK' 'toolkit' $BridgeDir 'not there yet; install.ps1 copies the toolkit' }
+if (Test-Path -LiteralPath $BridgeDir) { Add-Finding 'OK' 'toolkit' $BridgeDir 'toolkit runs straight from this package (install copies nothing under the Projects root)' }
+else { Add-Finding 'CONFLICT' 'toolkit' $BridgeDir 'toolkit folder missing from this package; run install from a complete workstation repo clone' }
 foreach ($ld in $LegacyDirs) {
-  if (Test-Path -LiteralPath $ld) { Add-Finding 'WARN' 'toolkit' $ld "LEGACY toolkit folder (old name). install copies the toolkit to $BridgeDir and leaves this one in place; stop its workers, re-point anything that uses it, then archive it." }
+  if (Test-Path -LiteralPath $ld) { Add-Finding 'WARN' 'toolkit' $ld "OLD installed toolkit copy. The toolkit now runs from $BridgeDir; install leaves this folder in place. Stop its workers (Workers Stop), re-point anything that still uses it, then archive it." }
 }
 # Empty names are dropped: PullScript is '' now, and an empty marker matched EVERY file (false "another toolkit copy" WARNs).
 $markers = @(@($TK.PullScript, $TK.CommonScript) + @($legacyLeaves | Where-Object { $_ -match '(?i)common|pull' } | ForEach-Object { $_ }) | Where-Object { $_ } | Select-Object -Unique)

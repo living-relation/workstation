@@ -3,11 +3,13 @@
 $ErrorActionPreference = 'Continue'
 
 $BridgeShortcuts = $PSScriptRoot
-$BridgeRoot      = Split-Path -Parent $BridgeShortcuts
-$BridgeProjects  = Split-Path -Parent $BridgeRoot
+$BridgeRoot      = Split-Path -Parent $BridgeShortcuts   # the toolkit folder inside the workstation repo clone
+# Toolkit paths: $WsProjectsRoot, $WsStateDir, $WsStopFlag, $WsLegacyFolders (runtime files never go in the clone).
+. (Join-Path $BridgeRoot 'paths.ps1')
+$BridgeProjects  = $WsProjectsRoot
 $BridgeActive    = Join-Path $BridgeProjects 'active'
 $BridgeWorkerDir = Join-Path $BridgeRoot 'cursor-worker'
-$BridgeStopFlag  = Join-Path $BridgeShortcuts '.bridge-stopped'
+$BridgeStopFlag  = $WsStopFlag
 $GrokStatusFile  = Join-Path $env:APPDATA 'Grok Bot\desktop-status.json'
 
 # Claude Code CLI: PATH first (skipping the Claude desktop app's WindowsApps alias), then usual install spots.
@@ -459,10 +461,17 @@ function Show-Automations {
         else { Write-Bad "HKCU Run GrokBot points at a missing file: $v" }
     }
 
-    # 2. Latch-EnsureGrokBot task + its script
-    [void](Test-AutomationTask 'Latch-EnsureGrokBot' 'Grok Bot launcher')
-    $eg = Join-Path $env:USERPROFILE '.grokbot\latch\ensure-grokbot.ps1'
-    if (Test-Path -LiteralPath $eg) { Write-Ok "launcher script present: $eg" } else { Write-Warn "launcher script missing: $eg" }
+    # 2. Latch-EnsureGrokBot task + its script (runs straight from this toolkit: <toolkit>\latch\ensure-grokbot.ps1)
+    $lt = Test-AutomationTask 'Latch-EnsureGrokBot' 'Grok Bot launcher'
+    $egWant = Join-Path $BridgeRoot 'latch\ensure-grokbot.ps1'
+    if ($lt.Status -eq 'ok') {
+        $eg = $null
+        foreach ($a in @($lt.Task.Actions)) { if (-not $eg) { $eg = Get-PathFromCommand "$($a.Arguments)" 'ps1' } }
+        if (-not $eg) { Write-Warn "Grok Bot launcher task has no script path in its action" }
+        elseif (-not (Test-Path -LiteralPath $eg)) { Write-Bad "Grok Bot launcher task runs a missing script: $eg" }
+        elseif ($eg -ieq $egWant) { Write-Ok "launcher script (from the repo clone): $eg" }
+        else { Write-Warn "Grok Bot launcher task still runs an old copy ($eg); re-run install-admin.ps1 (admin) so it runs $egWant" }
+    }
 
     # 3. Claude-Memory-To-Cursor-Sync task: age + script from its action
     $t = Test-AutomationTask 'Claude-Memory-To-Cursor-Sync' 'memory sync'
@@ -606,6 +615,11 @@ function Show-Automations {
     foreach ($n in @('Cursor-Worker', 'Cursor-Worker-Health', 'ClaudeCode-RemoteControl')) {
         $r = Get-TaskSafe $n
         if ($r.Status -eq 'ok') { $back += "task $n" } elseif ($r.Status -in @('denied', 'error')) { $denied += $n }
+    }
+    # Old installed toolkit copies under <Projects> (the toolkit runs from the repo clone now)
+    foreach ($lf in @($WsLegacyFolders)) {
+        $lp = Join-Path $BridgeProjects $lf
+        if ($lf -and (Test-Path -LiteralPath $lp)) { Write-Warn "old toolkit copy still there: $lp (scripts now run from $BridgeRoot). Stop its workers, then archive it." }
     }
     if ($back) { Write-Warn "retired items are BACK: $($back -join ', ')" }
     else { Write-Ok 'retired items absent (Run LatchBridgeLogon/CursorWorker; tasks Cursor-Worker, Cursor-Worker-Health, ClaudeCode-RemoteControl)' }

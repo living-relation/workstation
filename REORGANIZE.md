@@ -3,17 +3,17 @@
 Goal: make the Projects root match this layout. Projects root = the `-ProjectsRoot` given to
 `install.ps1` (default `%USERPROFILE%\Projects`).
 
-    active\     live AND finished projects (anything Dan may still use or look at)
+    active\     live AND finished projects (anything Dan may still use or look at), including the
+                workstation repo clone: the Workstation toolkit runs straight from it
     _archive\   layout folder only (this cleanup adds nothing to it)
     _scratch\   temporary files (stays empty after setup, except retire records like bridge-retired-*)
-    _workstation\  the Workstation toolkit (was `_bridge`)
     _claude\    shared memory, Cursor's copy, sync scripts
     _refs\      optional: reference material, vendor docs, third-party clones (only if Dan wants it)
     .cursor\    Cursor project settings at the Projects root (if present)
     AGENTS.md   the one root guide (a root CLAUDE.md is merged into it: step 5)
 
 Hard rules: move only after Dan approves; never overwrite (if a target name already exists in
-`active\` or elsewhere, stop and ask; do not merge blindly); never touch `_workstation\` during
+`active\` or elsewhere, stop and ask; do not merge blindly); never touch an old toolkit copy (`_workstation\`, `_bridge\`) during
 moves; never open, print or move secret files (keys, credentials, `.env` files) beyond moving the
 folder they are in; never commit memory to git; never run `git init`.
 
@@ -27,19 +27,20 @@ Nothing from this cleanup goes into `_archive`. Do not move old folders or lefto
 `_archive` stays as a layout folder so the root can match, but this cleanup adds nothing to it.
 
 Old organizational folders: a top-level folder that holds projects and is not one of `active`,
-`_archive`, `_scratch`, `_workstation`, `_claude`, `_refs`, or a dotfolder should not remain. The
+`_archive`, `_scratch`, `_claude`, `_refs`, or a dotfolder should not remain. The
 shortcuts only look in `active\`. This rule only covers folders that hold projects (a second
 projects folder sitting beside `active\`). Layout folders stay and are never removed by this
-cleanup: `active`, `_archive`, `_claude`, `_refs`, `_scratch`, `_workstation`, `.cursor`.
-`_bridge` is retired only by its own step below (it is a toolkit folder, not a project).
+cleanup: `active`, `_archive`, `_claude`, `_refs`, `_scratch`, `.cursor`.
+`_bridge` and `_workstation` (old installed toolkit copies) are retired only by their own step below (toolkit
+folders, not projects).
 
 Once an old organizational folder directly inside the Projects root is empty, delete that empty
 folder. Do not ask again for an empty folder. Do not delete it if it still contains anything. Do
 not delete projects.
 
 End state of the Projects root must be exactly: `active\`, `_archive\`, `_claude\`, `_refs\`,
-`_scratch\`, `_workstation\`, `.cursor\`, `AGENTS.md`. No other top-level folders, and no root `CLAUDE.md` (step 5).
-`shipping`, `_shipping`, `docs`, `inbox`, and a live `_bridge` must not remain.
+`_scratch\`, `.cursor\`, `AGENTS.md`. No other top-level folders, and no root `CLAUDE.md` (step 5).
+`shipping`, `_shipping`, `docs`, `inbox`, and a live `_bridge` or `_workstation` must not remain.
 
 Git warning (show in the approval table, not as a prelude to deletion): if a folder still holds a
 git repo with uncommitted changes or unpushed commits, flag that row. The agent still never
@@ -58,7 +59,7 @@ deletes a project or repo; Dan decides.
      it for him to choose. The agent never deletes it.
    - **_scratch** - loose temp files. Never put a project here.
    - **_refs** (optional) - reference material or third-party clones, only if Dan wants that folder.
-   - **leave as is** - layout folders (`active`, `_archive`, `_scratch`, `_workstation`, `_claude`,
+   - **leave as is** - layout folders (`active`, `_archive`, `_scratch`, `_claude`,
      `_refs`), root `AGENTS.md` (and a root `CLAUDE.md` until step 5 merges it), `.cursor\`, other dotfolders.
    - **old organizational folder** - a top-level folder that holds projects beside `active\` (not
      in the leave-as-is list), including names like `shipping`, `_shipping`, `docs`, `inbox`. Plan
@@ -83,11 +84,14 @@ deletes a project or repo; Dan decides.
 5. Once an old organizational folder directly inside the Projects root is empty, delete that empty
    folder. Do not ask again. Do not delete it if it still contains anything. Do not delete
    projects. Never remove layout folders (`active`, `_archive`, `_claude`, `_refs`, `_scratch`,
-   `_workstation`, `.cursor`) under this step.
+   `.cursor`) under this step.
 
-## Step 3: retire `_bridge` (toolkit folder, not a project)
+## Step 3: retire `_bridge` and `_workstation` (old toolkit copies, not projects)
 
-Do this only after old automations are off and Workers Start works from `_workstation`.
+Do this only after old automations are off and Workers Start works from the workstation repo clone
+(`active\workstation\shortcuts\`). For `_workstation`, first run Workers Stop so no worker runs from it, and
+re-point anything that still names it (Workstation Status and preflight list what is left). The steps below use
+`_bridge`; for `_workstation` move it to `_archive\<yyyy-MM-dd>\_workstation` instead (Dan's yes first).
 
 1. Copy the live `_bridge` folder to `_scratch\bridge-retired-<yyyyMMdd>` as a record only.
 2. Then delete the live `_bridge` folder.

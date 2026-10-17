@@ -3,9 +3,9 @@
 # - Worker health URL failing   -> after 2 failed checks in a row, restart everything.
 . "$PSScriptRoot\config.ps1"
 
-# Bridge Stop (desktop shortcut) writes _workstation\shortcuts\.bridge-stopped. While it exists, do nothing:
-# no revive, no restart. Bridge Start removes the flag.
-$BridgeStopFlag = Join-Path (Split-Path -Parent $PSScriptRoot) 'shortcuts\.bridge-stopped'
+# Workers Stop writes the stop flag (%LOCALAPPDATA%\<StateFolder>\workers-stopped.flag, $WsStopFlag from paths.ps1).
+# While it exists, do nothing: no revive, no restart. Workers Start removes the flag.
+$BridgeStopFlag = $WsStopFlag
 if (Test-Path -LiteralPath $BridgeStopFlag) {
     Write-Log 'bridge stop flag present -> skipping health check' $HealthLog
     exit 0

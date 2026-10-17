@@ -36,7 +36,7 @@ e. **Report to Dan** in a few short bullets:
 - Destructive steps need Dan's yes.
 
 ### Projects folder
-- The Projects folder holds only these: `active\`, `_archive\` (obsolete things only), `_claude\`, `_refs\`, `_scratch\`, `_workstation\`, `.cursor\` and `AGENTS.md`. Nothing else.
+- The Projects folder holds only these: `active\`, `_archive\` (obsolete things only), `_claude\`, `_refs\`, `_scratch\`, `.cursor\` and `AGENTS.md`. Nothing else.
 - Use your PC's own Projects root.
 - One `AGENTS.md` everywhere. Where a `CLAUDE.md`, an `AGENTS.md` or both exist, they get merged into one `AGENTS.md`.
   - The Projects root is not a repo, so merge it yourself: back up, keep every rule and the memory marker block, verify, then delete the root `CLAUDE.md`.
