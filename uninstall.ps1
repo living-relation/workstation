@@ -23,10 +23,10 @@
     handoff-sync-continue skill, sync scripts and toolkit files under <Projects>) only while unchanged, and
     folders install created (only if empty),
   - junctions install created (the link only; the notes stay in the store),
-  - the Desktop shortcuts and shortcut folder install created (only while they still run the toolkit scripts),
+  - the shortcuts and shortcut folder install created (in the package's shortcuts\ folder, or an older Desktop one) (only while they still run the toolkit scripts),
   - the Cursor.lnk autostart if install created it. Existing Cursor autostarts are never touched.
   Prints the admin commands for the scheduled tasks and how to remove the GrokBot startup entry.
-  Every changed or removed file is copied first to <Projects>\_scratch\automation-uninstall-backup-<time>\.
+  Every changed or removed file is copied first to <Projects>\_archive\automation-uninstall-backup-<time>\.
   Keeps: the memory store, Cursor's copy, all notes, the Projects layout folders, all projects.
   Scheduled tasks need admin: the commands are printed for you to run in an admin PowerShell.
 #>
@@ -58,7 +58,7 @@ $DotClaude  = Join-Path $UserHome '.claude'
 $LinkPath   = Join-Path $DotClaude ("projects\$ProjectKey\memory")
 $WmLink     = Join-Path $DotClaude 'working-memory'
 $SettingsPath = Join-Path $DotClaude 'settings.json'
-$BackupDir  = Join-Path $ProjectsRoot ("_scratch\automation-uninstall-backup-$Stamp")
+$BackupDir  = Join-Path $ProjectsRoot ("_archive\automation-uninstall-backup-$Stamp")
 $ManifestPath = Join-Path $ClaudeDir 'automation-installed-files.txt'
 $CursorHooksJson = Join-Path $UserHome '.cursor\hooks.json'
 # 'json|{...}' manifest entries written by install.ps1 (hooks, statusLine, files outside <Projects>, startup link).
@@ -398,7 +398,7 @@ foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'dir' } | Sort-Objec
   else { Note 'INFO' "kept $p (not empty)" }
 }
 
-# 6. Desktop shortcuts: only the links (and folder) the manifest lists, and only while a link still runs its script.
+# 6. Shortcuts: only the links (and folder) the manifest lists, and only while a link still runs its script.
 $wsh = $null
 foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'shortcut' })) {
   $lnk = [string]$m.path
@@ -418,7 +418,7 @@ foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'shortcut-dir' })) {
 }
 if (-not $testMode) {
   $listedLnk = @($ManifestJson | Where-Object { $_.kind -eq 'shortcut' } | ForEach-Object { [string]$_.path })
-  $scDir = Join-Path ([Environment]::GetFolderPath('Desktop')) $TK.ShortcutFolder
+  $scDir = Join-Path $PkgRoot $TK.ShortcutFolder
   foreach ($sc in $TK.Shortcuts) {
     $lp = Join-Path $scDir "$($sc.Name).lnk"
     if ((Test-Path -LiteralPath $lp) -and -not @($listedLnk | Where-Object { $_ -ieq $lp }).Count) { Note 'OK' "not installed by this package, left alone: $lp" }

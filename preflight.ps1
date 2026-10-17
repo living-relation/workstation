@@ -4,8 +4,8 @@
 
 .DESCRIPTION
   Never changes anything. The only file it writes is its report:
-    preflight-report-<yyyyMMdd-HHmmss>.txt  (next to this script, or in %TEMP% if that folder is read-only,
-                                              or in -ReportDir)
+    preflight-report-<yyyyMMdd-HHmmss>.txt  (in -ReportDir, else %TEMP%; never next to this script,
+                                              so it stays out of the repo)
   Each finding is one of:
     OK                 nothing to do, or install.ps1 will add it
     ALREADY-INSTALLED  the same thing is already in place; install.ps1 skips it
@@ -66,6 +66,8 @@ $ClaudeDir  = Join-Path $ProjectsRoot '_claude'
 $Store      = Join-Path $ClaudeDir 'Claude Projects\Working Memory\memory'
 $CursorCopy = Join-Path $ClaudeDir 'Cursor Copy of Claude Memory'
 $BridgeDir  = Join-Path $ProjectsRoot $TK.ToolkitFolder
+# Shortcut folder inside this package (the repo clone); install.ps1 resolves it the same way.
+$ScDir      = [IO.Path]::GetFullPath((Join-Path $PkgRoot $TK.ShortcutFolder)).TrimEnd('\')
 $LegacyDirs = @($TK.LegacyFolders | Where-Object { $_ -and $_ -ne $TK.ToolkitFolder } | ForEach-Object { Join-Path $ProjectsRoot $_ })
 $DotClaude  = Join-Path $UserHome '.claude'
 $DotCursor  = Join-Path $UserHome '.cursor'
@@ -648,7 +650,8 @@ if (Test-Path -LiteralPath $BridgeDir) {
 foreach ($ld in $LegacyDirs) {
   if (Test-Path -LiteralPath $ld) { Add-Finding 'WARN' 'toolkit' $ld "LEGACY toolkit folder (old name). install copies the toolkit to $BridgeDir and leaves this one in place; stop its workers, re-point anything that uses it, then archive it." }
 }
-$markers = @($TK.PullScript, $TK.CommonScript) + @($legacyLeaves | Where-Object { $_ -match '(?i)common|pull' } | ForEach-Object { $_ }) | Select-Object -Unique
+# Empty names are dropped: PullScript is '' now, and an empty marker matched EVERY file (false "another toolkit copy" WARNs).
+$markers = @(@($TK.PullScript, $TK.CommonScript) + @($legacyLeaves | Where-Object { $_ -match '(?i)common|pull' } | ForEach-Object { $_ }) | Where-Object { $_ } | Select-Object -Unique)
 $others = @()
 foreach ($root in @($ProjectsRoot, (Join-Path $ProjectsRoot 'active'), $UserHome, $DesktopDir, (Join-Path $UserHome 'Documents'))) {
   if (-not $root -or -not (Test-Path -LiteralPath $root)) { continue }
@@ -661,6 +664,8 @@ foreach ($root in @($ProjectsRoot, (Join-Path $ProjectsRoot 'active'), $UserHome
         for ($i = 0; $i -lt $depth; $i++) { $dir = Split-Path $dir -Parent }
         if ($mk -notmatch '\\' -and (Split-Path $dir -Leaf) -ieq 'shortcuts') { $dir = Split-Path $dir -Parent }
         if ((Test-Under $dir $BridgeDir) -or (Test-Under $dir $PkgRoot) -or @($LegacyDirs | Where-Object { Test-Under $dir $_ }).Count -or $dir -match '(?i)\\(_scratch|_archive|node_modules)(\\|$)') { continue }
+        # A workstation package / repo clone (toolkit.psd1 next to its toolkit folder) is source, not an installed copy.
+        if (Test-Path -LiteralPath (Join-Path (Split-Path $dir -Parent) 'toolkit.psd1')) { continue }
         $others += $dir
       }
     }
@@ -673,13 +678,14 @@ $scLeaves = @(@($TK.Shortcuts | ForEach-Object { Split-Path $_.Script -Leaf }) +
 $bridgeScriptRx = '(?i)(' + (($scLeaves | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
 $ourShortcutDirs = @($TK.Shortcuts | ForEach-Object { (Split-Path (Join-Path $BridgeDir $_.Script) -Parent).ToLower() } | Select-Object -Unique)
 $desks = @($DesktopDir); if (-not $testMode) { $desks += [Environment]::GetFolderPath('CommonDesktopDirectory') }
+$desks += $ScDir   # where the shortcuts live now (inside the package)
 $scFound = 0
 foreach ($dk in @($desks | Where-Object { $_ -and (Test-Path -LiteralPath $_) })) {
   foreach ($lsf in @($TK.LegacyShortcutFolders)) {
     $oldDir = Join-Path $dk $lsf
     if (Test-Path -LiteralPath $oldDir -PathType Container) {
       $nOld = @(Get-ChildItem -LiteralPath $oldDir -Force -ErrorAction SilentlyContinue).Count
-      Add-Finding 'WARN' 'shortcuts' $oldDir ("old Desktop ""$lsf"" folder (pre-rename, $nOld item(s)); the shortcuts installer replaces it with the ""$($TK.ShortcutFolder)"" folder (removes only links that run the toolkit scripts, and the folder once empty)")
+      Add-Finding 'WARN' 'shortcuts' $oldDir ("old Desktop ""$lsf"" folder (pre-rename, $nOld item(s)); the shortcuts installer now puts the links in $ScDir and removes only links here that run the toolkit scripts, then the folder once empty)")
     }
   }
   $lnks = @(Get-ChildItem -LiteralPath $dk -Filter *.lnk -File -Force -ErrorAction SilentlyContinue) + @(Get-ChildItem -Path (Join-Path $dk '*\*.lnk') -File -Force -ErrorAction SilentlyContinue)
@@ -693,14 +699,14 @@ foreach ($dk in @($desks | Where-Object { $_ -and (Test-Path -LiteralPath $_) })
     $ours = ($sp -and $ourShortcutDirs -contains (Split-Path $sp -Parent).ToLower())
     $legacy = ($sp -and (@($LegacyDirs | Where-Object { Test-Under $sp $_ }).Count -or $legacyLeaves -contains (Split-Path $sp -Leaf)))
     $isNew = ($newNames -contains $base)
-    if ($ours -and $isNew -and (Split-Path $l.DirectoryName -Leaf) -eq $TK.ShortcutFolder) { Add-Finding 'ALREADY-INSTALLED' 'shortcuts' $l.FullName "runs $sp" }
+    if ($ours -and $isNew -and $l.DirectoryName -ieq $ScDir) { Add-Finding 'ALREADY-INSTALLED' 'shortcuts' $l.FullName "runs $sp" }
     elseif ($legacy) { Add-Finding 'WARN' 'shortcuts' $l.FullName "legacy shortcut (old toolkit folder or old script name: $sp); the shortcuts installer re-creates the set for $BridgeDir" }
     elseif ($ours -or (-not $isNew -and $oldNames -contains $base)) { Add-Finding 'WARN' 'shortcuts' $l.FullName "old-name or loose shortcut ($runs); the shortcuts installer replaces it" }
-    elseif ($sp) { Add-Finding 'CONFLICT' 'shortcuts' $l.FullName "$($TK.ShortcutFolder)-style shortcut that runs a DIFFERENT toolkit ($sp); a second set would double up. Remove or re-point it." }
-    else { Add-Finding 'WARN' 'shortcuts' $l.FullName "same name as a $($TK.ShortcutFolder) shortcut but runs something else ($runs)" }
+    elseif ($sp) { Add-Finding 'CONFLICT' 'shortcuts' $l.FullName "Workstation-style shortcut that runs a DIFFERENT toolkit ($sp); a second set would double up. Remove or re-point it." }
+    else { Add-Finding 'WARN' 'shortcuts' $l.FullName "same name as a Workstation shortcut but runs something else ($runs)" }
   }
 }
-if (-not $scFound) { Add-Finding 'OK' 'shortcuts' 'Desktop' ("no $($TK.ShortcutFolder) shortcuts yet" + $(if ($testMode) { ' (test mode: checked ' + $DesktopDir + ')' } else { '' })) }
+if (-not $scFound) { Add-Finding 'OK' 'shortcuts' $ScDir ("no Workstation shortcuts yet" + $(if ($testMode) { ' (test mode: checked ' + $DesktopDir + ')' } else { '' })) }
 
 # ---------------------------------------------------------------- report
 $order = @{ 'CONFLICT' = 0; 'WARN' = 1; 'ALREADY-INSTALLED' = 2; 'OK' = 3 }
@@ -725,7 +731,7 @@ foreach ($f in ($Findings | Sort-Object @{ e = { $order[$_.Class] } }, Area)) {
   Write-Host ("[{0,-17}] {1}: {2} -- {3}" -f $f.Class, $f.Area, $f.Item, $f.Detail) -ForegroundColor $color
 }
 $ReportPath = $null
-$dirs = @(); if ($ReportDir) { $dirs += $ReportDir }; $dirs += $PkgRoot; if ($env:TEMP) { $dirs += $env:TEMP }
+$dirs = @(); if ($ReportDir) { $dirs += $ReportDir }; if ($env:TEMP) { $dirs += $env:TEMP }   # never $PkgRoot: keep reports out of the repo
 foreach ($d in $dirs) {
   try {
     if (-not (Test-Path -LiteralPath $d -PathType Container)) { continue }

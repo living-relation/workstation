@@ -56,7 +56,7 @@ Inside the store, `MEMORY.md` is the no-project index (general notes, one line p
 
 ## Workstation toolkit (`{{TOOLKIT_DIR}}\`)
 
-Operator scripts for syncing remote Claude/Cursor sessions into local `active\` trees. **Git is the primary bridge** (commit + push remotely, then `git pull --ff-only` in that one repo on this PC). Shortcuts in the Desktop folder `Workstation`: **Workers Start**, **Workers Stop**, **Workstation Status** (scripts in `{{TOOLKIT_DIR}}\shortcuts\`). There are no batch pull/push shortcuts. Nothing auto-starts bridge pieces; only Grok Bot launching is automatic. See `{{TOOLKIT_DIR}}\README.md`.
+Operator scripts for syncing remote Claude/Cursor sessions into local `active\` trees. **Git is the primary bridge** (commit + push remotely, then `git pull --ff-only` in that one repo on this PC). Shortcuts in the workstation repo's `shortcuts\` folder: **Workers Start**, **Workers Stop**, **Workstation Status** (scripts in `{{TOOLKIT_DIR}}\shortcuts\`). There are no batch pull/push shortcuts. Nothing auto-starts bridge pieces; only Grok Bot launching is automatic. See `{{TOOLKIT_DIR}}\README.md`.
 
 ```powershell
 powershell -File "{{PROJECTS_ROOT}}\{{TOOLKIT_DIR}}\{{TOOLKIT_STATUS}}"

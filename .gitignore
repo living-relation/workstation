@@ -19,3 +19,5 @@ state/
 *.stl
 *.3mf
 *.f3d
+# Workstation shortcuts that install.ps1 generates in shortcuts/ (per PC, never committed)
+*.lnk

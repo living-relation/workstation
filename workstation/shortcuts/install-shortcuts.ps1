@@ -1,16 +1,22 @@
 #Requires -Version 5.1
-# Creates (or recreates) the three Workstation shortcuts in a 'Workstation' folder on this PC's desktop,
-# pointing at this folder. Also removes old copies of those five links left loose on the desktop
-# (only links that run one of these bridge scripts). Idempotent; no admin needed.
-# Afterwards it runs read-only prerequisite checks.
-# Usage: powershell -NoProfile -ExecutionPolicy Bypass -File install-shortcuts.ps1 [-SkipChecks] [-NoPause]
-param([switch]$SkipChecks, [switch]$NoPause)
+# Creates (or recreates) the three Workstation shortcuts in -LinkDir, pointing at this folder.
+# install.ps1 passes -LinkDir = <workstation package/repo>\<ShortcutFolder from toolkit.psd1> (default 'shortcuts').
+# Also removes old copies of these links left on the desktop: loose, or in the old Desktop 'Bridge' and
+# 'Workstation' folders (only links that run one of these scripts), then those folders once empty.
+# Idempotent; no admin needed. Afterwards it runs read-only prerequisite checks.
+# Usage: powershell -NoProfile -ExecutionPolicy Bypass -File install-shortcuts.ps1 -LinkDir <folder> [-SkipChecks] [-NoPause]
+param([string]$LinkDir, [switch]$SkipChecks, [switch]$NoPause)
 $ErrorActionPreference = 'Continue'
 
+if (-not $LinkDir) {
+    Write-Host '  [FAIL] -LinkDir is required: the folder for the shortcuts (install.ps1 passes <workstation repo>\shortcuts).' -ForegroundColor Red
+    exit 1
+}
 $here    = $PSScriptRoot
 $desktop = [Environment]::GetFolderPath('Desktop')   # may be a OneDrive-redirected Desktop
-$linkDir = Join-Path $desktop 'Workstation'
-$oldLinkDir = Join-Path $desktop 'Bridge'   # pre-rename folder; old links in it are removed
+$linkDir = [IO.Path]::GetFullPath($LinkDir).TrimEnd('\')
+# Old Desktop folders (pre-rename 'Bridge', and 'Workstation' from before the links moved into the repo).
+$oldLinkDirs = @(@('Bridge', 'Workstation') | ForEach-Object { Join-Path $desktop $_ } | Where-Object { $_ -ine $linkDir })
 $psExe   = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $shell32 = Join-Path $env:SystemRoot 'System32\shell32.dll'
 
@@ -65,15 +71,16 @@ foreach ($l in $links) {
 $oldNames = @{ 'workers-start.ps1' = 'Bridge Start'; 'workers-stop.ps1' = 'Bridge Stop'; 'workstation-status.ps1' = 'Bridge Status' }  # pull/push batch-git archived 2026-10-17
 $oldPaths = @()
 foreach ($l in $links) {
-    $oldPaths += [pscustomobject]@{ Path = (Join-Path $desktop ($l.Name + '.lnk')); Script = $l.Script; Name = $l.Name }
-    $on = $oldNames[$l.Script]
-    if ($on) {
-        $oldPaths += [pscustomobject]@{ Path = (Join-Path $desktop ($on + '.lnk')); Script = $l.Script; Name = $on }
-        $oldPaths += [pscustomobject]@{ Path = (Join-Path $oldLinkDir ($on + '.lnk')); Script = $l.Script; Name = $on }
+    $names = @($l.Name); $on = $oldNames[$l.Script]; if ($on) { $names += $on }
+    foreach ($n in $names) {
+        foreach ($d in @(@($desktop) + $oldLinkDirs)) {
+            $oldPaths += [pscustomobject]@{ Path = (Join-Path $d ($n + '.lnk')); Script = $l.Script; Name = $n }
+        }
     }
 }
 foreach ($l in $oldPaths) {
     $loose = $l.Path
+    if ((Split-Path $loose -Parent) -ieq $linkDir) { continue }
     if (-not (Test-Path -LiteralPath $loose)) { continue }
     try {
         $old = $wsh.CreateShortcut($loose)
@@ -88,12 +95,14 @@ foreach ($l in $oldPaths) {
     }
 }
 
-# Drop the pre-rename folder once it is empty.
-if ((Test-Path -LiteralPath $oldLinkDir) -and -not (Get-ChildItem -LiteralPath $oldLinkDir -Force -ErrorAction SilentlyContinue)) {
-    Remove-Item -LiteralPath $oldLinkDir -Force
-    Write-Host "  [ OK ] removed empty old folder $oldLinkDir" -ForegroundColor Green
-} elseif (Test-Path -LiteralPath $oldLinkDir) {
-    Write-Host "  [WARN] left $oldLinkDir alone: it still has other files" -ForegroundColor Yellow
+# Drop the old Desktop folders once they are empty.
+foreach ($oldLinkDir in $oldLinkDirs) {
+    if ((Test-Path -LiteralPath $oldLinkDir) -and -not (Get-ChildItem -LiteralPath $oldLinkDir -Force -ErrorAction SilentlyContinue)) {
+        Remove-Item -LiteralPath $oldLinkDir -Force
+        Write-Host "  [ OK ] removed empty old folder $oldLinkDir" -ForegroundColor Green
+    } elseif (Test-Path -LiteralPath $oldLinkDir) {
+        Write-Host "  [WARN] left $oldLinkDir alone: it still has other files" -ForegroundColor Yellow
+    }
 }
 
 if (-not $SkipChecks) {
@@ -108,7 +117,7 @@ if (-not $SkipChecks) {
 
 Write-Host ''
 if ($failed -gt 0) { Write-Host "==== done with $failed failure(s) ====" -ForegroundColor Red }
-else { Write-Host '==== done: 5 shortcuts in place ====' -ForegroundColor Green }
+else { Write-Host "==== done: $($links.Count) shortcuts in place ====" -ForegroundColor Green }
 if (-not $NoPause) {
     Write-Host ''
     Write-Host 'Press any key to close...' -ForegroundColor DarkGray

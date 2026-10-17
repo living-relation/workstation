@@ -16,16 +16,20 @@
   StatusScript       = 'repo-status.ps1'
   WorkerFolder       = 'cursor-worker'
 
-  # Desktop shortcuts that ShortcutsInstaller creates (folder on the Desktop; link name -> script).
-  ShortcutFolder     = 'Workstation'
+  # Shortcuts that ShortcutsInstaller creates (link name -> script). ShortcutFolder is a folder INSIDE this package
+  # (the workstation repo clone), relative to the package root, so no personal path is stored; the generated .lnk
+  # files are gitignored. install.ps1 passes the resolved folder to ShortcutsInstaller as -LinkDir.
+  ShortcutFolder     = 'shortcuts'
   Shortcuts          = @(
     @{ Name = 'Workers Start';      Script = 'shortcuts\workers-start.ps1' }
     @{ Name = 'Workers Stop';       Script = 'shortcuts\workers-stop.ps1' }
     @{ Name = 'Workstation Status'; Script = 'shortcuts\workstation-status.ps1' }
   )
 
-  # Names from before the rename. Preflight reports them as legacy (WARN); uninstall also cleans these links.
-  LegacyShortcutFolders = @('Bridge')
+  # Old Desktop shortcut folders: 'Bridge' (before the rename) and 'Workstation' (Desktop location before the links
+  # moved into the package). Preflight reports them as legacy (WARN); the shortcuts installer removes only links in
+  # them that run the toolkit scripts, then the folder once it is empty.
+  LegacyShortcutFolders = @('Bridge', 'Workstation')
   LegacyShortcutNames   = @('Bridge Start', 'Bridge Stop', 'Bridge Status', 'Pull All', 'Push All')
   # Old script file names: shortcuts\bridge-start/stop/status/common, pull-all, push-all; root sync-pull, sync-status, git-branch.
   LegacyScripts         = @('bridge-start.ps1', 'bridge-stop.ps1', 'bridge-status.ps1', 'bridge-common.ps1', 'pull-all.ps1', 'push-all.ps1', 'sync-pull.ps1', 'sync-status.ps1', 'git-branch.ps1')
