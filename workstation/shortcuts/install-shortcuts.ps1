@@ -23,7 +23,8 @@ $shell32 = Join-Path $env:SystemRoot 'System32\shell32.dll'
 $links = @(
     @{ Name = 'Workers Start';      Script = 'workers-start.ps1';  Icon = 137 },
     @{ Name = 'Workers Stop';   Script = 'workers-stop.ps1';   Icon = 131 },
-    @{ Name = 'Workstation Status'; Script = 'workstation-status.ps1'; Icon = 23 }
+    @{ Name = 'Workstation Status'; Script = 'workstation-status.ps1'; Icon = 23 },
+    @{ Name = 'Dashboard';          Script = 'dashboard.ps1';      Icon = 13 }
 )
 
 Write-Host ''

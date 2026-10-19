@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project dashboard</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Projects</h1>
+      <p id="stamp">Loading…</p>
+    </div>
+  </header>
+  <section id="apps" aria-label="App status"></section>
+  <section id="alerts" aria-label="Alerts"></section>
+  <section id="mobile-ci" class="mobile-only" aria-label="CI failures"></section>
+  <section id="reply" class="mobile-only" aria-label="Reply"></section>
+  <section id="charts" class="desktop-only" aria-label="Charts"></section>
+  <section id="shortcuts" class="desktop-only" aria-label="Shortcuts"></section>
+  <section id="projects" class="desktop-only" aria-label="Projects"></section>
+  <section id="sessions" class="desktop-only" aria-label="Sessions"></section>
+  <script src="/static/app.js"></script>
+</body>
+</html>
