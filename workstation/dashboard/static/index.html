@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project dashboard</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header>
+    <h1>Projects</h1>
+    <p id="stamp">Loading…</p>
+  </header>
+  <div id="alerts"></div>
+  <div id="charts"></div>
+  <div id="shortcuts"></div>
+  <div id="board"></div>
+  <dialog id="light">
+    <div class="light-bar">
+      <strong id="light-title"></strong>
+      <span>
+        <button type="button" id="light-open">Open file</button>
+        <button type="button" id="light-close">Close</button>
+      </span>
+    </div>
+    <div id="light-body"></div>
+  </dialog>
+  <script src="/static/app.js"></script>
+</body>
+</html>
