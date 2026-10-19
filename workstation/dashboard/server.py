@@ -160,11 +160,32 @@ class Handler(BaseHTTPRequestHandler):
             project = (query.get("project") or [""])[0]
             rel = (query.get("rel") or [""])[0]
             file = collect.project_file(project, rel)
-            if file is None:
+            if file is None or file.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
                 self._json(404, {"error": "not found"})
                 return
             mime = mimetypes.guess_type(file.name)[0] or "application/octet-stream"
             self._bytes(200, file.read_bytes(), mime)
+            return
+        if path == "/preview":
+            query = parse_qs(parsed.query)
+            png = collect.render_pdf_png((query.get("project") or [""])[0], (query.get("rel") or [""])[0])
+            if not png:
+                self._json(404, {"error": "not found"})
+                return
+            self._bytes(200, png, "image/png")
+            return
+        if path == "/doc":
+            query = parse_qs(parsed.query)
+            file = collect.project_file((query.get("project") or [""])[0], (query.get("rel") or [""])[0])
+            if file is None or file.suffix.lower() not in {".md", ".markdown", ".rst", ".txt"}:
+                self._json(404, {"error": "not found"})
+                return
+            try:
+                text = file.read_text(encoding="utf-8", errors="replace")[:80_000]
+            except OSError:
+                self._json(404, {"error": "not found"})
+                return
+            self._json(200, {"title": file.name, "text": text})
             return
         self._json(404, {"error": "not found"})
 
@@ -176,6 +197,21 @@ class Handler(BaseHTTPRequestHandler):
         body = self._read_json()
         if body is None:
             self._json(400, {"error": "expected a small JSON body"})
+            return
+        if path == "/api/open-file":
+            if not self._local_browser():
+                self._json(403, {"error": "files open only on this PC"})
+                return
+            file = collect.project_file(str(body.get("project") or ""), str(body.get("rel") or ""))
+            if file is None:
+                self._json(404, {"ok": False, "error": "file not found"})
+                return
+            try:
+                os.startfile(file)  # type: ignore[attr-defined]
+            except OSError as exc:
+                self._json(500, {"ok": False, "error": str(exc)})
+                return
+            self._json(200, {"ok": True, "opened": file.name})
             return
         if path == "/api/shortcut":
             if not self._local_browser():

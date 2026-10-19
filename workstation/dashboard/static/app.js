@@ -1,202 +1,63 @@
 const $ = (id) => document.getElementById(id);
+const openNames = new Set();
+let light = null;
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[ch]));
 }
 
-function liteView() {
-  return window.matchMedia("(max-width: 800px)").matches;
-}
-
-let board = null;
-let stampAt = 0;
-
-function ageText() {
-  if (!stampAt) return "";
-  const seconds = Math.max(0, Math.round((Date.now() - stampAt) / 1000));
-  return `Updated ${seconds}s ago`;
+function clip(value, limit) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
 }
 
 async function load() {
-  const lite = liteView() ? "1" : "0";
-  const response = await fetch(`/api/snapshot?lite=${lite}`, { cache: "no-store" });
+  const response = await fetch("/api/snapshot", { cache: "no-store" });
   if (!response.ok) throw new Error(`snapshot ${response.status}`);
-  board = await response.json();
-  stampAt = Date.now();
-  render();
+  render(await response.json());
 }
 
-function render() {
-  if (!board) return;
-  $("stamp").textContent = `${board.generatedAt || ""} · ${ageText()} · refreshes every 15s`;
-  renderApps();
-  renderAlerts();
-  renderMobileCi();
-  renderReply();
-  if (!liteView()) {
-    renderCharts();
-    renderShortcuts();
-    renderProjects();
-    renderSessions();
-  }
+function render(board) {
+  $("stamp").textContent = board.generatedAt ? `Updated ${board.generatedAt}` : "";
+  renderAlerts(board.alerts || []);
+  renderCharts(board.projects || []);
+  renderShortcuts(board.shortcuts || []);
+  renderBoard(board.projects || []);
 }
 
-function pill(name, on, detail) {
-  return `<div class="pill"><strong><span class="dot ${on ? "on" : "off"}"></span>${esc(name)}</strong><div class="muted">${esc(detail)}</div></div>`;
-}
-
-function limitText(app) {
-  const usage = (board.usage || {})[app] || {};
-  if (usage.reported && usage.fields && Object.keys(usage.fields).length) {
-    return Object.entries(usage.fields).map(([key, value]) => `${key} ${value}`).join(", ");
-  }
-  if (app === "cursor" && usage.authenticated === false) return "CLI not logged in";
-  if (app === "cursor" && usage.authenticated === true) return "CLI logged in, no quota published";
-  return "usage limit not published";
-}
-
-function renderApps() {
-  const apps = board.apps || {};
-  const claude = apps.claude || {};
-  const worker = apps.cursorWorker || {};
-  const grok = apps.grok || {};
-  const dispatch = apps.dispatch || {};
-  $("apps").innerHTML = `<div class="pills">
-    ${pill("Claude", !!claude.up, `remote control ${claude.up ? "up" : "down"} · ${limitText("claude")}`)}
-    ${pill("Dispatch", !!dispatch.up, `${dispatch.sessions || 0} chats · ${limitText("dispatch")}`)}
-    ${pill("Cursor", !!worker.up, `worker ${worker.up ? worker.status : "down"} · ${limitText("cursor")}`)}
-    ${pill("Grok", !!grok.running, `${grok.signedIn ? "signed in" : "not signed in"} · ${limitText("grok")}`)}
-  </div>`;
-}
-
-function renderAlerts() {
-  const alerts = board.alerts || [];
-  if (!alerts.length) {
-    $("alerts").innerHTML = `<div class="alert">No warnings, blockers, or permission prompts.</div>`;
-    return;
-  }
+function renderAlerts(alerts) {
   $("alerts").innerHTML = alerts.map((alert) => {
-    const body = alert.url
-      ? `<a href="${esc(alert.url)}">${esc(alert.text)}</a>`
-      : esc(alert.text);
+    const body = alert.url ? `<a href="${esc(alert.url)}">${esc(alert.text)}</a>` : esc(alert.text);
     return `<div class="alert ${esc(alert.level || "")}">${body}</div>`;
   }).join("");
 }
 
-function ciRows() {
-  const rows = [];
-  for (const project of board.projects || []) {
-    for (const failure of project.ciFailures || []) rows.push(failure);
-  }
-  return rows;
-}
-
-function renderMobileCi() {
-  const rows = ciRows();
-  if (!rows.length) {
-    $("mobile-ci").innerHTML = `<h2>CI</h2><div class="alert">No CI failures.</div>`;
-    return;
-  }
-  $("mobile-ci").innerHTML = `<h2>CI failures</h2>${rows.map((row) =>
-    `<div class="alert failure"><a href="${esc(row.url)}">${esc(row.project)} #${esc(row.number)} ${esc(row.title)}</a></div>`
-  ).join("")}`;
-}
-
-function sendable() {
-  const rows = [];
-  const groups = board.sessions || {};
-  for (const name of ["claude", "dispatch", "cursor", "grok"]) {
-    for (const row of groups[name] || []) rows.push(row);
-  }
-  return rows;
-}
-
-function renderReply() {
-  const rows = sendable();
-  const options = rows.map((row) =>
-    `<option value="${esc(row.app)}|${esc(row.id)}">${esc(row.app)} · ${esc(row.title)} ${row.canSend ? "" : "(cannot send)"}</option>`
-  ).join("");
-  $("reply").innerHTML = `<div class="reply-box">
-    <h2>Reply</h2>
-    <select id="reply-target">${options || `<option value="">No chats</option>`}</select>
-    <p id="reply-note" class="muted"></p>
-    <textarea id="reply-text" placeholder="Snippet to the selected chat"></textarea>
-    <button id="reply-send" type="button">Send</button>
-    <div id="reply-out" class="out"></div>
-  </div>`;
-  const select = $("reply-target");
-  const note = () => {
-    const row = selected(select.value);
-    $("reply-note").textContent = row ? contextLine(row) + " " + (row.sendNote || "") : "";
-  };
-  select.addEventListener("change", note);
-  note();
-  $("reply-send").addEventListener("click", () => postSend(select.value, $("reply-text").value, $("reply-out")));
-}
-
-function selected(value) {
-  const [app, id] = String(value || "").split("|");
-  return sendable().find((row) => row.app === app && row.id === id);
-}
-
-function contextLine(row) {
-  const ctx = row.context;
-  if (!ctx || ctx.percent == null && !ctx.inputTokens) return "Context not reported.";
-  if (ctx.percent != null) return `Context ${ctx.percent}% of ${ctx.window || "the window"}.`;
-  return `Context ${ctx.inputTokens} tokens in.`;
-}
-
-async function postSend(value, text, output) {
-  const row = selected(value);
-  output.textContent = "";
-  if (!row) {
-    output.textContent = "Pick a chat.";
-    return;
-  }
-  if (!row.canSend) {
-    output.textContent = row.sendNote || "This chat cannot receive a snippet.";
-    return;
-  }
-  output.textContent = "Sending through the app CLI…";
-  const response = await fetch("/api/send", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ app: row.app, id: row.id, text }),
-  });
-  const payload = await response.json();
-  if (payload.sent) output.textContent = payload.reply || "Sent.";
-  else output.textContent = payload.error || "Not sent.";
-}
-
-function renderCharts() {
-  const projects = board.projects || [];
-  $("charts").innerHTML = `<div class="chart-grid">
-    ${chart("Open PRs", projects.map((item) => [item.name, item.openPrs || 0]))}
-    ${chart("CI failures", projects.map((item) => [item.name, (item.ciFailures || []).length]))}
-    ${chart("Open tracker rows", projects.map((item) => [item.name, item.openTasks || 0]))}
-  </div>`;
-}
-
 function chart(title, pairs) {
-  const max = Math.max(1, ...pairs.map((pair) => pair[1]));
   const rows = pairs.filter((pair) => pair[1] > 0).sort((a, b) => b[1] - a[1]);
-  const body = rows.length
-    ? rows.map(([name, count]) => `<div class="bar"><span>${esc(name)}</span><span class="track"><span class="fill" style="width:${Math.round(count / max * 100)}%"></span></span><span>${count}</span></div>`).join("")
-    : `<p class="muted">None.</p>`;
-  return `<div class="card"><h3>${esc(title)}</h3>${body}</div>`;
+  if (rows.length < 2) return "";
+  const max = Math.max(...rows.map((pair) => pair[1]));
+  const bars = rows.map(([name, count]) =>
+    `<div class="bar"><span class="clip">${esc(name)}</span><span class="track"><span class="fill" style="width:${Math.round(count / max * 100)}%"></span></span><span>${count}</span></div>`
+  ).join("");
+  return `<div class="chart"><h2>${esc(title)}</h2>${bars}</div>`;
 }
 
-function renderShortcuts() {
-  const links = board.shortcuts || [];
-  $("shortcuts").innerHTML = `<h2>Shortcuts</h2><div class="shortcut-row">${links.map((link) =>
+function renderCharts(projects) {
+  const html = [
+    chart("Open PRs", projects.map((item) => [item.name, item.openPrs || 0])),
+    chart("CI failures", projects.map((item) => [item.name, (item.ciFailures || []).length])),
+    chart("Open tasks", projects.map((item) => [item.name, (item.tasks || []).length])),
+    chart("Blockers", projects.map((item) => [item.name, (item.blockers || []).length])),
+  ].filter(Boolean).join("");
+  $("charts").innerHTML = html ? `<div class="chart-row">${html}</div>` : "";
+}
+
+function renderShortcuts(links) {
+  $("shortcuts").innerHTML = links.map((link) =>
     `<button type="button" data-shortcut="${esc(link.name)}">${esc(link.name)}</button>`
-  ).join("") || `<span class="muted">No shortcuts.</span>`}</div>`;
+  ).join("");
   for (const button of $("shortcuts").querySelectorAll("button")) {
     button.addEventListener("click", async () => {
       const response = await fetch("/api/shortcut", {
@@ -205,92 +66,164 @@ function renderShortcuts() {
         body: JSON.stringify({ name: button.dataset.shortcut }),
       });
       const payload = await response.json();
-      button.textContent = payload.ok ? `${button.dataset.shortcut} launched` : (payload.error || "failed");
+      if (!payload.ok) button.textContent = payload.error || "failed";
     });
   }
 }
 
-function list(items, empty) {
-  if (!items || !items.length) return `<p class="muted">${esc(empty)}</p>`;
-  return `<ul class="clean">${items.slice(0, 5).map((item) => `<li>${esc(item)}</li>`).join("")}</ul>`;
+function lastDone(project) {
+  if (project.completed && project.completed.length) return project.completed[0];
+  if (project.merged) return `Merged #${project.merged.number} ${project.merged.title || ""}`;
+  if (project.lastCommit) return project.lastCommit.subject || "";
+  return "";
 }
 
-function renderProjects() {
-  const cards = (board.projects || []).map((project) => {
-    const ci = (project.ciFailures || []).length ? "CI failed" : (project.prs || []).some((pr) => pr.ci === "passing") ? "CI passing" : "no CI";
-    const commit = project.lastCommit ? `${project.lastCommit.subject} (${project.lastCommit.at || ""})` : "no commit";
-    const images = (project.images || []).map((image) =>
-      `<img alt="" src="/media?project=${encodeURIComponent(project.name)}&rel=${encodeURIComponent(image.rel)}">`
-    ).join("");
-    const prs = (project.prs || []).map((pr) =>
-      `<li><a href="${esc(pr.url)}">#${esc(pr.number)} ${esc(pr.title)}</a> <span class="muted">${esc(pr.ci)}</span></li>`
-    ).join("");
-    return `<article class="card">
-      <h3>${esc(project.name)}</h3>
-      <p class="meta">${esc(project.branch || "no git")} · ${project.dirty ? "dirty" : "clean"} · ${esc(ci)}</p>
-      <p><strong>Last completed</strong></p>
-      <p class="meta">${esc(commit)}</p>
-      ${project.merged ? `<p class="meta">Merged <a href="${esc(project.merged.url)}">#${esc(project.merged.number)} ${esc(project.merged.title)}</a></p>` : ""}
-      ${list(project.completed, "No tracker history.")}
-      <p><strong>Tasks</strong></p>
-      ${list(project.tasks, "No open tracker rows.")}
-      <p><strong>Blockers</strong></p>
-      ${list(project.blockers, "None.")}
-      <p><strong>Warnings</strong></p>
-      ${list(project.warnings, "None.")}
-      <p><strong>Waiting / permission</strong></p>
-      ${list(project.prompts, "None.")}
-      ${prs ? `<p><strong>Open PRs</strong></p><ul class="clean">${prs}</ul>` : ""}
-      ${project.readme ? `<details><summary>Doc preview</summary><pre class="md">${esc(project.readme)}</pre></details>` : ""}
-      ${images ? `<div class="shots">${images}</div>` : ""}
-    </article>`;
-  }).join("");
-  $("projects").innerHTML = `<h2>Projects</h2><div class="project-grid">${cards}</div>`;
+function ciCell(project) {
+  const failed = (project.ciFailures || [])[0];
+  if (failed && failed.url) return `<a class="bad" href="${esc(failed.url)}">failed</a>`;
+  const prs = project.prs || [];
+  const pending = prs.find((pr) => pr.ci === "pending" && pr.url);
+  if (pending) return `<a class="warn" href="${esc(pending.url)}">pending</a>`;
+  const passing = prs.find((pr) => pr.ci === "passing" && pr.url);
+  if (passing) return `<a class="ok" href="${esc(passing.url)}">passing</a>`;
+  if (prs[0] && prs[0].url) return `<a href="${esc(prs[0].url)}">no checks</a>`;
+  return `<span class="muted">—</span>`;
 }
 
-function sessionCard(row) {
-  const meter = row.context && row.context.percent != null
-    ? `<div class="meter" title="${esc(contextLine(row))}"><span style="width:${Math.max(0, Math.min(100, row.context.percent))}%"></span></div>`
-    : `<p class="muted">${esc(contextLine(row))}</p>`;
-  const web = row.webUrl ? `<a href="${esc(row.webUrl)}">Web session</a>` : "";
-  return `<article class="card" data-app="${esc(row.app)}" data-id="${esc(row.id)}">
-    <h3>${esc(row.app)} · ${esc(row.title)}</h3>
-    <p class="meta">${esc(row.state || "")} ${esc(row.shortId || "")}</p>
-    ${meter}
-    <p>${esc(row.snippet || "")}</p>
-    ${row.permission ? `<p class="alert permission">${esc(row.permission)}</p>` : ""}
-    <p class="muted">${esc(row.sendNote || "")}</p>
-    <p>${web} <button type="button" data-open="1">Open on this PC</button></p>
-    ${row.canSend ? `<textarea placeholder="Snippet"></textarea><button type="button" data-send="1">Send</button><div class="out"></div>` : ""}
-  </article>`;
+function prCell(project) {
+  const prs = project.prs || [];
+  if (!prs.length) return `<span class="muted">0</span>`;
+  return prs.slice(0, 4).map((pr) =>
+    `<a href="${esc(pr.url)}">#${esc(pr.number)}</a>`
+  ).join(" ");
 }
 
-function renderSessions() {
-  const groups = board.sessions || {};
-  const cards = ["claude", "dispatch", "cursor", "grok"].flatMap((name) => (groups[name] || []).map(sessionCard)).join("");
-  $("sessions").innerHTML = `<h2>Chats</h2><div class="session-grid">${cards || `<p class="muted">No chats.</p>`}</div>`;
-  for (const card of $("sessions").querySelectorAll("article")) {
-    const app = card.dataset.app;
-    const id = card.dataset.id;
-    const open = card.querySelector("[data-open]");
-    open.addEventListener("click", async () => {
-      const response = await fetch("/api/open", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ app, id }),
-      });
-      const payload = await response.json();
-      open.textContent = payload.ok ? "Opened" : (payload.error || "Could not open");
-    });
-    const sendButton = card.querySelector("[data-send]");
-    if (sendButton) {
-      sendButton.addEventListener("click", () => {
-        const text = card.querySelector("textarea").value;
-        postSend(`${app}|${id}`, text, card.querySelector(".out"));
-      });
+function listBlock(title, items) {
+  if (!items || !items.length) return "";
+  return `<h3>${esc(title)}</h3><ul>${items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>`;
+}
+
+function mdHtml(text) {
+  const safe = esc(text || "");
+  return safe
+    .replace(/^### (.*)$/gm, "<h3>$1</h3>")
+    .replace(/^## (.*)$/gm, "<h2>$1</h2>")
+    .replace(/^# (.*)$/gm, "<h1>$1</h1>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\n/g, "<br>");
+}
+
+function previewSrc(project, item) {
+  const query = `project=${encodeURIComponent(project)}&rel=${encodeURIComponent(item.rel)}`;
+  if (item.kind === "pdf") return `/preview?${query}`;
+  if (item.kind === "image") return `/media?${query}`;
+  return "";
+}
+
+function gallery(project) {
+  const items = project.previews || [];
+  if (!items.length) return "";
+  const cards = items.map((item, index) => {
+    if (item.kind === "markdown") {
+      return `<button type="button" class="thumb" data-preview="${index}"><article class="md-page">${mdHtml(item.excerpt || item.title || "")}</article></button>`;
     }
-  }
+    const src = previewSrc(project.name, item);
+    return `<button type="button" class="thumb" data-preview="${index}"><img alt="${esc(item.title || "")}" src="${src}"></button>`;
+  }).join("");
+  return `<h3>Previews</h3><div class="gallery">${cards}</div>`;
 }
+
+function renderBoard(projects) {
+  const head = `<div class="head"><span>Project</span><span>Branch</span><span>Tree</span><span>CI</span><span>PRs</span><span>Last completed</span><span class="num">Tasks</span><span class="num">Blocked</span></div>`;
+  const body = projects.map((project) => {
+    const tasks = (project.tasks || []).length;
+    const blocked = (project.blockers || []).length;
+    const done = lastDone(project);
+    const open = openNames.has(project.name) ? " open" : "";
+    const detail = [
+      (project.prs || []).length ? `<div class="prs"><h3>Pull requests</h3>${(project.prs || []).map((pr) => `<a href="${esc(pr.url)}">#${esc(pr.number)} ${esc(pr.title || "")}</a>`).join("")}</div>` : "",
+      listBlock("Tasks", project.tasks),
+      listBlock("Blockers", project.blockers),
+      listBlock("Warnings", project.warnings),
+      listBlock("Waiting", project.prompts),
+      gallery(project),
+    ].join("");
+    return `<div class="row${open}" data-project="${esc(project.name)}">
+      <span class="name">${esc(project.name)}</span>
+      <span class="clip branch">${esc(project.branch || "—")}</span>
+      <span class="${project.dirty ? "warn" : "ok"}">${project.git ? (project.dirty ? "dirty" : "clean") : "—"}</span>
+      <span>${ciCell(project)}</span>
+      <span class="prs">${prCell(project)}</span>
+      <span class="clip last" title="${esc(done)}">${done ? esc(clip(done, 90)) : ""}</span>
+      <span class="num">${tasks || ""}</span>
+      <span class="num">${blocked || ""}</span>
+    </div>
+    <div class="detail" data-for="${esc(project.name)}">${detail}</div>`;
+  }).join("");
+  $("board").innerHTML = `<div class="table">${head}${body}</div>`;
+  $("board").querySelectorAll(".row").forEach((row) => {
+    row.addEventListener("click", (event) => {
+      if (event.target.closest("a")) return;
+      row.classList.toggle("open");
+      if (row.classList.contains("open")) openNames.add(row.dataset.project);
+      else openNames.delete(row.dataset.project);
+    });
+  });
+  $("board").querySelectorAll("img").forEach((img) => {
+    img.addEventListener("error", () => {
+      const thumb = img.closest(".thumb");
+      if (thumb) thumb.remove();
+    });
+  });
+  $("board").querySelectorAll("[data-preview]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const projectName = button.closest(".detail").dataset.for;
+      const project = projects.find((item) => item.name === projectName);
+      const item = (project.previews || [])[Number(button.dataset.preview)];
+      if (project && item) showPreview(project.name, item);
+    });
+  });
+}
+
+function showPreview(project, item) {
+  light = { project, item };
+  $("light-title").textContent = item.title || item.rel || "Preview";
+  const body = $("light-body");
+  if (item.kind === "markdown") {
+    body.innerHTML = `<article class="doc">${mdHtml(item.excerpt || "")}</article>`;
+    fetch(`/doc?project=${encodeURIComponent(project)}&rel=${encodeURIComponent(item.rel)}`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload) => {
+        if (payload && light && light.item === item) {
+          body.innerHTML = `<article class="doc">${mdHtml(payload.text || "")}</article>`;
+        }
+      })
+      .catch(() => {});
+  } else {
+    const src = previewSrc(project, item);
+    body.innerHTML = `<img alt="${esc(item.title || "")}" src="${src}">`;
+  }
+  $("light").showModal();
+  fetch("/api/open-file", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project, rel: item.rel }),
+  }).catch(() => {});
+}
+
+$("light-close").addEventListener("click", () => $("light").close());
+$("light-open").addEventListener("click", () => {
+  if (!light) return;
+  fetch("/api/open-file", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project: light.project, rel: light.item.rel }),
+  }).catch(() => {});
+});
+$("light").addEventListener("click", (event) => {
+  if (event.target === $("light")) $("light").close();
+});
 
 async function tick() {
   try {
@@ -301,5 +234,4 @@ async function tick() {
 }
 
 tick();
-setInterval(() => { $("stamp").textContent = ageText(); }, 1000);
 setInterval(tick, 15000);

@@ -23,15 +23,8 @@ public internet. The script never turns on Tailscale Funnel and never binds
 A token for non-localhost requests is created in
 `%LOCALAPPDATA%\Workstation\dashboard\`. Nothing in that folder is committed.
 
-## Send
-
-A reply is posted only by a real CLI resume:
-
-- Claude and Claude Dispatch sessions: `claude --resume <session-id> -p`
-- Cursor chats: `agent --resume <chat-id> -p --mode ask`, and only when
-  `agent status` says the CLI is logged in
-- Grok: no send. The button focuses the Grok Bot window
-
-A session that is already running is not resumed, because that starts a second
-copy. There is no allow/deny command, so permission prompts are shown and not
-answered from the page.
+The board is one row per project: branch, clean or dirty, CI, open pull
+requests, last completed item, and task and blocker counts. Task text stays
+collapsed until the row is opened. Previews are a PDF first page, rendered
+markdown, or a large png/jpg/webp. Icons and files that do not decode are
+skipped. A thumbnail opens large and opens the file on this PC.

@@ -6,11 +6,14 @@ snapshots into the repo.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import sqlite3
+import struct
 import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -426,38 +429,247 @@ def _read_text(path: Path, limit: int) -> str:
     return data[:limit]
 
 
-def _images(path: Path) -> list[dict]:
-    found: list[dict] = []
+def usable_picture(width: int, height: int, size: int, name: str) -> bool:
+    """True for a document or photo. False for icons, sprites, and tiny files."""
+    if re.search(r"favicon|sprite|cursor|apple-touch-icon", name, re.IGNORECASE):
+        return False
+    if width < 96 or height < 96 or size < 6_000:
+        return False
+    short = min(width, height)
+    long = max(width, height)
+    if short >= 280 and long >= 360:
+        return True
+    if short >= 200 and long >= 640 and size >= 20_000:
+        return True
+    return False
+
+
+def image_size(path: Path) -> tuple[int, int] | None:
+    try:
+        with path.open("rb") as handle:
+            head = handle.read(32)
+    except OSError:
+        return None
+    if head.startswith(b"\x89PNG\r\n\x1a\n") and len(head) >= 24:
+        width, height = struct.unpack(">II", head[16:24])
+        if width and height:
+            return int(width), int(height)
+        return None
+    if head[:3] == b"\xff\xd8\xff":
+        return _jpeg_size(path)
+    if len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return _webp_size(path)
+    return None
+
+
+def _jpeg_size(path: Path) -> tuple[int, int] | None:
+    try:
+        with path.open("rb") as handle:
+            if handle.read(2) != b"\xff\xd8":
+                return None
+            while True:
+                marker = handle.read(1)
+                if not marker:
+                    return None
+                while marker != b"\xff":
+                    marker = handle.read(1)
+                    if not marker:
+                        return None
+                kind = handle.read(1)
+                if not kind:
+                    return None
+                code = kind[0]
+                if code in (0xD8, 0xD9, 0x01) or 0xD0 <= code <= 0xD7:
+                    continue
+                length_bytes = handle.read(2)
+                if len(length_bytes) < 2:
+                    return None
+                length = struct.unpack(">H", length_bytes)[0]
+                if code in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+                    data = handle.read(5)
+                    if len(data) < 5:
+                        return None
+                    height, width = struct.unpack(">HH", data[1:5])
+                    if width and height:
+                        return int(width), int(height)
+                    return None
+                handle.seek(max(0, length - 2), os.SEEK_CUR)
+    except OSError:
+        return None
+
+
+def _webp_size(path: Path) -> tuple[int, int] | None:
+    try:
+        data = path.read_bytes()[:40]
+    except OSError:
+        return None
+    if len(data) < 30 or data[12:16] not in (b"VP8X", b"VP8 ", b"VP8L"):
+        return None
+    chunk = data[12:16]
+    if chunk == b"VP8X":
+        width = 1 + int.from_bytes(data[24:27], "little")
+        height = 1 + int.from_bytes(data[27:30], "little")
+    elif chunk == b"VP8 ":
+        width = int.from_bytes(data[26:28], "little") & 0x3FFF
+        height = int.from_bytes(data[28:30], "little") & 0x3FFF
+    else:
+        bits = int.from_bytes(data[21:25], "little")
+        width = (bits & 0x3FFF) + 1
+        height = ((bits >> 14) & 0x3FFF) + 1
+    if width and height:
+        return int(width), int(height)
+    return None
+
+
+def _preview_score(rel: str) -> int:
+    low = rel.lower()
+    score = 0
+    for hint in ("/docs/", "/doc/", "/draw", "/figure", "/image", "/photo", "/picture", "/media/", "/scans/"):
+        if hint in f"/{low}":
+            score += 40
+    if low.endswith("readme.md"):
+        score += 20
+    return score
+
+
+def _previews(path: Path) -> list[dict]:
+    pictures: list[tuple[int, dict]] = []
+    pdfs: list[tuple[int, dict]] = []
+    markdowns: list[dict] = []
+    seen = 0
+
+    def consider(child: Path) -> None:
+        nonlocal seen
+        if not is_allowed_file(path, child):
+            return
+        rel = child.relative_to(path).as_posix()
+        suffix = child.suffix.lower()
+        try:
+            size = child.stat().st_size
+        except OSError:
+            return
+        if suffix == ".pdf":
+            if size < 1_000 or size > 40_000_000:
+                return
+            pdfs.append((_preview_score(rel), {"kind": "pdf", "rel": rel, "title": child.name}))
+            return
+        if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
+            return
+        if size > 12_000_000:
+            return
+        dims = image_size(child)
+        if not dims or not usable_picture(dims[0], dims[1], size, child.name):
+            return
+        pictures.append(
+            (
+                _preview_score(rel) + min(dims[0], dims[1]) // 40,
+                {
+                    "kind": "image",
+                    "rel": rel,
+                    "title": child.name,
+                    "width": dims[0],
+                    "height": dims[1],
+                },
+            )
+        )
 
     def walk(directory: Path, depth: int) -> None:
-        if len(found) >= 6 or depth > 3:
+        nonlocal seen
+        if depth > 4 or seen > 500 or len(pictures) + len(pdfs) > 40:
             return
         try:
-            children = list(directory.iterdir())
+            children = sorted(directory.iterdir(), key=lambda item: item.name.lower())
         except OSError:
             return
         for child in children:
-            if len(found) >= 6:
+            if seen > 500:
                 return
             name = child.name
-            if name in SKIP_WALK or name.startswith("."):
+            if name in SKIP_WALK or name.startswith(".") or name.lower() in {"icons", "favicon"}:
                 continue
             if child.is_dir():
                 walk(child, depth + 1)
                 continue
-            if child.suffix.lower() not in IMAGE_EXT:
-                continue
-            try:
-                if child.stat().st_size > 4_000_000:
-                    continue
-            except OSError:
-                continue
-            if not is_allowed_file(path, child):
-                continue
-            found.append({"rel": child.relative_to(path).as_posix()})
+            seen += 1
+            if child.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".pdf"}:
+                consider(child)
 
     walk(path, 0)
-    return found
+    for rel in ("README.md", "docs/README.md"):
+        file = path / rel
+        if file.is_file() and is_allowed_file(path, file):
+            excerpt = _clip(_read_text(file, 4_000), 1_400)
+            if len(excerpt) > 80:
+                markdowns.append({"kind": "markdown", "rel": rel, "title": "README.md", "excerpt": excerpt})
+            break
+    docs = path / "docs"
+    if docs.is_dir():
+        try:
+            files = sorted(docs.glob("*.md"), key=lambda item: item.name.lower())
+        except OSError:
+            files = []
+        for file in files:
+            if len(markdowns) >= 2:
+                break
+            if file.name.lower() in {"open-items.md", "readme.md"}:
+                continue
+            if not is_allowed_file(path, file):
+                continue
+            excerpt = _clip(_read_text(file, 4_000), 1_400)
+            if len(excerpt) < 80:
+                continue
+            markdowns.append(
+                {"kind": "markdown", "rel": file.relative_to(path).as_posix(), "title": file.name, "excerpt": excerpt}
+            )
+    pictures.sort(key=lambda item: item[0], reverse=True)
+    pdfs.sort(key=lambda item: item[0], reverse=True)
+    chosen = [item for _, item in pdfs[:3]] + [item for _, item in pictures[:6]] + markdowns[:2]
+    return chosen[:8]
+
+
+def render_pdf_png(project_name: str, rel: str) -> bytes | None:
+    """Rasterize the first PDF page. Returns nothing when the page cannot be drawn."""
+    file = project_file(project_name, rel)
+    if file is None or file.suffix.lower() != ".pdf":
+        return None
+    vendor = state_dir() / "py"
+    if vendor.is_dir() and str(vendor) not in sys.path:
+        sys.path.insert(0, str(vendor))
+    try:
+        import fitz
+    except ImportError:
+        return None
+    try:
+        stamp = file.stat().st_mtime_ns
+    except OSError:
+        return None
+    cache = state_dir() / "preview-cache"
+    cache.mkdir(parents=True, exist_ok=True)
+    key = hashlib.sha256(f"{file}|{stamp}".encode("utf-8", "replace")).hexdigest()[:24]
+    dest = cache / f"{key}.png"
+    if dest.is_file() and dest.stat().st_size > 1_000:
+        try:
+            return dest.read_bytes()
+        except OSError:
+            return None
+    try:
+        document = fitz.open(file)
+        if document.page_count < 1:
+            document.close()
+            return None
+        page = document[0]
+        pixmap = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
+        document.close()
+        if pixmap.width < 400 or pixmap.height < 400:
+            return None
+        png = pixmap.tobytes("png")
+    except Exception:
+        return None
+    try:
+        dest.write_bytes(png)
+    except OSError:
+        pass
+    return png
 
 
 def is_allowed_file(project: Path, candidate: Path) -> bool:
@@ -500,12 +712,11 @@ def collect_project(entry: Path, lite: bool) -> dict:
     git_info = project_git(entry) if entry.is_dir() else {"git": False}
     tracker_rel, tracker = ("", None)
     readme = ""
-    images: list[dict] = []
+    previews: list[dict] = []
     if entry.is_dir():
         tracker_rel, tracker = _tracker_for(entry)
         if not lite:
-            readme = _readme_for(entry)
-            images = _images(entry)
+            previews = _previews(entry)
     prs: list[dict] = []
     merged = None
     ci_failures: list[dict] = []
@@ -564,7 +775,7 @@ def collect_project(entry: Path, lite: bool) -> dict:
         "warnings": tracker["warnings"],
         "prompts": tracker["prompts"],
         "readme": readme,
-        "images": images,
+        "previews": previews,
         "prs": prs,
         "ciFailures": ci_failures,
         "merged": merged,
@@ -1090,22 +1301,9 @@ def build_snapshot(lite: bool = False) -> dict:
                         }
                     )
     projects.sort(key=lambda item: item.get("name", "").lower())
-    agents = _agent_rows()
-    sessions = _merge_agents(_claude_sessions(), agents)
-    cursor_sessions = _cursor_sessions()
-    usage = _usage_limits()
-    cursor_auth = bool((usage.get("cursor") or {}).get("authenticated"))
-    for row in cursor_sessions:
-        row["canSend"] = cursor_auth
-        row["sendNote"] = (
-            "agent --resume <chat-id> -p --mode ask"
-            if cursor_auth
-            else "agent status is not logged in, so this chat cannot receive a snippet."
-        )
     grok = _grok()
     worker = _worker()
-    remote = _claude_remote(agents)
-    capabilities = _capabilities(cursor_auth)
+    remote = _claude_remote(_agent_rows())
     alerts: list[dict] = []
     if not worker["up"]:
         alerts.append({"level": "warning", "text": "Cursor worker is not answering on 127.0.0.1:8787."})
@@ -1122,8 +1320,6 @@ def build_snapshot(lite: bool = False) -> dict:
                     "url": failure.get("url"),
                 }
             )
-        for blocker in (project.get("blockers") or [])[:3]:
-            alerts.append({"level": "blocker", "text": f"{project.get('name')}: {blocker}"})
         if project.get("rebasing") or project.get("merging"):
             alerts.append(
                 {
@@ -1131,55 +1327,13 @@ def build_snapshot(lite: bool = False) -> dict:
                     "text": f"{project.get('name')} has a merge or rebase in progress.",
                 }
             )
-    for row in sessions + cursor_sessions:
-        if row.get("state") == "blocked" or row.get("permission"):
-            alerts.append(
-                {
-                    "level": "permission",
-                    "text": f"{row.get('app')} {row.get('title')}: {row.get('permission') or 'permission prompt'}",
-                }
-            )
-    grouped = {"claude": [], "dispatch": [], "cursor": cursor_sessions, "grok": []}
-    for row in sessions:
-        app = row.get("app") if row.get("app") in {"claude", "dispatch"} else "claude"
-        grouped[app].append(row)
-    grouped["grok"].append(
-        {
-            "app": "grok",
-            "id": "grok-bot",
-            "shortId": "grok",
-            "title": "Grok Bot",
-            "state": "signed-in" if grok.get("signedIn") else "open",
-            "snippet": "",
-            "permission": None,
-            "context": None,
-            "updatedAt": None,
-            "canSend": False,
-            "sendNote": capabilities["grok"]["note"],
-            "webUrl": None,
-            "cwd": None,
-        }
-    )
     return {
         "generatedAt": _now(),
         "github": {"ok": _GH_STATE["ok"], "detail": _GH_STATE["detail"]},
         "lite": lite,
-        "roots": {"activeName": Path(roots["active"]).name},
-        "apps": {
-            "claude": remote,
-            "cursorWorker": worker,
-            "grok": grok,
-            "dispatch": {
-                "up": any(row.get("state") not in {"done", "failed", "stopped", "stored"} for row in grouped["dispatch"]),
-                "sessions": len(grouped["dispatch"]),
-            },
-        },
-        "usage": usage,
-        "capabilities": capabilities,
-        "alerts": alerts[:40],
+        "alerts": alerts[:12],
         "shortcuts": _shortcuts(Path(roots["shortcuts"])),
         "projects": projects,
-        "sessions": grouped,
     }
 
 
@@ -1211,6 +1365,6 @@ def project_file(project_name: str, rel: str) -> Path | None:
     candidate = (project / rel).resolve()
     if not is_allowed_file(project, candidate):
         return None
-    if candidate.suffix.lower() not in IMAGE_EXT | {".md", ".txt", ".rst"}:
+    if candidate.suffix.lower() not in IMAGE_EXT | {".pdf", ".md", ".markdown", ".rst", ".txt"}:
         return None
     return candidate

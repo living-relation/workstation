@@ -8,19 +8,23 @@
 </head>
 <body>
   <header>
-    <div>
-      <h1>Projects</h1>
-      <p id="stamp">Loading…</p>
-    </div>
+    <h1>Projects</h1>
+    <p id="stamp">Loading…</p>
   </header>
-  <section id="apps" aria-label="App status"></section>
-  <section id="alerts" aria-label="Alerts"></section>
-  <section id="mobile-ci" class="mobile-only" aria-label="CI failures"></section>
-  <section id="reply" class="mobile-only" aria-label="Reply"></section>
-  <section id="charts" class="desktop-only" aria-label="Charts"></section>
-  <section id="shortcuts" class="desktop-only" aria-label="Shortcuts"></section>
-  <section id="projects" class="desktop-only" aria-label="Projects"></section>
-  <section id="sessions" class="desktop-only" aria-label="Sessions"></section>
+  <div id="alerts"></div>
+  <div id="charts"></div>
+  <div id="shortcuts"></div>
+  <div id="board"></div>
+  <dialog id="light">
+    <div class="light-bar">
+      <strong id="light-title"></strong>
+      <span>
+        <button type="button" id="light-open">Open file</button>
+        <button type="button" id="light-close">Close</button>
+      </span>
+    </div>
+    <div id="light-body"></div>
+  </dialog>
   <script src="/static/app.js"></script>
 </body>
 </html>

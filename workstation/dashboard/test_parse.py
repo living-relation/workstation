@@ -37,6 +37,26 @@ SAMPLE = """
 """
 
 
+class PictureFilter(unittest.TestCase):
+    def test_icon_is_rejected(self) -> None:
+        self.assertFalse(collect.usable_picture(32, 32, 400, "favicon.png"))
+        self.assertFalse(collect.usable_picture(128, 128, 3000, "sprite.png"))
+
+    def test_document_is_kept(self) -> None:
+        self.assertTrue(collect.usable_picture(1400, 900, 80_000, "harness.png"))
+        self.assertTrue(collect.usable_picture(220, 900, 40_000, "drawing.png"))
+
+    def test_png_header(self) -> None:
+        raw = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8 + (1400).to_bytes(4, "big") + (900).to_bytes(4, "big")
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as handle:
+            handle.write(raw)
+            name = handle.name
+        try:
+            self.assertEqual(collect.image_size(Path(name)), (1400, 900))
+        finally:
+            Path(name).unlink(missing_ok=True)
+
+
 class ParseTracker(unittest.TestCase):
     def test_rows(self) -> None:
         parsed = collect.parse_tracker(SAMPLE)
