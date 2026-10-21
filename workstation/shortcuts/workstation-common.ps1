@@ -125,16 +125,21 @@ function Get-AgentWorkerProcs($procs, $supIds) {
 }
 
 # Claude Code remote control started by Workers Start (`claude --bg --remote-control`).
-# That command leaves a `claude.exe daemon run` supervisor which respawns --remote-control
-# children; matching only --remote-control is why Workers Stop looked like it failed.
+# Matches ONLY the --remote-control session processes and the `--bg-pty-host` that hosts one (its inner
+# command after ' -- ' is a --remote-control session, or a child of it is). Other `claude --bg` sessions,
+# their PTY hosts and the shared `claude.exe daemon run` never match, so Stop and Status don't touch them.
+function Test-RemoteControlArgs([string]$cmd) { $cmd -match '(^|\s)--remote-control(\s|$)' }
 function Get-RemoteControlProcs($procs) {
-    @($procs | Where-Object {
-        $_.ProcessId -ne $PID -and $_.Name -in @('claude.exe', 'node.exe') -and (
-            "$($_.CommandLine)" -match '--remote-control' -or
-            "$($_.CommandLine)" -match '--bg-pty-host' -or
-            ("$($_.Name)" -eq 'claude.exe' -and "$($_.CommandLine)" -match '\bdaemon run\b')
-        )
+    $procs = @($procs | Where-Object { $_.ProcessId -ne $PID -and $_.Name -in @('claude.exe', 'node.exe') })
+    $sessions = @($procs | Where-Object { "$($_.CommandLine)" -notmatch '--bg-pty-host' -and (Test-RemoteControlArgs "$($_.CommandLine)") })
+    $sessionParents = @($sessions | ForEach-Object { $_.ParentProcessId })
+    $hosts = @($procs | Where-Object {
+        $c = "$($_.CommandLine)"
+        $c -match '--bg-pty-host' -and (
+            (($c -split ' -- ', 2).Count -eq 2 -and (Test-RemoteControlArgs ($c -split ' -- ', 2)[1])) -or
+            ($sessionParents -contains $_.ProcessId))
     })
+    @($sessions) + @($hosts)
 }
 
 # Desktop Commander remote connector (`npx ... desktop-commander ... remote`).
@@ -151,20 +156,26 @@ function Get-DesktopCommanderRemoteProcs($procs) {
 
 # `claude --bg --remote-control` hands off to a background session named "remote-control".
 # Returns the active ones from `claude agents --json`.
-function Get-RemoteControlSessions {
+# Every active `claude --bg` session from `claude agents --json`. Sets $script:ClaudeAgentsOk = $false when the
+# list couldn't be read, so callers never treat "unknown" as "none".
+function Get-ClaudeBgSessions {
+    $script:ClaudeAgentsOk = $false
     if (-not $ClaudeExe) { return @() }
     $list = $null
     try {
         $json = (& $ClaudeExe agents --json 2>$null) | Out-String
+        if ($LASTEXITCODE -ne 0) { return @() }
         if ($json.Trim()) { $list = ConvertFrom-Json $json }
     } catch { return @() }
+    $script:ClaudeAgentsOk = $true
     $out = @()
     foreach ($s in @($list)) {
         if ($null -eq $s) { continue }
-        if ("$($s.name)" -match 'remote-control' -and "$($s.state)" -notin @('stopped', 'done', 'failed')) { $out += $s }
+        if ("$($s.state)" -notin @('stopped', 'done', 'failed')) { $out += $s }
     }
     return $out
 }
+function Get-RemoteControlSessions { @(Get-ClaudeBgSessions | Where-Object { "$($_.name)" -match 'remote-control' }) }
 
 function Test-WorkerHealth {
     try {
@@ -225,6 +236,11 @@ function Show-BridgeStatus {
         if ($rcs) { $parts += 'session ' + ((@($rcs) | ForEach-Object { "$($_.id) [$($_.state)]" }) -join ', ') }
         Write-Ok "Claude remote control running ($($parts -join '; '))"
     } else { Write-Off 'Claude remote control not running' }
+
+    # watch-pull (should be off; pulls are manual, one repo at a time)
+    $wp = Get-WatchPullProcs $procs
+    if ($wp) { Write-Warn "watch-pull RUNNING (pid $(Format-Pids $wp)) - should be off; Workers Stop ends it" }
+    else { Write-Ok 'watch-pull off (pulls are manual, one repo at a time)' }
 
     $dc = Get-DesktopCommanderRemoteProcs $procs
     if ($dc) { Write-Ok "Desktop Commander remote running (pid $(Format-Pids $dc))" }
