@@ -119,7 +119,7 @@ $script:hideTimer.Interval = [TimeSpan]::FromSeconds(60)
 $script:hideTimer.Add_Tick({
   $script:hideTimer.Stop()
   # A -Show that is pending (signal not yet drained) cancels the close; tracker.ps1 relaunches if we exit anyway.
-  if (Test-Path -LiteralPath $TrackerShowSignal) { $script:dirty = $true; $script:raise = $true; return }
+  if (Test-Path -LiteralPath $TrackerShowSignal) { $script:showHold = $true; $script:dirty = $true; $script:raise = $true; return }
   $win.Close() })  # exits the process
 
 function Add-Clickable($el, [string]$agentId, [string]$bot) {
@@ -214,6 +214,12 @@ function Render {
   $d = Read-JsonFile $TrackerFile
   $tasks = @(); $title = 'Tasks'
   if ($d) { $tasks = @($d.tasks | ? { $_ }); if ($d.title) { $title = [string]$d.title } }
+  # Forget the expanded state of jobs that are no longer in the list (only when the list was read).
+  if ($d) {
+    $ids = @($tasks | % { [string]$_.id })
+    $gone = @($script:expand.Keys | ? { $_ -notin $ids })
+    if ($gone.Count) { foreach ($k in $gone) { $script:expand.Remove($k) }; Save-Settings }
+  }
   $bots = Get-Bots
   $done = @($tasks | ? { (Get-JobStatus $_) -eq 'done' }).Count; $total = $tasks.Count
   $allSubs = @($tasks | % { @($_.subtasks | ? { $_ }) }); $subDone = @($allSubs | ? { $_.status -eq 'done' }).Count
@@ -251,7 +257,9 @@ function Render {
       }
     }
   }
-  if ($allDone) { $script:hideTimer.Stop(); $script:hideTimer.Start() } else { $script:hideTimer.Stop() }
+  # All done: close after 60 s, unless a -Show asked for the window (showHold). The hold ends when the list has open jobs again.
+  if (-not $allDone) { $script:showHold = $false }
+  if ($allDone -and -not $script:showHold) { $script:hideTimer.Stop(); $script:hideTimer.Start() } else { $script:hideTimer.Stop() }
   $c.Scroll.UpdateLayout(); $c.Scroll.ScrollToVerticalOffset($scrollY)
 }
 
@@ -266,6 +274,7 @@ function Bring-Front {
 
 # Live refresh: FileSystemWatcher on the tracker folder; changes are applied on the UI thread.
 $script:dirty = $false; $script:raise = $false
+$script:showHold = $true   # this process was started by -Show, so an all-done list stays open until it has open jobs again
 $fsw = New-Object IO.FileSystemWatcher $TrackerDir
 $fsw.NotifyFilter = 'LastWrite, FileName, Size'
 $fsw.EnableRaisingEvents = $true
@@ -280,13 +289,13 @@ $poll.Add_Tick({
     $n = $ev.SourceEventArgs.Name
     if ($n -in 'tracker.json','bots.json') { $script:dirty = $true }
     elseif ($n -eq 'show.signal') { $script:dirty = $true; $script:raise = $true }
-    if ($n -eq 'show.signal') { $script:hideTimer.Stop() }
+    if ($n -eq 'show.signal') { $script:showHold = $true; $script:hideTimer.Stop() }
     Remove-Event -EventIdentifier $ev.EventIdentifier
   }
   if ($script:dirty) { $script:dirty = $false; try { Render } catch { } }
   if ($script:raise) { $script:raise = $false; try { Bring-Front } catch { }
     Remove-Item -LiteralPath $TrackerShowSignal -ErrorAction SilentlyContinue }   # ack to tracker.ps1 -Show
-  elseif (Test-Path -LiteralPath $TrackerShowSignal) { $script:dirty = $true; $script:raise = $true } })   # missed event
+  elseif (Test-Path -LiteralPath $TrackerShowSignal) { $script:showHold = $true; $script:hideTimer.Stop(); $script:dirty = $true; $script:raise = $true } })   # missed event
 $poll.Start()
 
 Render

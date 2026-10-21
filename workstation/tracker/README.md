@@ -13,7 +13,7 @@ window position are remembered in `settings.json`. Clicking a task, or a bot's h
 bot's chat in the Grok Bot app (`grokbot://app/v1/agent?id=<agentId>`); if the `grokbot://` scheme is not
 registered, or there is no valid agentId (must be a GUID; all-zero placeholders count as missing), it just focuses the
 Grok Bot app (process name `Grok Bot`). When every task is done it shows "All done" and
-closes itself after a minute.
+closes itself after a minute, unless a `-Show` asked for it while everything was done (it then stays open until you close it or the list has open jobs again).
 
 There is no shortcut, Startup link or logon watcher. Bots open it on demand with `-Show`. Single instance (named
 mutex): if it's already open, `-Show` refreshes it and brings it to the front without taking focus. While open it
