@@ -1,5 +1,6 @@
 # workstation setup (Windows). Safe to re-run.
-#   powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1 [-NoModels] [-NoVenv]
+#   powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1 [-NoVenv]
+#   (-NoModels is still accepted and ignored: the models folder is set up by handbuilt-cad's setup, not here.)
 param([switch]$NoModels, [switch]$NoVenv)
 $ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
@@ -40,10 +41,5 @@ if (-not $NoVenv) {
 # 3. local settings
 if (-not (Test-Path "$Root\local.toml")) { Copy-Item "$Root\local.toml.example" "$Root\local.toml" }
 
-# 4. models folder from the Desktop known folder (OneDrive Desktops work)
-$models = if ($env:MODELS_DIR) { $env:MODELS_DIR } else { Join-Path ([Environment]::GetFolderPath('Desktop')) 'models' }
-if ($NoModels) { Write-Host "models folder: $models (not created: -NoModels)" }
-elseif (Test-Path $models) { Write-Host "models folder: $models (exists, left as is)" }
-else { New-Item -ItemType Directory $models | Out-Null; Write-Host "models folder: created $models" }
-
-Write-Host "Optional: setx MODELS_DIR `"$models`"  (setup does not change user env vars)"
+# The CAD models folder is created by handbuilt-cad's setup.ps1 / setup.sh (CAD lives only in that repo).
+Write-Host "workstation setup done"

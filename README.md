@@ -34,6 +34,11 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
     handbuilt-cad PR. A merged handbuilt-cad PR needs no change here: the bot that merged it pulls the clones fast-forward
     only. `last_checked` is information only (the main commit last checked with this workstation). If an install ever has to be
     frozen, set `ref` and `commit` to that sha and write why beside it.
-- `skills/` - non-CAD skills (CAD skills live in the CAD repo's `skills/`). Install both with `sync-skills.ps1 -From <cad-repo>\skills -From <this repo>\skills`.
+- No CAD here: CAD tools, CAD skills, their pins (`cad-tools.lock.yaml`) and the models folder live only in handbuilt-cad. The
+  lock keeps just the handbuilt-cad repo pointer and its `skills/` as a reference.
+- `skills/` - non-CAD skills. `install.ps1` links (junctions) every skill from `<Projects>\active\handbuilt-cad\skills` (or
+  `-CadRepo <clone>`) and from this repo's `skills/` into `~\.claude\skills` and `~\.cursor\skills` with `link-skills.ps1`, so a
+  `git pull` updates them. By hand: `link-skills.ps1 -From <handbuilt-cad clone>\skills -From <this repo>\skills [-WhatIf]`.
+  `sync-skills.ps1` (same arguments) installs copies instead of links.
 - `agents/projects-AGENTS.md` - the shared agent rules file for a projects root.
 - `install.ps1`, `preflight.ps1`, `uninstall.ps1`, `toolkit.psd1` - imported as they were; they are rewritten to read the pin file in a later PR.

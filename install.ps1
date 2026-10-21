@@ -73,7 +73,8 @@ param(
   [string]$UserHome,
   [switch]$AcceptConflicts,
   [string]$StartupFolder,
-  [string]$ReportDir
+  [string]$ReportDir,
+  [string]$CadRepo
 )
 
 $ErrorActionPreference = 'Stop'
@@ -866,6 +867,21 @@ if ($cs.Count -ge 1) {
     }
   }
 }
+
+# 9b. Skills: link (junction) every skill from the handbuilt-cad clone (CAD skills live only there) and from this repo's
+#     skills\ into ~\.claude\skills and ~\.cursor\skills. link-skills.ps1 backs up a same-name folder first; no deletes.
+if (-not $CadRepo) { $CadRepo = Join-Path $ProjectsRoot 'active\handbuilt-cad' }
+$skillFrom = @((Join-Path $PSScriptRoot 'skills'))
+if (Test-Path -LiteralPath (Join-Path $CadRepo 'skills')) { $skillFrom = @((Join-Path $CadRepo 'skills')) + $skillFrom }
+else { Note 'WARN' "handbuilt-cad clone not found at $CadRepo; CAD skills not linked (clone it, then re-run install.ps1 or link-skills.ps1)" }
+$skillTargets = @((Join-Path $DotClaude 'skills'), (Join-Path $DotCursor 'skills'))
+try {
+  foreach ($r in @(& (Join-Path $PSScriptRoot 'link-skills.ps1') -From $skillFrom -Targets $skillTargets -BackupRoot (Join-Path $UserHome '.skills-backup') -WhatIf:$WhatIf)) {
+    if ($r.Action -eq 'ok') { Note 'OK' "skill link already in place: $($r.Path)" }
+    elseif ($r.Action -eq 'would-link') { Note 'WOULD' "link skill $($r.Path) -> $($r.Target)" }
+    else { Note 'DONE' "skill $($r.Path) -> $($r.Target) ($($r.Action))"; if ($r.Action -eq 'linked') { Add-ManifestJson @{ kind = 'skill-link'; path = $r.Path; target = $r.Target } } }
+  }
+} catch { Note 'ERROR' ("link skills -- " + $_.Exception.Message) }
 
 # 10. Record the files this run added (uninstall.ps1 removes only files listed here)
 if (($AddedFiles.Count -gt 0 -or $AddedLinks.Count -gt 0 -or $AddedJson.Count -gt 0) -and -not $WhatIf) {
