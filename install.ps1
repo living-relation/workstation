@@ -816,8 +816,13 @@ else {
       try { $j = $ln.Substring(5) | ConvertFrom-Json; if ($j.kind -eq 'shortcut') { $scRecorded += $j } } catch { }
     }
   }
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $shortcutScript -LinkDir $scDir -NoPause
+  $suPre = @{}; foreach ($u in @($TK.StartupLinks)) { $suPre[$u.Name] = Test-Path -LiteralPath (Join-Path $StartupFolder "$($u.Name).lnk") }
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $shortcutScript -LinkDir $scDir -StartupDir $StartupFolder -NoPause
   $scExit = $LASTEXITCODE
+  foreach ($u in @($TK.StartupLinks)) {
+    $lp = Join-Path $StartupFolder "$($u.Name).lnk"
+    if (-not $suPre[$u.Name] -and (Test-Path -LiteralPath $lp)) { Add-ManifestJson @{ kind = 'startup-link'; path = $lp; script = (Join-Path $BridgeDir $u.Script) } }
+  }
   if (-not $scDirPre -and (Test-Path -LiteralPath $scDir)) { Add-ManifestJson @{ kind = 'shortcut-dir'; path = $scDir } }
   foreach ($sc in $TK.Shortcuts) {
     $lp = Join-Path $scDir "$($sc.Name).lnk"
