@@ -44,7 +44,8 @@ function Brush($h) { $bc.ConvertFromString($h) }
 # Window state from the registry; on first run migrate once (read-only) from an old settings.json.
 function Read-TrackerPrefs {
   try {
-    if (Test-Path $TrackerRegKey) {
+    # Only a key that already holds window state counts (an empty key, e.g. the parent of a test subkey, still migrates).
+    if ((Test-Path $TrackerRegKey) -and $null -ne (Get-ItemProperty -Path $TrackerRegKey -Name Width -ErrorAction SilentlyContinue)) {
       $r = Get-ItemProperty -Path $TrackerRegKey
       $ex = [pscustomobject]@{}; foreach ($x in @(([string]$r.Expanded) -split ',' | ? { $_ })) { $ex | Add-Member -Force $x $true }
       return [pscustomobject]@{ pinned = $(if ($null -ne $r.Pinned) { [int]$r.Pinned -ne 0 } else { $null }); left = $(if ($r.Left) { [double]$r.Left } else { $null })
