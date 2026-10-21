@@ -2,8 +2,10 @@
   "schema": 1,
   "name": "Skill Expert",
   "title": "Long Time Lurker",
-  "description": "",
-  "rules": [],
+  "description": "TODO: the live bot's description is empty; fill it in.",
+  "rules": [
+    "TODO: the live bot has no rules on record; add them."
+  ],
   "avatarShape": "wedge",
   "avatarColor": "yellow"
 }

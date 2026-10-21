@@ -339,7 +339,15 @@ foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'skill-link' })) {
   if (-not $it) { continue }
   # only links into this repo's own skills\ (links other repos made are never touched)
   if (-not ([string]$m.target).StartsWith((Join-Path $PSScriptRoot 'skills'), [StringComparison]::OrdinalIgnoreCase)) { Note 'OK' "skill link not owned by this repo, left alone: $p"; continue }
-  if ($it.LinkType -eq 'Junction' -and (@($it.Target | ForEach-Object { $_.TrimEnd('\') }) -icontains ([string]$m.target).TrimEnd('\'))) { Invoke-Change "remove skill link added by install (the link only; the skill stays in its repo): $p" { [IO.Directory]::Delete($p) } }
+  if ($it.LinkType -eq 'Junction' -and (@($it.Target | ForEach-Object { $_.TrimEnd('\') }) -icontains ([string]$m.target).TrimEnd('\'))) {
+    Invoke-Change "remove skill link added by install (the link only; the skill stays in its repo): $p" { [IO.Directory]::Delete($p) }
+    $bk = [string]$m.backup
+    if ($bk) {
+      if ((Test-Path -LiteralPath $bk) -and -not (Test-Path -LiteralPath $p)) { Invoke-Change "restore the skill install backed up: $bk -> $p" { Move-Item -LiteralPath $bk -Destination $p } }
+      elseif (Test-Path -LiteralPath $bk) { Note 'TODO' "backed-up skill kept at $bk ($p is in use); restore it by hand if you want it" }
+      else { Note 'WARN' "install recorded a skill backup that is gone: $bk" }
+    }
+  }
   else { Note 'WARN' "skill link changed since install, left alone: $p" }
 }
 

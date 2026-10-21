@@ -72,7 +72,7 @@ if ($already) {
                 }
                 if ((Test-Path $err) -and ((Get-Content $err -Raw -ErrorAction SilentlyContinue) -match 'Error|FAILED|Cannot find')) { break }
             }
-            if ($ok) { Write-Ok 'Desktop Commander Remote is connected ($env:COMPUTERNAME Online)' }
+            if ($ok) { Write-Ok "Desktop Commander Remote is connected ($env:COMPUTERNAME Online)" }
             else { Write-Off 'started in background; check remote.out.log if it does not come online' }
         }
     } catch {

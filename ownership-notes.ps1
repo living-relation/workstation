@@ -21,8 +21,8 @@ $own = @(
   @{ Dir = (Join-Path $StateDir 'cursor-worker'); What = 'Cursor worker state and logs' },
   @{ Dir = (Join-Path $StateDir 'dashboard'); What = 'local dashboard runtime files (logs, token, cache; never commit them)' },
   @{ Dir = (Join-Path $StateDir 'backups'); What = 'backups the installer made before replacing links (add-only)' },
-  @{ Dir = (Join-Path $ProjectsRoot '_claude'); What = 'memory-sync scripts and the install manifest. The memory files inside are your own data; the repo only manages the scripts and links' },
-  @{ Dir = (Join-Path $Repo 'shortcuts'); What = 'generated shortcuts (install-shortcuts.ps1 rebuilds them from toolkit.psd1)' }
+  @{ Dir = (Join-Path $ProjectsRoot '_claude'); What = 'memory-sync scripts and the install manifest. The memory files inside are your own data; the repo only manages the scripts and links' }
+  # Nothing is written inside the clone itself (that would dirty it); the repo's own README covers its folders.
 )
 foreach ($o in $own) {
   $body = "# Owned by the workstation repo`n`nThis folder is created and managed by the workstation repo ($Url, local clone ``$Repo``).`nIt holds $($o.What).`n`n- Don't move or rename it; the toolkit finds it by this path.`n- Change it through the workstation repo (install.ps1 / uninstall.ps1), not by hand.`n- No other repo owns it.`n"

@@ -882,27 +882,31 @@ try {
 
 # 9c. Optional Grok Bot bot profiles (Grok Bot only). Skipped quietly when Grok Bot isn't installed.
 #     "Add" only writes ready-to-apply profile files + paste sheets to <StateDir>\bots (see README "Optional bot profiles").
-$grokBot = @(Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue | Where-Object { "$($_.DisplayName)" -like 'Grok Bot*' }).Count -gt 0 -or
-           (Test-Path -LiteralPath (Join-Path $RoamingAppData 'Microsoft\Windows\Start Menu\Programs\Grok Bot.lnk')) -or
-           (Test-Path -LiteralPath (Join-Path $RoamingAppData 'Grok Bot'))
-$profiles = @(Get-ChildItem -Path (Join-Path $PSScriptRoot 'bots\profiles\*.profile.json') -ErrorAction SilentlyContinue)
-if ($grokBot -and $profiles.Count) {
-  $doBots = $false
-  if ($NoBots) { Note 'OK' 'optional bot profiles: skipped (-NoBots)' }
-  elseif ($Bots) { $doBots = $true }
-  elseif ($WhatIf) { Note 'WOULD' "ask 'Add the optional bot profiles?' (default No; -Bots / -NoBots answer it)" }
-  else { $doBots = ((Read-Host 'Add the optional bot profiles? [y/N]') -match '^(y|yes)$'); if (-not $doBots) { Note 'OK' 'optional bot profiles: skipped (answered No)' } }
-  if ($doBots -or ($Bots -and $WhatIf)) {
-    $botOut = Join-Path $StateDir 'bots'
-    foreach ($p in $profiles) {
-      try {
-        $r = & (Join-Path $PSScriptRoot 'bots\merge-bot-profile.ps1') -Profile $p.FullName -OutDir $botOut -NonInteractive:$Bots -WhatIf:$WhatIf
-        foreach ($x in @($r)) { if ($x) { Note $(if ($WhatIf) { 'WOULD' } else { 'DONE' }) "bot profile '$($x.Bot)': $($x.Action)$(if ($x.Sheet) { " -> $($x.Sheet)" })" } }
-      } catch { Note 'ERROR' ("bot profile $($p.Name) -- " + $_.Exception.Message) }
+try {
+  $ra = if ($RoamingAppData) { $RoamingAppData } else { $env:APPDATA }
+  $sd = if ($StateDir) { $StateDir } else { Join-Path $env:LOCALAPPDATA 'Workstation' }
+  $grokBot = @(Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue | Where-Object { "$($_.DisplayName)" -like 'Grok Bot*' }).Count -gt 0 -or
+             (Test-Path -LiteralPath (Join-Path $ra 'Microsoft\Windows\Start Menu\Programs\Grok Bot.lnk')) -or
+             (Test-Path -LiteralPath (Join-Path $ra 'Grok Bot'))
+  $profiles = @(Get-ChildItem -Path (Join-Path $PSScriptRoot 'bots\profiles\*.profile.json') -ErrorAction SilentlyContinue)
+  if ($grokBot -and $profiles.Count) {
+    $doBots = $false
+    if ($NoBots) { Note 'OK' 'optional bot profiles: skipped (-NoBots)' }
+    elseif ($Bots) { $doBots = $true }
+    elseif ($WhatIf) { Note 'WOULD' "ask 'Add the optional bot profiles?' (default No; -Bots / -NoBots answer it)" }
+    else { $doBots = ((Read-Host 'Add the optional bot profiles? [y/N]') -match '^(y|yes)$'); if (-not $doBots) { Note 'OK' 'optional bot profiles: skipped (answered No)' } }
+    if ($doBots -or ($Bots -and $WhatIf)) {
+      $botOut = Join-Path $sd 'bots'
+      foreach ($p in $profiles) {
+        try {
+          $r = & (Join-Path $PSScriptRoot 'bots\merge-bot-profile.ps1') -ProfilePath $p.FullName -OutDir $botOut -NonInteractive:$Bots -WhatIf:$WhatIf
+          foreach ($x in @($r)) { if ($x) { Note $(if ($WhatIf) { 'WOULD' } else { 'DONE' }) "bot profile '$($x.Bot)': $($x.Action)$(if ($x.Sheet) { " -> $($x.Sheet)" })" } }
+        } catch { Note 'ERROR' ("bot profile $($p.Name) -- " + $_.Exception.Message) }
+      }
+      if ($doBots -and -not $WhatIf) { Note 'TODO' "apply the bot profiles in Grok Bot by hand from the paste sheets in $botOut" }
     }
-    if ($doBots -and -not $WhatIf) { Note 'TODO' "apply the bot profiles in Grok Bot by hand from the paste sheets in $botOut" }
   }
-}
+} catch { Note 'WARN' ("optional bot profiles skipped -- " + $_.Exception.Message) }
 
 # 9d. Ownership notes in the folders this install creates (add-only).
 try {
