@@ -105,19 +105,11 @@ if ($Show) {
   function Test-WindowOpen { try { $w = [Threading.Mutex]::OpenExisting($TrackerWindowMutex); $w.Dispose(); $true } catch { $false } }
   $launch = -not (Test-WindowOpen)
   if (-not $launch) {
-    # Already open: write a signal file; the window refreshes, cancels any auto-close, comes to the front
-    # without taking focus, and deletes the file as its acknowledgement. If the window exits instead
-    # (e.g. its 60 s 'All done' close fired at the same moment), start a fresh one so the -Show is not lost.
-    [IO.File]::WriteAllText($TrackerShowSignal, $now)
-    $launch = $true
-    for ($i = 0; $i -lt 40; $i++) {
-      Start-Sleep -Milliseconds 100
-      if (-not (Test-Path -LiteralPath $TrackerShowSignal)) { $launch = $false; break }
-      if (-not (Test-WindowOpen)) { break }
-    }
-    if ($launch -and (Test-WindowOpen)) { $launch = $false }   # window alive but slow: it will pick the signal up
-  }
-  if ($launch) {
+    # Already open: set the window's named show event; it refreshes, cancels any auto-close and comes to the front
+    # without taking focus. If the window exits instead (e.g. its 60 s 'All done' close fired at that moment), start a new one.
+    try { $ev = [Threading.EventWaitHandle]::OpenExisting($TrackerShowEvent); [void]$ev.Set(); $ev.Dispose() } catch { $launch = $true }
+    if (-not $launch) { for ($i = 0; $i -lt 15; $i++) { Start-Sleep -Milliseconds 100; if (-not (Test-WindowOpen)) { $launch = $true; break } } }
+  }  if ($launch) {
     $win = Join-Path $PSScriptRoot 'tracker-window.ps1'
     Start-Process powershell.exe -WindowStyle Hidden -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-STA','-WindowStyle','Hidden','-File',"`"$win`"")
   }
