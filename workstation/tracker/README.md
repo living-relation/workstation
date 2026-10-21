@@ -1,15 +1,20 @@
 # Live task tracker
 
-A read-only window (about 560x820, resizable, dark, large type, pinned on top by default) that shows a bot's current
-jobs: the title, a big "X of Y done" job count with "N of M subtasks done" under it, a progress bar, then one
-3D "bubble" card per job (rounded, gradient, drop shadow, top highlight, left accent strip in the bot's color).
+A compact window (about 340x520, resizable, dark, pinned on top by default) that shows a bot's current jobs: the
+title, an "X of Y done" job count with "N of M subtasks done" under it, a progress bar, a small **Clear finished**
+button, then one small card per job (rounded, gradient, light shadow, left accent strip in the bot's color).
 Each card has a status dot in the bot's color (ring = pending, half = in progress, filled = done, orange = blocked),
-the title and note, and when the job has subtasks a progress bar, "X of Y" and a collapsible **Subtasks** expander
-(collapsed by default; expand state kept per job id in `settings.json` for the session). The bot's own jobs are
-grouped by `group`; jobs with an `owner` come after a blue divider under **Delegated**, by owner.
+the title, the note and, when the job has subtasks, a chevron and "done/total". Cards start collapsed: subtasks show
+only after you click the chevron (expand state kept per job id in `settings.json`). Finished jobs and finished
+subtasks are dimmed and crossed off. The top level should hold only the main jobs the user gave; related or
+follow-on work goes in that job's `subtasks`. The bot's own jobs are grouped by `group`; jobs with an `owner` come
+under the **Delegated** header (blue line under it), by owner.
 
-The only controls are drag (title bar), pin toggle (always on top on/off), minimize, close (X) and the subtask expanders. (Minimize was kept although the spec only named drag/pin/close.) Pin state and
-window position are remembered in `settings.json`. Clicking a task, or a bot's header under Delegated, opens that
+Controls: drag (title bar), pin toggle (always on top on/off), minimize, close (X), the chevrons, and **Clear
+finished**. Clear finished is the window's only write: it removes every done job (with its subtasks) from
+`tracker.json`, after copying the file to `tracker.json.bak` (one backup, overwritten on each clear). Done subtasks
+under open jobs stay, crossed off, until their job is cleared. Pin state and window position are remembered in
+`settings.json`. Clicking a task, or a bot's header under Delegated, opens that
 bot's chat in the Grok Bot app (`grokbot://app/v1/agent?id=<agentId>`); if the `grokbot://` scheme is not
 registered, or there is no valid agentId (must be a GUID; all-zero placeholders count as missing), it just focuses the
 Grok Bot app (process name `Grok Bot`). When every task is done it shows "All done" and
@@ -53,7 +58,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File $t -Clear
 | `README.txt` | Names this repo as the owner of the folder |
 | `tracker.json` | The task list (schema below) |
 | `bots.json` | Bot name -> agentId map, used when a task has no `agentId` (starts as `{}`; `bots.example.json` only shows the format) |
-| `settings.json` | `{pinned, left, top, width, height}` |
+| `settings.json` | `{pinned, left, top, width, height, expanded}` |
+| `tracker.json.bak` | Copy of `tracker.json` taken just before the last **Clear finished** (only the latest is kept) |
 | `show.signal` | Written by `-Show` to bring an open window to the front; the window deletes it as an ack (and cancels any pending auto-close). If the window exits instead, `-Show` starts a new one |
 
 ### tracker.json schema
