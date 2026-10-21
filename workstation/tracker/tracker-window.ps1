@@ -71,17 +71,28 @@ $c.PinBtn.Add_Click({ $script:pinned = -not $script:pinned; Set-Pin; Save-Settin
 $c.MinBtn.Add_Click({ $win.WindowState = 'Minimized' })
 $c.CloseBtn.Add_Click({ $win.Close() })
 $win.Add_Closing({ Save-Settings })
-# Clear finished: the window's only write. Removes done jobs (with their subtasks); backs up tracker.json first (one backup, overwritten).
+# Clear finished: the window's only write. Removes done jobs (with their subtasks) under the shared write mutex,
+# after an atomic copy to tracker.json.bak (one backup, overwritten). A failure shows a short note on the button.
+$script:clearNote = New-Object Windows.Threading.DispatcherTimer
+$script:clearNote.Interval = [TimeSpan]::FromSeconds(6)
+$script:clearNote.Add_Tick({ $script:clearNote.Stop(); $c.ClearBtn.Content = 'Clear finished'; $c.ClearBtn.Foreground = Brush '#FFB0B3B8'
+  $c.ClearBtn.ToolTip = 'Remove all finished jobs from the list (backs up tracker.json first)' })
 $c.ClearBtn.Add_Click({
   try {
-    $d = Read-JsonFile $TrackerFile; if (-not $d) { return }
-    $keep = @($d.tasks | ? { $_ -and (Get-JobStatus $_) -ne 'done' })
-    if ($keep.Count -eq @($d.tasks | ? { $_ }).Count) { return }
-    Copy-Item -LiteralPath $TrackerFile -Destination (Join-Path $TrackerDir 'tracker.json.bak') -Force
-    $o = [ordered]@{}; foreach ($p in $d.PSObject.Properties) { $o[$p.Name] = $p.Value }
-    $o['tasks'] = $keep; $o['updated'] = (Get-Date).ToString('o')
-    Write-JsonAtomic $TrackerFile $o; $script:dirty = $true
-  } catch { }
+    Invoke-TrackerLocked -TimeoutSec 3 {
+      $d = Read-JsonFile $TrackerFile; if (-not $d) { throw 'could not read tracker.json' }
+      $keep = @($d.tasks | ? { $_ -and (Get-JobStatus $_) -ne 'done' })
+      if ($keep.Count -eq @($d.tasks | ? { $_ }).Count) { return }
+      Backup-TrackerFile
+      $o = [ordered]@{}; foreach ($p in $d.PSObject.Properties) { $o[$p.Name] = $p.Value }
+      $o['tasks'] = $keep; $o['updated'] = (Get-Date).ToString('o')
+      Write-JsonAtomic $TrackerFile $o
+    }
+    $script:dirty = $true
+  } catch {
+    $c.ClearBtn.Content = 'Clear failed'; $c.ClearBtn.Foreground = Brush '#FFF2A33A'; $c.ClearBtn.ToolTip = "Clear failed: $($_.Exception.Message)"
+    $script:clearNote.Stop(); $script:clearNote.Start()
+  }
 })
 
 

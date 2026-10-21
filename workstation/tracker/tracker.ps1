@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Update the live task tracker (%LOCALAPPDATA%\Workstation\tracker\tracker.json). Writes are atomic.
 .EXAMPLE
@@ -30,6 +30,8 @@ function Get-Data {
   $d
 }
 
+$bp = $PSBoundParameters   # the locked block below is a scriptblock with its own (empty) $PSBoundParameters
+$out = Invoke-TrackerLocked {
 if ($Set) {
   if ($Path) { $raw = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 }
   elseif ([Console]::IsInputRedirected) {
@@ -76,7 +78,7 @@ if ($Set) {
     } else {
       $st = $subs | ? { $_.id -eq $Id } | Select -First 1
       if (-not $st) { throw "No subtask '$Id' in '$Job'." }
-      foreach ($k in 'Status','Note','Title') { if ($PSBoundParameters.ContainsKey($k)) { $st | Add-Member -Force $k.ToLower() $PSBoundParameters[$k] } }
+      foreach ($k in 'Status','Note','Title') { if ($bp.ContainsKey($k)) { $st | Add-Member -Force $k.ToLower() $bp[$k] } }
     }
     $j.subtasks = @($subs)
   } elseif ($Update -or $Remove) {
@@ -85,18 +87,20 @@ if ($Set) {
     if ($Remove) { $d.tasks = @($d.tasks | ? { $_.id -ne $Id }) }
     else {
       foreach ($k in 'Status','Note','Title','Group','Owner','AgentId') {
-        if ($PSBoundParameters.ContainsKey($k)) { $n = $k.Substring(0,1).ToLower() + $k.Substring(1); $t | Add-Member -Force $n $PSBoundParameters[$k] }
+        if ($bp.ContainsKey($k)) { $n = $k.Substring(0,1).ToLower() + $k.Substring(1); $t | Add-Member -Force $n $bp[$k] }
       }
     }
   } elseif ($Show -and -not $ListTitle) { $d = $null
   } elseif (-not $ListTitle) { Get-Content -LiteralPath $TrackerFile -Raw -ErrorAction SilentlyContinue; return }
-  if ($d) { $d.updated = $now }
+  if ($d) { $d | Add-Member -Force updated $now }
 }
 if ($d) {
   Write-JsonAtomic $TrackerFile $d
   $done = @($d.tasks | ? { $_ -and (Get-JobStatus $_) -eq 'done' }).Count
   "tracker: $done of $(@($d.tasks).Count) done"
 }
+}   # end of locked read-modify-write
+if ($null -ne $out) { $out }
 if ($Show) {
   function Test-WindowOpen { try { $w = [Threading.Mutex]::OpenExisting($TrackerWindowMutex); $w.Dispose(); $true } catch { $false } }
   $launch = -not (Test-WindowOpen)

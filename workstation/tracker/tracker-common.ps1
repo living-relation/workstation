@@ -1,4 +1,4 @@
-# Shared paths and helpers for the live task tracker (workstation repo: workstation\tracker).
+﻿# Shared paths and helpers for the live task tracker (workstation repo: workstation\tracker).
 # WORKSTATION_TRACKER_DIR overrides the data folder (testing against a temp copy).
 $TrackerDir      = if ($env:WORKSTATION_TRACKER_DIR) { $env:WORKSTATION_TRACKER_DIR } else { Join-Path $env:LOCALAPPDATA 'Workstation\tracker' }
 $TrackerFile     = Join-Path $TrackerDir 'tracker.json'
@@ -9,6 +9,28 @@ $TrackerWindowMutex = 'Local\WorkstationTrackerWindow' + $(if ($env:WORKSTATION_
   '-' + (-join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($TrackerDir.ToLower())) | % { $_.ToString('x2') }))
 } else { '' })
 $TrackerShowSignal = Join-Path $TrackerDir 'show.signal'
+$TrackerBackup     = Join-Path $TrackerDir 'tracker.json.bak'
+# Every read-modify-write of tracker.json (tracker.ps1 and the window's Clear finished) holds this named mutex.
+$TrackerWriteMutex = $TrackerWindowMutex.Replace('WorkstationTrackerWindow', 'WorkstationTrackerWrite')
+
+# Runs $Body while holding the write mutex (waits up to $TimeoutSec; an abandoned mutex counts as acquired).
+function Invoke-TrackerLocked([scriptblock]$Body, [int]$TimeoutSec = 10) {
+  $m = New-Object Threading.Mutex($false, $TrackerWriteMutex)
+  $got = $false
+  try {
+    try { $got = $m.WaitOne([TimeSpan]::FromSeconds($TimeoutSec)) } catch [Threading.AbandonedMutexException] { $got = $true }
+    if (-not $got) { throw "tracker.json is locked by another writer (waited $TimeoutSec s)." }
+    & $Body
+  } finally { if ($got) { $m.ReleaseMutex() }; $m.Dispose() }
+}
+
+# Copies tracker.json to tracker.json.bak atomically (temp file, then replace). Only the latest backup is kept.
+function Backup-TrackerFile {
+  if (-not (Test-Path -LiteralPath $TrackerFile)) { return }
+  $tmp = "$TrackerBackup.$PID.tmp"
+  Copy-Item -LiteralPath $TrackerFile -Destination $tmp -Force
+  if (Test-Path -LiteralPath $TrackerBackup) { [IO.File]::Replace($tmp, $TrackerBackup, [NullString]::Value) } else { [IO.File]::Move($tmp, $TrackerBackup) }
+}
 
 # Job status: an explicit 'blocked' on the job wins; otherwise derived from subtasks when it has any.
 function Get-JobStatus($t) {
@@ -29,7 +51,8 @@ function Initialize-TrackerDir {
     @"
 This folder belongs to the workstation repo (github.com/living-relation/workstation, tool: workstation\tracker).
 It holds runtime state for the live task tracker window: tracker.json (tasks), bots.json (bot name -> agentId),
-settings.json (pin state, window position). Safe to delete; the tracker recreates it. Schema: workstation\tracker\README.md.
+settings.json (pin state, window position, expanded jobs),
+tracker.json.bak (copy taken just before the last Clear finished; only the latest is kept). Safe to delete; the tracker recreates it. Schema: workstation\tracker\README.md.
 "@ | Set-Content -LiteralPath $readme -Encoding UTF8
   }
   # Start empty; the example file in the repo is documentation only, never copied.
