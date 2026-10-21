@@ -24,7 +24,7 @@ creates them pointing at this clone:
 - Startup folder: Desktop Commander Remote (hidden, via `run-hidden.vbs`) and Dashboard (`start-dashboard.ps1 -NoPause`).
   A Startup link of the same name is replaced only if it already runs the same script, after a backup to
   `%LOCALAPPDATA%\Workstation\backups\startup-links-<time>\`.
-- Desktop Commander remote (`workstation\desktop-commander-remote\`) runs `npx @wonderwhy-er/desktop-commander@latest
+- Desktop Commander remote (`workstation\desktop-commander-remote\`) runs `npx @wonderwhy-er/desktop-commander@<pinned version>
   remote`; it keeps no token in the repo (the device login is held by Desktop Commander itself), and its logs go to
   `%LOCALAPPDATA%\Workstation\desktop-commander-remote\`.
 WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `bash setup.sh`.
@@ -46,7 +46,7 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
 
 `install.ps1` checks whether Grok Bot is installed: an uninstall entry named "Grok Bot", a "Grok Bot" Start-menu shortcut, or
 `%APPDATA%\Grok Bot`. If it isn't, the step is skipped without a message. If it is, the installer asks
-**"Add the optional bot profiles? [y/N]"** (default No). `-Bots` says yes, `-NoBots` says no, and `-WhatIf` only reports.
+**"Add the optional bot profiles? [y/N]"** (default No). `-Bots` says yes, `-NoBots` says no, and `-WhatIf` only reports. With `-Bots`, existing bots are found in `-BotsExistingDir` (else `$env:GROK_BOT_AGENTS_DIR`); without either, it warns and skips the bots. Profiles that still contain TODO placeholders (skill-expert) are skipped.
 
 "Add" runs `bots\merge-bot-profile.ps1` for each `bots\profiles\*.profile.json` and **only writes files** to
 `%LOCALAPPDATA%\Workstation\bots\`: a ready-to-apply `<bot>.<new|update|merged>.json` and a `<bot>.md` paste sheet

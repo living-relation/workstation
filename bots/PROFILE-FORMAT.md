@@ -14,6 +14,5 @@ It never holds secrets, server or account ids, memory, chats, routines or attach
 
 Any other key (for example `serverId`, `harness`, `memory`, `chats`, `routines`) is dropped with a warning.
 
-`merge-bot-profile.ps1` is generic. It works on any folder of these files and isn't tied to any repo, so another repo
-(for example the repo that keeps SteveCAD's profile) can ship a byte-identical copy next to its own profile. Check that a copy matches with
-`Get-FileHash`.
+`merge-bot-profile.ps1` is generic. It works on any folder of these files and isn't tied to any repo, so other repos
+may vendor it next to their own profiles.

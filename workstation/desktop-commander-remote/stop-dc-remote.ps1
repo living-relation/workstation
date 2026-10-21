@@ -13,7 +13,7 @@ function Write-Log([string]$msg) {
 Write-Host ''
 Write-Host '==== Desktop Commander Remote Stop ====' -ForegroundColor Cyan
 
-$matches = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+$dcProcs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
     $_.CommandLine -and
     $_.CommandLine -match 'desktop-commander' -and
     $_.CommandLine -match '\bremote\b' -and
@@ -21,11 +21,11 @@ $matches = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where
     $_.CommandLine -notmatch 'start-dc-remote'
 })
 
-if (-not $matches) {
+if (-not $dcProcs) {
     Write-Host '  not running' -ForegroundColor DarkGray
     Write-Log 'not running'
 } else {
-    foreach ($p in $matches) {
+    foreach ($p in $dcProcs) {
         $null = & taskkill.exe /T /F /PID $p.ProcessId 2>&1
         if (Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue) {
             try {

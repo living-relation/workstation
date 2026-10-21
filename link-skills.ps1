@@ -36,6 +36,6 @@ foreach ($s in $plan) {
       Move-Item -LiteralPath $dest $backup
     }
     New-Item -ItemType Junction -Path $dest -Target $want | Out-Null
-    [pscustomobject]@{ Path = $dest; Target = $want; Action = $(if ($backup) { "relinked; the old one is backed up at $backup" } else { 'linked' }) }
+    [pscustomobject]@{ Path = $dest; Target = $want; Backup = $backup; Action = $(if ($backup) { "relinked; the old one is backed up at $backup" } else { 'linked' }) }
   }
 }

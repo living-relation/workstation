@@ -2,10 +2,12 @@
 # Start Desktop Commander remote in the background.
 # Logon shortcut calls this with no switches (silent).
 # Manual shortcut passes -Show so a window reports status.
-# Command: npx @wonderwhy-er/desktop-commander@latest remote
+# Command: npx @wonderwhy-er/desktop-commander@<pinned version> remote
 # Lives in the workstation repo; the Startup link and shortcuts come from toolkit.psd1 via install-shortcuts.ps1.
 # Logs stay in %LOCALAPPDATA%\Workstation\desktop-commander-remote (never in the clone). No tokens here.
 param([switch]$Show, [switch]$NoPause)
+# Pinned Desktop Commander version; keep in step with workstation.lock.yaml (upstream.desktop_commander).
+$DcVersion = '0.3.0'
 $ErrorActionPreference = 'Continue'
 $dir = Join-Path $env:LOCALAPPDATA 'Workstation\desktop-commander-remote'
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
@@ -39,7 +41,8 @@ if ($already) {
     Write-Log ("already running (pids: $pids)")
     if ($Show) { Write-Ok "already running (pid $pids)" }
 } else {
-    $npxCmd = Join-Path $env:ProgramFiles 'nodejs\npx.cmd'
+    $npxCmd = (Get-Command npx.cmd -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+    if (-not $npxCmd) { $npxCmd = Join-Path $env:ProgramFiles 'nodejs\npx.cmd' }
     if (-not (Test-Path -LiteralPath $npxCmd)) {
         Write-Log "launch FAILED: npx.cmd not found at $npxCmd"
         if ($Show) { Write-Bad "npx.cmd not found at $npxCmd" }
@@ -54,8 +57,8 @@ if ($already) {
     $err = Join-Path $dir 'remote.err.log'
     try {
         $p = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\cmd.exe') `
-            -ArgumentList @('/c', 'npx.cmd', '--yes', '@wonderwhy-er/desktop-commander@latest', 'remote') `
-            -WorkingDirectory (Join-Path $env:ProgramFiles 'nodejs') `
+            -ArgumentList @('/c', 'npx.cmd', '--yes', "@wonderwhy-er/desktop-commander@$DcVersion", 'remote') `
+            -WorkingDirectory (Split-Path $npxCmd -Parent) `
             -WindowStyle Hidden -PassThru `
             -RedirectStandardOutput $out -RedirectStandardError $err -ErrorAction Stop
         Write-Log ("launched pid $($p.Id)")
@@ -69,7 +72,7 @@ if ($already) {
                 }
                 if ((Test-Path $err) -and ((Get-Content $err -Raw -ErrorAction SilentlyContinue) -match 'Error|FAILED|Cannot find')) { break }
             }
-            if ($ok) { Write-Ok 'Desktop Commander Remote is connected (DansPC Online)' }
+            if ($ok) { Write-Ok "Desktop Commander Remote is connected ($env:COMPUTERNAME Online)" }
             else { Write-Off 'started in background; check remote.out.log if it does not come online' }
         }
     } catch {

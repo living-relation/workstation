@@ -1,5 +1,5 @@
 # merge-bot-profile.ps1 - prepare a Grok Bot bot profile (*.profile.json, see PROFILE-FORMAT.md) for adding or merging.
-# Generic: works on any profile file; not tied to any repo (a byte-identical copy may ship in other repos).
+# Generic: works on any profile file; not tied to any repo (other repos may vendor it).
 #
 # It never talks to Grok Bot and never touches any bot's memory, chats or routines. Grok Bot has no import API this
 # script uses. It only WRITES FILES into -OutDir:
@@ -10,10 +10,10 @@
 #
 # Existing bot detection (read-only), in this order:
 #   -Existing <file>        a JSON copy of the current bot's profile (name/title/description/rules)
-#   -ExistingDir <folder>   searched for *.json / */profile.json whose "name" matches (case-insensitive). Default: the
-#                           Grok Bot agent data folder when this runs on the Grok Bot box (/home/box/agent-data/agents).
+#   -ExistingDir <folder>   searched for *.json / */profile.json whose "name" matches (case-insensitive). No default:
+#                           only the file or folder you pass is read.
 #   otherwise (interactive) asks "Does a Grok Bot named X already exist?" and, if yes, for a JSON copy of its profile.
-#   otherwise (non-interactive) the bot is treated as new, and the paste sheet tells you to check Grok Bot first.
+#   otherwise (non-interactive) it warns and SKIPS the bot (it can't tell whether one exists; never 'new' by guess).
 #
 # For an existing bot: -Mode merge (default) | update | skip | ask (interactive asks per bot, default merge).
 #   merge  = keep the existing fields, append the repo rules it doesn't already have, and ask about each conflict
@@ -21,7 +21,7 @@
 #   update = replace the profile and rules with the repo version
 #   skip   = leave it
 [CmdletBinding(SupportsShouldProcess = $true)]
-param([Parameter(Mandatory = $true)][string]$Profile,
+param([Parameter(Mandatory = $true)][string]$ProfilePath,
       [string]$Existing,
       [string]$ExistingDir,
       [ValidateSet('ask', 'merge', 'update', 'skip')][string]$Mode = 'ask',
@@ -45,7 +45,7 @@ function Label([string]$t) { $i = $t.IndexOf(':'); if ($i -gt 0 -and $i -le 40) 
 function Ask([string]$q, [string]$default) { if (-not $Interactive) { return $default }; $a = Read-Host $q; if ([string]::IsNullOrWhiteSpace($a)) { $default } else { $a.Trim().ToLowerInvariant() } }
 function Find-Existing([string]$Name) {
   if ($Existing) { return (Read-Profile $Existing) }
-  $dir = if ($ExistingDir) { $ExistingDir } elseif (Test-Path -LiteralPath '/home/box/agent-data/agents') { '/home/box/agent-data/agents' } else { $null }
+  $dir = $ExistingDir
   if ($dir -and (Test-Path -LiteralPath $dir)) {
     foreach ($f in @(Get-ChildItem -LiteralPath $dir -Recurse -Depth 1 -File -Include '*.json' -ErrorAction SilentlyContinue)) {
       try { $o = Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json } catch { continue }
@@ -57,6 +57,7 @@ function Find-Existing([string]$Name) {
     if ($p) { return (Read-Profile $p) }
     return 'unknown'
   }
+  if (-not $Interactive -and -not $ExistingDir) { return 'unchecked' }
   return $null
 }
 function Write-Out($P, [string]$Kind, [string]$Note) {
@@ -89,8 +90,9 @@ $rules
   [pscustomobject]@{ Bot = $P.name; Action = $Kind; File = $json; Sheet = $md }
 }
 
-$repo = Read-Profile $Profile
+$repo = Read-Profile $ProfilePath
 $cur = Find-Existing $repo.name
+if ($cur -eq 'unchecked') { Write-Warning "Bot '$($repo.name)': no -Existing/-ExistingDir given, so it can't be checked for an existing bot. Skipped; rerun with -ExistingDir or interactively."; return [pscustomobject]@{ Bot = $repo.name; Action = 'skip (not checked)'; File = $null; Sheet = $null } }
 if (-not $cur) { return (Write-Out $repo 'new' 'No existing bot with this name was found.') }
 if ($cur -eq 'unknown') { return (Write-Out $repo 'new' "A bot named '$($repo.name)' exists, but its profile wasn't given. Compare it by hand before changing anything.") }
 
