@@ -11,7 +11,7 @@
 |---|---|
 | uv | 0.13.0 |
 | gitleaks | 8.30.1 |
-| desktop_commander | latest |
+| desktop_commander | 0.3.0 |
 | python_wsl | 3.13.16 |
 
 ## Outside dependencies (listed only; not installed or copied)

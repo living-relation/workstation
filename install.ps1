@@ -876,7 +876,7 @@ try {
   foreach ($r in @(& (Join-Path $PSScriptRoot 'link-skills.ps1') -From (Join-Path $PSScriptRoot 'skills') -Targets $skillTargets -BackupRoot (Join-Path $UserHome '.skills-backup') -WhatIf:$WhatIf)) {
     if ($r.Action -eq 'ok') { Note 'OK' "skill link already in place: $($r.Path)" }
     elseif ($r.Action -eq 'would-link') { Note 'WOULD' "link skill $($r.Path) -> $($r.Target)" }
-    else { Note 'DONE' "skill $($r.Path) -> $($r.Target) ($($r.Action))"; if ($r.Action -eq 'linked') { Add-ManifestJson @{ kind = 'skill-link'; path = $r.Path; target = $r.Target } } }
+    else { Note 'DONE' "skill $($r.Path) -> $($r.Target) ($($r.Action))"; Add-ManifestJson @{ kind = 'skill-link'; path = $r.Path; target = $r.Target; backup = $r.Backup } }
   }
 } catch { Note 'ERROR' ("link skills -- " + $_.Exception.Message) }
 

@@ -1,7 +1,6 @@
 # workstation setup (Windows). Safe to re-run.
 #   powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1 [-NoVenv]
-#   (-NoModels is still accepted and ignored: this repo creates no models folder.)
-param([switch]$NoModels, [switch]$NoVenv)
+param([switch]$NoVenv)
 $ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
 Set-Location $Root
