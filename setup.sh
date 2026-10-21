@@ -34,16 +34,5 @@ git config core.hooksPath .githooks
 # 4. local settings
 [ -f local.toml ] || cp local.toml.example local.toml
 
-# 5. models folder (Desktop known folder; OneDrive Desktops work; never hard-coded)
-desktop=""
-if command -v powershell.exe >/dev/null 2>&1; then
-  win=$(powershell.exe -NoProfile -Command "[Environment]::GetFolderPath('Desktop')" | tr -d '\r')
-  [ -n "$win" ] && desktop=$(wslpath -u "$win")
-fi
-[ -z "$desktop" ] && desktop=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")
-MODELS="${MODELS_DIR:-$desktop/models}"
-if [ "$NO_MODELS" = 1 ]; then echo "models folder: $MODELS (not created: --no-models)";
-elif [ -d "$MODELS" ]; then echo "models folder: $MODELS (exists, left as is)";
-else mkdir -p "$MODELS"; echo "models folder: created $MODELS"; fi
-
-echo "Done. Optional: export MODELS_DIR=\"$MODELS\""
+# The CAD models folder is created by handbuilt-cad's setup.sh / setup.ps1 (CAD lives only in that repo).
+echo "Done."

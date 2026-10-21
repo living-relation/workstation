@@ -22,7 +22,7 @@ for name, d in (lock.get("outside_dependencies") or {}).items():
     ver = d.get("version") or (d.get("claude_desktop_extension") or {}).get("version", "-")
     out.append(f"| {name} | {where} | {ver} | {d.get('enable', '')} |")
 out += ["", "## Skills sources", ""] + [f"- {s['from']}: `{s['dir']}/`" for s in lock.get("skills") or []]
-out += ["", f"Models folder: `{lock.get('models_dir')}` (created by setup if missing, add-only).", ""]
+out += ["", "CAD tools, CAD skills and the models folder: none here; they are pinned and set up in handbuilt-cad (cad-tools.lock.yaml).", ""]
 out += ["CAD models included: none. Patches: " + (str(len(lock.get('patches') or [])) or "0") + ".", ""]
 if lock.get("open_items"):
     out += ["## Open items", ""] + [f"- {i}" for i in lock["open_items"]] + [""]

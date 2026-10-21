@@ -4,4 +4,3 @@ projects_root = ""     # default C:\projects if it exists, else %USERPROFILE%\Pr
 tools_dir = ""         # default <projects_root>\_tools
 wsl_distro = ""        # default = the WSL default distro
 wsl_projects = ""      # default ~/projects
-models_dir = ""        # MODELS_DIR; empty = <Desktop>\models

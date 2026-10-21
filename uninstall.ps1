@@ -333,6 +333,14 @@ foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'startup' })) {
   else { Note 'WARN' "no longer starts Cursor.exe, left alone: $p" }
 }
 
+foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'skill-link' })) {
+  $p = [string]$m.path
+  $it = Get-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue
+  if (-not $it) { continue }
+  if ($it.LinkType -eq 'Junction' -and (@($it.Target | ForEach-Object { $_.TrimEnd('\') }) -icontains ([string]$m.target).TrimEnd('\'))) { Invoke-Change "remove skill link added by install (the link only; the skill stays in its repo): $p" { [IO.Directory]::Delete($p) } }
+  else { Note 'WARN' "skill link changed since install, left alone: $p" }
+}
+
 foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'startup-link' })) {
   $p = [string]$m.path
   if (-not (Test-Path -LiteralPath $p)) { continue }
