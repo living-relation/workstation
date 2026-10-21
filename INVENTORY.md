@@ -4,7 +4,6 @@
 
 | Repo | URL | Ref | Commit | Setup |
 |---|---|---|---|---|
-| handbuilt-cad | https://github.com/living-relation/handbuilt-cad.git | main | follow (last checked c6dae5c4) | setup.sh |
 
 ## Upstream tools (pinned)
 
@@ -23,10 +22,9 @@
 
 ## Skills sources
 
-- repos.handbuilt-cad: `skills/`
 - self: `skills/`
 
-CAD tools, CAD skills and the models folder: none here; they are pinned and set up in handbuilt-cad (cad-tools.lock.yaml).
+CAD tools, CAD skills and CAD repos: none (this repo does not install, pin or link any).
 
 CAD models included: none. Patches: 0.
 

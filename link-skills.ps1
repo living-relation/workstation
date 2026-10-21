@@ -1,10 +1,9 @@
-# link-skills.ps1 - link skills for Claude Code/Desktop and Cursor from one or more repo skills\ folders (junctions, so a
-# git pull in the repo updates the installed skill). CAD skills come only from the handbuilt-cad clone's skills\.
-# Usage: .\link-skills.ps1 -From <handbuilt-cad clone>\skills -From <workstation-repo>\skills [-WhatIf]
+# link-skills.ps1 - link this repo's skills into Claude Code/Desktop and Cursor as junctions (a git pull updates them).
+# Usage: .\link-skills.ps1 [-From <skills folder>] [-WhatIf]   (default: this repo's skills\)
 # A same-name skill that is not already this link is moved to -BackupRoot first; never touches other skills; no deletes.
 # Stops if a skill name is in two sources. Output: one object per link (Path, Target, Action). install.ps1 runs it.
 [CmdletBinding(SupportsShouldProcess = $true)]
-param([Parameter(Mandatory = $true)][string[]]$From,
+param([string[]]$From = @((Join-Path $PSScriptRoot 'skills')),
       [string[]]$Targets = @("$env:USERPROFILE\.claude\skills", "$env:USERPROFILE\.cursor\skills"),
       [string]$BackupRoot = "$env:USERPROFILE\.skills-backup")
 $ErrorActionPreference = 'Stop'

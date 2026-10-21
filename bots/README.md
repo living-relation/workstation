@@ -24,3 +24,9 @@ Each bot is carried by a shareable template link. The link brings the bot's setu
 
 ## Standing rule for every bot
 Follow each repo's own rules, hooks and CI gates (see `agents/projects-AGENTS.md`, section 1). Never bypass one without the owner's explicit yes.
+
+## Optional bot profiles
+
+`profiles\*.profile.json` holds optional profiles (name, title, description and rules only; no secrets or memory) for Grok Bot, Sidekick, Skill Expert and Inventor. `install.ps1` offers them only when Grok Bot is installed (see the repo README, "Optional bot profiles"). `merge-bot-profile.ps1` prepares each one (new, merge, update or skip), and `PROFILE-FORMAT.md` describes the file.
+
+SteveCAD's profile isn't kept here; it lives with SteveCAD's own repo.

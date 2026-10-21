@@ -34,5 +34,5 @@ git config core.hooksPath .githooks
 # 4. local settings
 [ -f local.toml ] || cp local.toml.example local.toml
 
-# The CAD models folder is created by handbuilt-cad's setup.sh / setup.ps1 (CAD lives only in that repo).
+# No CAD models folder here (this repo has no CAD).
 echo "Done."

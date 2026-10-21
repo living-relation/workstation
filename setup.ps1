@@ -1,6 +1,6 @@
 # workstation setup (Windows). Safe to re-run.
 #   powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1 [-NoVenv]
-#   (-NoModels is still accepted and ignored: the models folder is set up by handbuilt-cad's setup, not here.)
+#   (-NoModels is still accepted and ignored: this repo creates no models folder.)
 param([switch]$NoModels, [switch]$NoVenv)
 $ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
@@ -41,5 +41,5 @@ if (-not $NoVenv) {
 # 3. local settings
 if (-not (Test-Path "$Root\local.toml")) { Copy-Item "$Root\local.toml.example" "$Root\local.toml" }
 
-# The CAD models folder is created by handbuilt-cad's setup.ps1 / setup.sh (CAD lives only in that repo).
+# No CAD models folder here (this repo has no CAD).
 Write-Host "workstation setup done"
