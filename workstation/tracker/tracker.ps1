@@ -109,7 +109,8 @@ if ($Show) {
     # without taking focus. If the window exits instead (e.g. its 60 s 'All done' close fired at that moment), start a new one.
     try { $ev = [Threading.EventWaitHandle]::OpenExisting($TrackerShowEvent); [void]$ev.Set(); $ev.Dispose() } catch { $launch = $true }
     if (-not $launch) { for ($i = 0; $i -lt 15; $i++) { Start-Sleep -Milliseconds 100; if (-not (Test-WindowOpen)) { $launch = $true; break } } }
-  }  if ($launch) {
+  }
+  if ($launch) {
     $win = Join-Path $PSScriptRoot 'tracker-window.ps1'
     Start-Process powershell.exe -WindowStyle Hidden -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-STA','-WindowStyle','Hidden','-File',"`"$win`"")
   }
