@@ -1,4 +1,4 @@
-﻿# Live task tracker
+# Live task tracker
 
 A read-only window (about 560x820, resizable, dark, large type, pinned on top by default) that shows a bot's current
 jobs: the title, a big "X of Y done" job count with "N of M subtasks done" under it, a progress bar, then one
@@ -54,7 +54,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File $t -Clear
 | `tracker.json` | The task list (schema below) |
 | `bots.json` | Bot name -> agentId map, used when a task has no `agentId` (starts as `{}`; `bots.example.json` only shows the format) |
 | `settings.json` | `{pinned, left, top, width, height}` |
-| `show.signal` | Touched by `-Show` to bring an open window to the front |
+| `show.signal` | Written by `-Show` to bring an open window to the front; the window deletes it as an ack (and cancels any pending auto-close). If the window exits instead, `-Show` starts a new one |
 
 ### tracker.json schema
 
@@ -74,7 +74,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File $t -Clear
 
 - `status`: `pending` | `in_progress` | `done` | `blocked` (jobs with `subtasks` derive it: all done = done, any
   blocked = blocked, any started = in_progress, else pending). Flat tasks without subtasks still work.
-- `subtasks` (optional): `[{id, title, status, note}]`.
+- `subtasks` (optional): `[{id, title, status, note}]`. A job with subtasks takes its status from them, except an explicit job `status: blocked`, which always wins.
+- Top-level `owner` (optional): who owns the un-delegated jobs (default `Grok Bot`); used for their label, color and chat link.
 - `group` (optional, default `General`): heading for the bot's own tasks.
 - `owner` (optional): the bot a task is delegated to; such tasks appear under Delegated, by owner.
 - `agentId` (optional): Grok Bot agent id whose chat opens on click. Without it, the window looks up the owner

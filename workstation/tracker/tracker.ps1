@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   Update the live task tracker (%LOCALAPPDATA%\Workstation\tracker\tracker.json). Writes are atomic.
 .EXAMPLE
@@ -35,9 +35,11 @@ if ($Set) {
   elseif ([Console]::IsInputRedirected) {
     # Read stdin with a timeout (Console.In's async read is synchronous in Windows PowerShell, so use the raw stream).
     $in = [Console]::OpenStandardInput(); $ms = New-Object IO.MemoryStream; $buf = New-Object byte[] 65536
+    $deadline = [DateTime]::UtcNow.AddSeconds(3)
     while ($true) {
       $rt = $in.ReadAsync($buf, 0, $buf.Length)
-      if (-not $rt.Wait(3000)) { throw '-Set got no piped input within 3 s; use -Path <file> or pipe JSON.' }
+      $left = [int][Math]::Max(0, ($deadline - [DateTime]::UtcNow).TotalMilliseconds)
+      if (-not $rt.Wait($left)) { throw '-Set did not get all piped input within 3 s; use -Path <file> or pipe JSON.' }
       if ($rt.Result -le 0) { break }; $ms.Write($buf, 0, $rt.Result)
     }
     $raw = (New-Object Text.UTF8Encoding $false).GetString($ms.ToArray()).TrimStart([char]0xFEFF)
@@ -92,16 +94,26 @@ if ($Set) {
 }
 if ($d) {
   Write-JsonAtomic $TrackerFile $d
-  $done = @($d.tasks | ? { $_.status -eq 'done' }).Count
+  $done = @($d.tasks | ? { $_ -and (Get-JobStatus $_) -eq 'done' }).Count
   "tracker: $done of $(@($d.tasks).Count) done"
 }
 if ($Show) {
-  $open = $false
-  try { $w = [Threading.Mutex]::OpenExisting($TrackerWindowMutex); $w.Dispose(); $open = $true } catch { }
-  if ($open) {
-    # Already open: touch a signal file; the window refreshes and comes to the front without taking focus.
-    [IO.File]::WriteAllText((Join-Path $TrackerDir 'show.signal'), $now)
-  } else {
+  function Test-WindowOpen { try { $w = [Threading.Mutex]::OpenExisting($TrackerWindowMutex); $w.Dispose(); $true } catch { $false } }
+  $launch = -not (Test-WindowOpen)
+  if (-not $launch) {
+    # Already open: write a signal file; the window refreshes, cancels any auto-close, comes to the front
+    # without taking focus, and deletes the file as its acknowledgement. If the window exits instead
+    # (e.g. its 60 s 'All done' close fired at the same moment), start a fresh one so the -Show is not lost.
+    [IO.File]::WriteAllText($TrackerShowSignal, $now)
+    $launch = $true
+    for ($i = 0; $i -lt 40; $i++) {
+      Start-Sleep -Milliseconds 100
+      if (-not (Test-Path -LiteralPath $TrackerShowSignal)) { $launch = $false; break }
+      if (-not (Test-WindowOpen)) { break }
+    }
+    if ($launch -and (Test-WindowOpen)) { $launch = $false }   # window alive but slow: it will pick the signal up
+  }
+  if ($launch) {
     $win = Join-Path $PSScriptRoot 'tracker-window.ps1'
     Start-Process powershell.exe -WindowStyle Hidden -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-STA','-WindowStyle','Hidden','-File',"`"$win`"")
   }

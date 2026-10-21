@@ -1,10 +1,11 @@
-﻿# Live task tracker window (read-only). Started by: tracker.ps1 -Show. Single instance (named mutex).
+# Live task tracker window (read-only). Started by: tracker.ps1 -Show. Single instance (named mutex).
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'tracker-common.ps1')
 $created = $false
 $mutex = New-Object Threading.Mutex($true, $TrackerWindowMutex, [ref]$created)
-if (-not $created) { [IO.File]::WriteAllText((Join-Path $TrackerDir 'show.signal'), (Get-Date).ToString('o')); exit 0 }
+if (-not $created) { [IO.File]::WriteAllText($TrackerShowSignal, (Get-Date).ToString('o')); exit 0 }
 Initialize-TrackerDir
+Remove-Item -LiteralPath $TrackerShowSignal -ErrorAction SilentlyContinue   # this start is the -Show
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 
 [xml]$xaml = @'
@@ -28,7 +29,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
         <TextBlock x:Name="SubCountText" Foreground="#FF9DA1A8" FontFamily="Segoe UI" FontSize="15" Margin="0,0,0,6"/>
         <ProgressBar x:Name="Bar" Height="8" Minimum="0" Maximum="1" Background="#FF2A2C31" Foreground="#FF4C8DFF" BorderThickness="0"/>
       </StackPanel>
-      <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="6,0,6,12">
+      <ScrollViewer x:Name="Scroll" VerticalScrollBarVisibility="Auto" Margin="6,0,6,12">
         <StackPanel x:Name="List" Margin="10,0,10,0"/>
       </ScrollViewer>
     </DockPanel>
@@ -36,7 +37,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 </Window>
 '@
 $win = [Windows.Markup.XamlReader]::Load((New-Object Xml.XmlNodeReader $xaml))
-$c = @{}; foreach ($n in 'TitleBar','TitleText','PinBtn','MinBtn','CloseBtn','CountText','SubCountText','Bar','List') { $c[$n] = $win.FindName($n) }
+$c = @{}; foreach ($n in 'TitleBar','TitleText','PinBtn','MinBtn','CloseBtn','CountText','SubCountText','Bar','List','Scroll') { $c[$n] = $win.FindName($n) }
 $bc = New-Object Windows.Media.BrushConverter
 function Brush($h) { $bc.ConvertFromString($h) }
 
@@ -57,7 +58,8 @@ if ($win.WindowStartupLocation -ne 'Manual') {
   $wa = [Windows.SystemParameters]::WorkArea; $win.WindowStartupLocation = 'Manual'
   $win.Left = $wa.Right - $win.Width - 16; $win.Top = $wa.Bottom - $win.Height - 16
 }
-$script:expand = @{}   # job id -> expanded; starts collapsed every session
+$script:expand = @{}   # job id -> expanded (collapsed by default; remembered in settings.json)
+if ($settings -and $settings.expanded) { foreach ($p in $settings.expanded.PSObject.Properties) { if ($p.Value) { $script:expand[$p.Name] = $true } } }
 function Save-Settings { try { Write-JsonAtomic $TrackerSettings ([ordered]@{ pinned = $pinned; left = $win.Left; top = $win.Top; width = $win.Width; height = $win.Height; expanded = $script:expand }) } catch { } }
 function Set-Pin { $win.Topmost = $pinned
   if ($pinned) { $c.PinBtn.Content = [char]0xE841; $c.PinBtn.Foreground = Brush '#FF4C8DFF'; $c.PinBtn.ToolTip = 'Pinned on top (click to unpin)' }
@@ -114,7 +116,11 @@ function Get-BotId([string]$name, $bots) { if ($bots[$name]) { $bots[$name].id }
 
 $script:hideTimer = New-Object Windows.Threading.DispatcherTimer
 $script:hideTimer.Interval = [TimeSpan]::FromSeconds(60)
-$script:hideTimer.Add_Tick({ $script:hideTimer.Stop(); $win.Close() })  # exits the process
+$script:hideTimer.Add_Tick({
+  $script:hideTimer.Stop()
+  # A -Show that is pending (signal not yet drained) cancels the close; tracker.ps1 relaunches if we exit anyway.
+  if (Test-Path -LiteralPath $TrackerShowSignal) { $script:dirty = $true; $script:raise = $true; return }
+  $win.Close() })  # exits the process
 
 function Add-Clickable($el, [string]$agentId, [string]$bot) {
   if (-not (Test-AgentId $agentId)) { $agentId = '' }
@@ -124,15 +130,7 @@ function Add-Clickable($el, [string]$agentId, [string]$bot) {
   $el.Add_MouseLeftButtonUp({ param($s, $e) Open-Chat ([string]$s.Tag); $e.Handled = $true })
 }
 
-function Get-JobStatus($t) {
-  $subs = @($t.subtasks | ? { $_ })
-  if (-not $subs.Count) { return [string]$t.status }
-  $st = @($subs | % { [string]$_.status })
-  if (@($st | ? { $_ -ne 'done' }).Count -eq 0) { return 'done' }
-  if ($st -contains 'blocked') { return 'blocked' }
-  if ($st -contains 'in_progress' -or $st -contains 'done') { return 'in_progress' }
-  'pending'
-}
+
 function New-Text([string]$text, [double]$size, [string]$color, [string]$font = 'Segoe UI') {
   $tb = New-Object Windows.Controls.TextBlock; $tb.Text = $text; $tb.FontSize = $size; $tb.FontFamily = $font
   $tb.Foreground = Brush $color; $tb.TextWrapping = 'Wrap'; $tb
@@ -159,7 +157,7 @@ function New-Bubble($t, [string]$bot, [string]$color, [string]$agentId) {
   $g.GradientStops.Add((New-Object Windows.Media.GradientStop ((Brush '#FF2B2F37').Color), 0))
   $g.GradientStops.Add((New-Object Windows.Media.GradientStop ((Brush '#FF1A1C21').Color), 1))
   $card.Background = $g
-  $sh = New-Object Windows.Media.Effects.DropShadowEffect; $sh.BlurRadius = 14; $sh.ShadowDepth = 4; $sh.Opacity = 0.55; $sh.Direction = 270
+  $sh = New-Object Windows.Media.Effects.DropShadowEffect; $sh.BlurRadius = 10; $sh.ShadowDepth = 2; $sh.Opacity = 0.3; $sh.Direction = 270
   $card.Effect = $sh
   # Bevel: thin top highlight over the card plus a colored accent strip on the left.
   $outer = New-Object Windows.Controls.Grid
@@ -226,9 +224,11 @@ function Render {
   $c.SubCountText.Text = if ($allSubs.Count) { "$subDone of $($allSubs.Count) subtasks done" } else { '' }
   $c.SubCountText.Visibility = $(if ($allSubs.Count) { 'Visible' } else { 'Collapsed' })
   $c.Bar.Foreground = Brush $(if ($allDone) { '#FF3FB950' } else { '#FF4C8DFF' })
+  $scrollY = $c.Scroll.VerticalOffset
   $c.List.Children.Clear()
   $mine = @($tasks | ? { -not $_.owner }); $deleg = @($tasks | ? { $_.owner })
-  $me = 'Grok Bot'; $meColor = Get-BotColor $me $bots
+  # Owner of un-delegated jobs: tracker.json top-level "owner" (default Grok Bot).
+  $me = if ($d -and $d.owner) { [string]$d.owner } else { 'Grok Bot' }; $meColor = Get-BotColor $me $bots
   foreach ($g in ($mine | % { if ($_.group) { [string]$_.group } else { 'General' } } | Select -Unique)) {
     $h = New-Text $g.ToUpper() 15 '#FF8B9097' 'Segoe UI Semibold'; $h.Margin = '2,14,0,2'; [void]$c.List.Children.Add($h)
     foreach ($t in @($mine | ? { $(if ($_.group) { [string]$_.group } else { 'General' }) -eq $g })) {
@@ -252,6 +252,7 @@ function Render {
     }
   }
   if ($allDone) { $script:hideTimer.Stop(); $script:hideTimer.Start() } else { $script:hideTimer.Stop() }
+  $c.Scroll.UpdateLayout(); $c.Scroll.ScrollToVerticalOffset($scrollY)
 }
 
 # Only for an explicit -Show (show.signal): restore if minimized and raise without taking focus.
@@ -279,10 +280,13 @@ $poll.Add_Tick({
     $n = $ev.SourceEventArgs.Name
     if ($n -in 'tracker.json','bots.json') { $script:dirty = $true }
     elseif ($n -eq 'show.signal') { $script:dirty = $true; $script:raise = $true }
+    if ($n -eq 'show.signal') { $script:hideTimer.Stop() }
     Remove-Event -EventIdentifier $ev.EventIdentifier
   }
   if ($script:dirty) { $script:dirty = $false; try { Render } catch { } }
-  if ($script:raise) { $script:raise = $false; try { Bring-Front } catch { } } })
+  if ($script:raise) { $script:raise = $false; try { Bring-Front } catch { }
+    Remove-Item -LiteralPath $TrackerShowSignal -ErrorAction SilentlyContinue }   # ack to tracker.ps1 -Show
+  elseif (Test-Path -LiteralPath $TrackerShowSignal) { $script:dirty = $true; $script:raise = $true } })   # missed event
 $poll.Start()
 
 Render
