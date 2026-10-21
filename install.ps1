@@ -889,7 +889,7 @@ try {
   $grokBot = @(Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue | Where-Object { "$($_.DisplayName)" -like 'Grok Bot*' }).Count -gt 0 -or
              (Test-Path -LiteralPath (Join-Path $ra 'Microsoft\Windows\Start Menu\Programs\Grok Bot.lnk')) -or
              (Test-Path -LiteralPath (Join-Path $ra 'Grok Bot'))
-  $profiles = @(Get-ChildItem -Path (Join-Path $PSScriptRoot 'bots\profiles\*.profile.json') -ErrorAction SilentlyContinue | Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -notmatch 'TODO' })  # profiles with TODO placeholders are skipped
+  $profiles = @(Get-ChildItem -Path (Join-Path $PSScriptRoot 'bots\profiles\*.profile.json') -ErrorAction SilentlyContinue | Where-Object { $raw = Get-Content -LiteralPath $_.FullName -Raw; -not ($raw.Contains("TODO: the live bot's description is empty; fill it in.") -or $raw.Contains('TODO: the live bot has no rules on record; add them.')) })  # profiles still holding the TODO placeholders are skipped
   if ($grokBot -and $profiles.Count) {
     $doBots = $false
     if ($NoBots) { Note 'OK' 'optional bot profiles: skipped (-NoBots)' }
