@@ -47,7 +47,7 @@ function Read-TrackerPrefs {
     # Only a key that already holds window state counts (an empty key, e.g. the parent of a test subkey, still migrates).
     if ((Test-Path $TrackerRegKey) -and $null -ne (Get-ItemProperty -Path $TrackerRegKey -Name Width -ErrorAction SilentlyContinue)) {
       $r = Get-ItemProperty -Path $TrackerRegKey
-      $ex = [pscustomobject]@{}; foreach ($x in @(([string]$r.Expanded) -split ',' | ? { $_ })) { $ex | Add-Member -Force $x $true }
+      $ex = [pscustomobject]@{}; foreach ($x in @($r.Expanded | % { [string]$_ -split ',' } | ? { $_ })) { $ex | Add-Member -Force $x $true }
       return [pscustomobject]@{ pinned = $(if ($null -ne $r.Pinned) { [int]$r.Pinned -ne 0 } else { $null }); left = $(if ($r.Left) { [double]$r.Left } else { $null })
         top = $(if ($r.Top) { [double]$r.Top } else { $null }); width = [double]$r.Width; height = [double]$r.Height; expanded = $ex }
     }
@@ -72,14 +72,14 @@ if ($win.WindowStartupLocation -ne 'Manual') {
   $wa = [Windows.SystemParameters]::WorkArea; $win.WindowStartupLocation = 'Manual'
   $win.Left = $wa.Right - $win.Width - 16; $win.Top = $wa.Bottom - $win.Height - 16
 }
-$script:expand = @{}   # job id -> expanded (collapsed by default; remembered in settings.json)
+$script:expand = @{}   # job id -> expanded (collapsed by default; remembered in the registry)
 if ($settings -and $settings.expanded) { foreach ($p in $settings.expanded.PSObject.Properties) { if ($p.Value) { $script:expand[$p.Name] = $true } } }
 function Save-Settings { try {
   if (-not (Test-Path $TrackerRegKey)) { New-Item -Path $TrackerRegKey -Force | Out-Null }
   $inv = [Globalization.CultureInfo]::InvariantCulture
   Set-ItemProperty -Path $TrackerRegKey -Name Pinned -Value ([int][bool]$pinned) -Type DWord
   foreach ($n in 'Left','Top','Width','Height') { Set-ItemProperty -Path $TrackerRegKey -Name $n -Value ([double]$win.$n).ToString($inv) -Type String }
-  Set-ItemProperty -Path $TrackerRegKey -Name Expanded -Value (@($script:expand.Keys) -join ',') -Type String
+  Set-ItemProperty -Path $TrackerRegKey -Name Expanded -Value ([string[]]@($script:expand.Keys)) -Type MultiString
 } catch { } }
 function Set-Pin { $win.Topmost = $pinned
   if ($pinned) { $c.PinBtn.Content = [char]0xE841; $c.PinBtn.Foreground = Brush '#FF4C8DFF'; $c.PinBtn.ToolTip = 'Pinned on top (click to unpin)' }

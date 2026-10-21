@@ -13,8 +13,8 @@ under the **Delegated** header (blue line under it), by owner.
 Controls: drag (title bar), pin toggle (always on top on/off), minimize, close (X), the chevrons, and **Clear
 finished**. The window is a read-only status board: it never creates or writes any file. Clear finished only
 hides the done jobs in this window; `tracker.json` is not changed. A hidden job comes back when it changes in the
-list or the window restarts. Done subtasks under open jobs stay, crossed off. Pin state, window position and size,
-and expanded jobs are kept in the registry (`HKCU\Software\Workstation\Tracker`). Clicking a task, or a bot's header under Delegated, opens that
+list or the window restarts. After Clear finished, the "X of Y done" count covers only the jobs still shown (hidden done jobs are left out). Done subtasks under open jobs stay, crossed off. Pin state, window position and size,
+and expanded jobs are kept in the registry (`HKCU\Software\Workstation\Tracker`; expanded job ids as a REG_MULTI_SZ `Expanded` value, an older comma-joined string is still read). Clicking a task, or a bot's header under Delegated, opens that
 bot's chat in the Grok Bot app (`grokbot://app/v1/agent?id=<agentId>`); if the `grokbot://` scheme is not
 registered, or there is no valid agentId (must be a GUID; all-zero placeholders count as missing), it just focuses the
 Grok Bot app (process name `Grok Bot`). When every task is done it shows "All done" and
