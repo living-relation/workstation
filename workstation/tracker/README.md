@@ -1,6 +1,6 @@
 # Live task tracker
 
-A compact window (about 340x520, resizable, dark, pinned on top by default) that shows a bot's current jobs: the
+A window (about 450x670, resizable, dark, pinned on top by default) that shows a bot's current jobs: the
 title, an "X of Y done" job count with "N of M subtasks done" under it, a progress bar, a small **Clear finished**
 button, then one small card per job (rounded, gradient, light shadow, left accent strip in the bot's color).
 Each card has a status dot in the bot's color (ring = pending, half = in progress, filled = done, orange = blocked),
