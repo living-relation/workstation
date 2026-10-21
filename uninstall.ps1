@@ -337,6 +337,8 @@ foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'skill-link' })) {
   $p = [string]$m.path
   $it = Get-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue
   if (-not $it) { continue }
+  # only links into this repo's own skills\ (links other repos made are never touched)
+  if (-not ([string]$m.target).StartsWith((Join-Path $PSScriptRoot 'skills'), [StringComparison]::OrdinalIgnoreCase)) { Note 'OK' "skill link not owned by this repo, left alone: $p"; continue }
   if ($it.LinkType -eq 'Junction' -and (@($it.Target | ForEach-Object { $_.TrimEnd('\') }) -icontains ([string]$m.target).TrimEnd('\'))) { Invoke-Change "remove skill link added by install (the link only; the skill stays in its repo): $p" { [IO.Directory]::Delete($p) } }
   else { Note 'WARN' "skill link changed since install, left alone: $p" }
 }

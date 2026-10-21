@@ -1,17 +1,8 @@
 # Pins and pointers only. Nothing listed here is copied into this repo.
 # "TBD" = not pinned yet (see the open items at the bottom).
-# No CAD tools here (rule 2026-10-21): FreeCAD, the sim packages (CalculiX, Gmsh, ParaView, OpenFOAM, Elmer), Fusion 360,
-# the CAD MCPs and the models folder are pinned in handbuilt-cad/cad-tools.lock.yaml and set up by its setup.sh / setup.ps1.
+# No CAD tools, CAD skills or CAD repos here: this repo does not install, pin or link any of them.
 schema: 1
-repos:
-  handbuilt-cad:
-    url: https://github.com/living-relation/handbuilt-cad.git
-    ref: main           # FOLLOWS main: clone main, later updates are `git pull --ff-only` after a merge (no sha pin)
-    commit: follow      # not pinned on purpose: a sha pin went stale on every handbuilt-cad PR. Pin a sha here only for a
-                        # frozen install (then set ref to that sha and say why); see README "handbuilt-cad follows main"
-    last_checked: c6dae5c4   # informational only: handbuilt-cad main checked with this workstation on 2026-10-17 (after PR #6)
-    path: "{wsl_projects}/handbuilt-cad"
-    setup: setup.sh     # builds the repo's own .venv from its uv.lock
+repos: {}   # this repo clones, pins and links no other repo
 upstream:
   uv:
     version: 0.13.0
@@ -30,7 +21,6 @@ outside_dependencies:   # listed here only; never installed, built or copied by 
     run: "uvx windows-mcp@0.8.8 serve --transport stdio"
 patches: []
 skills:
-  - { from: repos.handbuilt-cad, dir: skills }   # reference only: CAD skills live in the handbuilt-cad clone; install.ps1 links them (link-skills.ps1)
   - { from: self, dir: skills }
 open_items:
   - windows-mcp installed version

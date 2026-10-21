@@ -30,15 +30,32 @@ creates them pointing at this clone:
 WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `bash setup.sh`.
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).
-  - **handbuilt-cad follows main** (`commit: follow`). It is not pinned to a sha, because a sha pin went stale on every
-    handbuilt-cad PR. A merged handbuilt-cad PR needs no change here: the bot that merged it pulls the clones fast-forward
-    only. `last_checked` is information only (the main commit last checked with this workstation). If an install ever has to be
-    frozen, set `ref` and `commit` to that sha and write why beside it.
-- No CAD here: CAD tools, CAD skills, their pins (`cad-tools.lock.yaml`) and the models folder live only in handbuilt-cad. The
-  lock keeps just the handbuilt-cad repo pointer and its `skills/` as a reference.
-- `skills/` - non-CAD skills. `install.ps1` links (junctions) every skill from `<Projects>\active\handbuilt-cad\skills` (or
-  `-CadRepo <clone>`) and from this repo's `skills/` into `~\.claude\skills` and `~\.cursor\skills` with `link-skills.ps1`, so a
-  `git pull` updates them. By hand: `link-skills.ps1 -From <handbuilt-cad clone>\skills -From <this repo>\skills [-WhatIf]`.
-  `sync-skills.ps1` (same arguments) installs copies instead of links.
+- No CAD here: this repo does not install, pin or link any CAD tool, CAD skill or CAD repo.
+- `skills/` - this repo's skills. `install.ps1` links (junctions) each one into `~\.claude\skills` and `~\.cursor\skills` with
+  `link-skills.ps1`, so a `git pull` updates them (by hand: `link-skills.ps1 [-WhatIf]`). `sync-skills.ps1 -From <this repo>\skills`
+  installs copies instead. Other repos link their own skills from their own setup.
+- `bots/` - optional Grok Bot bot profiles (`bots\profiles\*.profile.json`, format in `bots\PROFILE-FORMAT.md`). See "Optional bot
+  profiles" below.
+- Ownership notes: `install.ps1` runs `ownership-notes.ps1`, which adds a README.md/AGENTS.md ("owned by the workstation repo")
+  to each folder it creates (`%LOCALAPPDATA%\Workstation` and its subfolders, `<Projects>\_claude`, `shortcuts\`). In the shared
+  skill folders it adds only `README-workstation.md`, which lists the links this repo owns. Existing files are never changed.
 - `agents/projects-AGENTS.md` - the shared agent rules file for a projects root.
 - `install.ps1`, `preflight.ps1`, `uninstall.ps1`, `toolkit.psd1` - imported as they were; they are rewritten to read the pin file in a later PR.
+
+## Optional bot profiles (Grok Bot only)
+
+`install.ps1` checks whether Grok Bot is installed: an uninstall entry named "Grok Bot", a "Grok Bot" Start-menu shortcut, or
+`%APPDATA%\Grok Bot`. If it isn't, the step is skipped without a message. If it is, the installer asks
+**"Add the optional bot profiles? [y/N]"** (default No). `-Bots` says yes, `-NoBots` says no, and `-WhatIf` only reports.
+
+"Add" runs `bots\merge-bot-profile.ps1` for each `bots\profiles\*.profile.json` and **only writes files** to
+`%LOCALAPPDATA%\Workstation\bots\`: a ready-to-apply `<bot>.<new|update|merged>.json` and a `<bot>.md` paste sheet
+(name, title, description, rules, and the steps). You then create or edit the bot in Grok Bot by hand from that sheet.
+Grok Bot has no import API, and nothing here talks to it. Memory, chats and routines are never touched.
+
+Existing bots are matched by name. The script reads a JSON copy you give it (`-Existing`/`-ExistingDir`), or, on the
+Grok Bot box, the agent profile files (read-only). Otherwise it asks you. For a bot that exists, the choice per bot is
+**merge** (default), **update** (replace the profile and rules) or **skip** (leave it). The old profile is backed up first.
+Merge keeps the existing fields, adds the repo rules it doesn't already have (deduplicated by normalized text), and shows
+both versions of any conflict and asks. Non-interactive runs (`-Bots`) keep the existing value and log the conflict in
+`<bot>.conflicts.txt`. Claude and Cursor get no bot profiles.

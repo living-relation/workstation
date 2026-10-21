@@ -1,5 +1,5 @@
 # sync-skills.ps1 - install skills for Claude Code/Desktop and Cursor from one or more repo skills/ folders.
-# Usage: .\sync-skills.ps1 -From <handbuilt-cad clone>\skills -From <workstation-repo>\skills [-WhatIf]
+# Usage: .\sync-skills.ps1 -From <repo>\skills [-From <another repo>\skills] [-WhatIf]
 # (install.ps1 uses link-skills.ps1 instead, which links rather than copies.)
 # Backs up any same-name skill folder before replacing; never touches other skills; no deletes.
 # Writes .source (repo@commit) into each installed skill. Stops if a skill name is in two sources.
