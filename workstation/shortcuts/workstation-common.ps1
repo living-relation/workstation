@@ -124,10 +124,28 @@ function Get-AgentWorkerProcs($procs, $supIds) {
     })
 }
 
-# Claude Code remote control: only claude/node processes whose command line contains --remote-control.
+# Claude Code remote control started by Workers Start (`claude --bg --remote-control`).
+# That command leaves a `claude.exe daemon run` supervisor which respawns --remote-control
+# children; matching only --remote-control is why Workers Stop looked like it failed.
 function Get-RemoteControlProcs($procs) {
     @($procs | Where-Object {
-        $_.ProcessId -ne $PID -and $_.Name -in @('claude.exe', 'node.exe') -and "$($_.CommandLine)" -match '--remote-control'
+        $_.ProcessId -ne $PID -and $_.Name -in @('claude.exe', 'node.exe') -and (
+            "$($_.CommandLine)" -match '--remote-control' -or
+            "$($_.CommandLine)" -match '--bg-pty-host' -or
+            ("$($_.Name)" -eq 'claude.exe' -and "$($_.CommandLine)" -match '\bdaemon run\b')
+        )
+    })
+}
+
+# Desktop Commander remote connector (`npx ... desktop-commander ... remote`).
+# Started at logon by Startup\Desktop Commander Remote.lnk, or by the manual Start shortcut.
+function Get-DesktopCommanderRemoteProcs($procs) {
+    @($procs | Where-Object {
+        $_.ProcessId -ne $PID -and
+        "$($_.CommandLine)" -match 'desktop-commander' -and
+        "$($_.CommandLine)" -match '\bremote\b' -and
+        "$($_.CommandLine)" -notmatch 'start-dc-remote' -and
+        "$($_.CommandLine)" -notmatch 'stop-dc-remote'
     })
 }
 
@@ -208,10 +226,9 @@ function Show-BridgeStatus {
         Write-Ok "Claude remote control running ($($parts -join '; '))"
     } else { Write-Off 'Claude remote control not running' }
 
-    # watch-pull (should be off; pulls are manual, one repo at a time)
-    $wp = Get-WatchPullProcs $procs
-    if ($wp) { Write-Warn "watch-pull RUNNING (pid $(Format-Pids $wp)) - should be off; Workers Stop ends it" }
-    else { Write-Ok 'watch-pull off (pulls are manual, one repo at a time)' }
+    $dc = Get-DesktopCommanderRemoteProcs $procs
+    if ($dc) { Write-Ok "Desktop Commander remote running (pid $(Format-Pids $dc))" }
+    else { Write-Off 'Desktop Commander remote not running' }
 
     # Stop flag
     if (Test-Path -LiteralPath $BridgeStopFlag) {
@@ -600,13 +617,26 @@ function Show-Automations {
         default   { Write-Warn "Claude startup switch state unknown ($($claude.TaskId))" }
     }
 
-    # 5b. Desktop Commander remote mode (kept on purpose; optional on other PCs)
-    $dcTask = Get-ScheduledTask -TaskName 'DesktopCommander-Remote' -ErrorAction SilentlyContinue
-    $dcScript = Join-Path $BridgeRoot 'desktop-commander\run-remote.ps1'
-    if (-not $dcTask) { Write-Off 'Desktop Commander remote task not installed (optional; run Desktop Commander Setup)' }
-    elseif ($dcTask.State -eq 'Disabled') { Write-Warn 'Desktop Commander remote task DesktopCommander-Remote is disabled' }
-    elseif (-not (Test-Path -LiteralPath $dcScript)) { Write-Bad "Desktop Commander task present but script missing: $dcScript" }
-    else { Write-Ok "Desktop Commander remote task DesktopCommander-Remote $($dcTask.State) -> $dcScript" }
+    # 5b. Desktop Commander remote: Startup shortcut + the repo launcher (workstation\desktop-commander-remote; not a scheduled task)
+    $dcDir    = Join-Path $BridgeRoot 'desktop-commander-remote'
+    $dcScript = Join-Path $dcDir 'start-dc-remote.ps1'
+    $dcLnk    = Join-Path ([Environment]::GetFolderPath('Startup')) 'Desktop Commander Remote.lnk'
+    $dcManual = Join-Path (Split-Path $BridgeRoot -Parent) 'shortcuts\Desktop Commander Remote Start.lnk'
+    if (-not (Test-Path -LiteralPath $dcScript)) {
+        Write-Off 'Desktop Commander remote not installed (no start-dc-remote.ps1)'
+    } else {
+        if (Test-Path -LiteralPath $dcLnk) {
+            $tog = Get-StartupToggleInfo 'StartupFolder' 'Desktop Commander Remote.lnk'
+            if ($tog.State -eq 'off') {
+                Write-Warn 'Desktop Commander remote Startup shortcut is OFF (Settings > Apps > Startup)'
+                $script:StartupOff += [pscustomobject]@{ Label = 'Desktop Commander remote'; Type = 'approved'; Kind = 'StartupFolder'; Key = $tog.Key; Name = 'Desktop Commander Remote.lnk'; Pkg = $null }
+            } else { Write-Ok "Startup Desktop Commander Remote.lnk -> $dcScript (switch on)" }
+        } else {
+            Write-Warn "Desktop Commander remote script present but Startup shortcut missing ($dcLnk)"
+        }
+        if (Test-Path -LiteralPath $dcManual) { Write-Ok "manual Start shortcut: $dcManual" }
+        else { Write-Off 'manual Desktop Commander Remote Start.lnk not in workstation\shortcuts' }
+    }
 
     # 6. Retired items must stay gone
     $back = @()

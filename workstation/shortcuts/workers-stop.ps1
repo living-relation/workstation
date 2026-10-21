@@ -47,16 +47,28 @@ if ($sup -or $agents -or $launchers) {
     Stop-Matched $launchers 'supervisor launcher (wscript)'
 } else { Write-Off 'Cursor worker was not running' }
 
-# 3. Claude remote control: background sessions named remote-control, then --remote-control processes
+# 3. Claude remote control: named sessions, then the --bg daemon tree.
+#    The daemon respawns --remote-control children if you only kill those.
 $rcs = Get-RemoteControlSessions
 foreach ($s in @($rcs)) {
     $out = (& $ClaudeExe stop $s.id 2>&1) | Out-String
     if ($LASTEXITCODE -eq 0) { Write-Ok "stopped Claude remote-control session $($s.id)" }
     else { Write-Bad "claude stop $($s.id) failed: $($out.Trim())" }
 }
+$afterSessions = Get-ProcSnapshot
+$daemons = @($afterSessions | Where-Object {
+    $_.Name -eq 'claude.exe' -and "$($_.CommandLine)" -match '\bdaemon run\b'
+})
+foreach ($d in $daemons) {
+    & taskkill.exe /T /F /PID $d.ProcessId *> $null
+    Start-Sleep -Milliseconds 400
+    if (Get-Process -Id $d.ProcessId -ErrorAction SilentlyContinue) {
+        Stop-Matched @($d) 'Claude remote-control daemon'
+    } else { Write-Ok "stopped Claude remote-control daemon and its child processes (pid $($d.ProcessId))" }
+}
 $rc = Get-RemoteControlProcs (Get-ProcSnapshot)
 if ($rc) { Stop-Matched $rc 'Claude remote control' }
-if (-not $rcs -and -not $rc) { Write-Off 'Claude remote control was not running' }
+if (-not $rcs -and -not $daemons -and -not $rc) { Write-Off 'Claude remote control was not running' }
 
 Write-Host ''
 Start-Sleep -Seconds 2
