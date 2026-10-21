@@ -57,29 +57,47 @@ if ($sup -or $agents -or $launchers) {
 # 3. Claude remote control: named sessions, then their processes. The `claude.exe daemon run` is shared with every
 #    other `claude --bg` session, so it is stopped only when nothing but remote control was using it (the session
 #    list was read, no other active session and no other PTY host remain); otherwise it is left running.
-$rcs = Get-RemoteControlSessions
-foreach ($s in @($rcs)) {
+$all = @(Get-ClaudeBgSessions)
+$rcs = @(Get-RemoteControlSessions (Get-ProcSnapshot) $all)
+$rcIds = @($rcs | ForEach-Object { "$($_.id)" })
+foreach ($s in $rcs) {
     $out = (& $ClaudeExe stop $s.id 2>&1) | Out-String
     if ($LASTEXITCODE -eq 0) { Write-Ok "stopped Claude remote-control session $($s.id)" }
-    else { Write-Bad "claude stop $($s.id) failed: $($out.Trim())" }
+    else {
+        Write-Warn "claude stop $($s.id) failed (exit $LASTEXITCODE): $($out.Trim()); tree-killing it"
+        if ($s.pid) { if (Invoke-TreeKill ([int]$s.pid) "remote-control session $($s.id)") { Write-Ok "stopped remote-control session $($s.id) (pid $($s.pid))" } }
+    }
 }
-$rc = Get-RemoteControlProcs (Get-ProcSnapshot)
-if ($rc) { Stop-Matched $rc 'Claude remote control' }
+# Leftover --remote-control processes / PTY hosts (a host may still be exiting: short retry).
+$rc = @()
+for ($try = 0; $try -lt 3; $try++) {
+    $rc = @(Get-RemoteControlProcs (Get-ProcSnapshot))
+    if (-not $rc) { break }
+    if ($try -lt 2) { Start-Sleep -Milliseconds 700 } else { Stop-Matched $rc 'Claude remote control' }
+}
 $after = Get-ProcSnapshot
 $daemons = @($after | Where-Object { $_.Name -eq 'claude.exe' -and "$($_.CommandLine)" -match '\bdaemon run\b' })
 if ($daemons -and ($rcs -or $rc)) {
-    $others = @(Get-ClaudeBgSessions | Where-Object { "$($_.name)" -notmatch 'remote-control' })
+    $others = @($all | Where-Object { $rcIds -notcontains "$($_.id)" })   # every session except the one(s) we stopped
     $rcLeft = @(Get-RemoteControlProcs $after | ForEach-Object { $_.ProcessId })
     $otherHosts = @($after | Where-Object { "$($_.CommandLine)" -match '--bg-pty-host' -and $rcLeft -notcontains $_.ProcessId })
+    $kept = $true
     if (-not $script:ClaudeAgentsOk) { Write-Warn "left the Claude daemon running (pid $(Format-Pids $daemons)): couldn't read 'claude agents --json' to check it is unused" }
     elseif ($others -or $otherHosts) { Write-Ok "left the shared Claude daemon running (pid $(Format-Pids $daemons)): $($others.Count) other session(s), $($otherHosts.Count) other PTY host(s) use it" }
     else {
+        $kept = $false
         foreach ($d in $daemons) {
             if (Invoke-TreeKill $d.ProcessId 'Claude daemon') { Write-Ok "stopped the Claude daemon, only remote control used it (pid $($d.ProcessId))" }
             else { Stop-Matched @($d) 'Claude daemon' }
         }
     }
+    if ($kept) {
+        Start-Sleep -Seconds 3
+        $back = @(Get-RemoteControlProcs (Get-ProcSnapshot))
+        if ($back) { Write-Warn "Claude remote control respawned by the shared daemon (pid $(Format-Pids $back)); stop it from Claude or stop the daemon by hand" }
+    }
 }
+if (-not (Get-RemoteControlProcs (Get-ProcSnapshot))) { Remove-Item -LiteralPath $RemoteControlStateFile -ErrorAction SilentlyContinue }
 if (-not $rcs -and -not $rc) { Write-Off 'Claude remote control was not running' }
 
 Write-Host ''

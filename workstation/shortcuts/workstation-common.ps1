@@ -128,7 +128,10 @@ function Get-AgentWorkerProcs($procs, $supIds) {
 # Matches ONLY the --remote-control session processes and the `--bg-pty-host` that hosts one (its inner
 # command after ' -- ' is a --remote-control session, or a child of it is). Other `claude --bg` sessions,
 # their PTY hosts and the shared `claude.exe daemon run` never match, so Stop and Status don't touch them.
-function Test-RemoteControlArgs([string]$cmd) { $cmd -match '(^|\s)--remote-control(\s|$)' }
+function Test-RemoteControlArgs([string]$cmd) { $cmd -match '(^|\s)--remote-control(=|\s|$)' }
+# The session id Workers Start launched remote control with (state file; Stop and Status prefer it).
+$RemoteControlStateFile = Join-Path $WsStateDir 'claude-remote-control.json'
+function Get-RemoteControlStateId { try { [string]((Get-Content -LiteralPath $RemoteControlStateFile -Raw -ErrorAction Stop | ConvertFrom-Json).sessionId) } catch { '' } }
 function Get-RemoteControlProcs($procs) {
     $procs = @($procs | Where-Object { $_.ProcessId -ne $PID -and $_.Name -in @('claude.exe', 'node.exe') })
     $sessions = @($procs | Where-Object { "$($_.CommandLine)" -notmatch '--bg-pty-host' -and (Test-RemoteControlArgs "$($_.CommandLine)") })
@@ -167,6 +170,8 @@ function Get-ClaudeBgSessions {
         if ($LASTEXITCODE -ne 0) { return @() }
         if ($json.Trim()) { $list = ConvertFrom-Json $json }
     } catch { return @() }
+    # Some versions wrap the list: { "agents": [...] } or { "sessions": [...] }.
+    if ($list -and -not ($list -is [array])) { if ($null -ne $list.agents) { $list = $list.agents } elseif ($null -ne $list.sessions) { $list = $list.sessions } }
     $script:ClaudeAgentsOk = $true
     $out = @()
     foreach ($s in @($list)) {
@@ -175,7 +180,21 @@ function Get-ClaudeBgSessions {
     }
     return $out
 }
-function Get-RemoteControlSessions { @(Get-ClaudeBgSessions | Where-Object { "$($_.name)" -match 'remote-control' }) }
+# Remote-control sessions, found by id, never by name: the session id Workers Start saved, or a session whose pid
+# or sessionId belongs to the --remote-control process tree. Pass $Sessions to reuse a list already read.
+function Get-RemoteControlSessions($procs = $null, $Sessions = $null) {
+    if ($null -eq $procs) { $procs = Get-ProcSnapshot }
+    if ($null -eq $Sessions) { $Sessions = Get-ClaudeBgSessions }
+    $rcp = @(Get-RemoteControlProcs $procs)
+    $pids = @($rcp | ForEach-Object { [int]$_.ProcessId })
+    $cmds = ($rcp | ForEach-Object { "$($_.CommandLine)" }) -join "`n"
+    $saved = Get-RemoteControlStateId
+    @($Sessions | Where-Object {
+        ($saved -and "$($_.sessionId)" -eq $saved) -or
+        ($_.pid -and $pids -contains [int]$_.pid) -or
+        ($_.sessionId -and $cmds.Contains("$($_.sessionId)"))
+    })
+}
 
 function Test-WorkerHealth {
     try {
