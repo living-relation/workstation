@@ -33,9 +33,14 @@ function Get-Data {
 if ($Set) {
   if ($Path) { $raw = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 }
   elseif ([Console]::IsInputRedirected) {
-    $rt = [Console]::In.ReadToEndAsync()
-    if (-not $rt.Wait(3000)) { throw '-Set got no piped input within 3 s; use -Path <file> or pipe JSON.' }
-    $raw = $rt.Result
+    # Read stdin with a timeout (Console.In's async read is synchronous in Windows PowerShell, so use the raw stream).
+    $in = [Console]::OpenStandardInput(); $ms = New-Object IO.MemoryStream; $buf = New-Object byte[] 65536
+    while ($true) {
+      $rt = $in.ReadAsync($buf, 0, $buf.Length)
+      if (-not $rt.Wait(3000)) { throw '-Set got no piped input within 3 s; use -Path <file> or pipe JSON.' }
+      if ($rt.Result -le 0) { break }; $ms.Write($buf, 0, $rt.Result)
+    }
+    $raw = (New-Object Text.UTF8Encoding $false).GetString($ms.ToArray()).TrimStart([char]0xFEFF)
   }
   else { throw '-Set needs -Path <file> or JSON piped on stdin.' }
   if (-not $raw -or -not $raw.Trim()) { throw '-Set got empty input.' }
