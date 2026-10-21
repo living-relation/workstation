@@ -13,6 +13,7 @@
 | freecad | 1.1.4 |
 | uv | 0.13.0 |
 | gitleaks | 8.30.1 |
+| desktop_commander | latest |
 | python_wsl | 3.13.16 |
 | pip_info | build123d 0.13.0, cadquery-ocp-novtk 8.0.1.1.0, trimesh 5.1.1, numpy 2.5.3, open3d 0.20.0, pyvista 0.49.0 |
 | apt | calculix-ccx 2.21-1build1, gmsh 4.14.0+ds1-1build4, paraview 6.0.1+dfsg1-7, occt-misc 7.9.2+dfsg-4 |

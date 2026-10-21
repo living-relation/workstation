@@ -16,6 +16,17 @@ The Workstation toolkit (`workstation\`: Workers Start/Stop, Workstation Status,
 straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`, since the
 shortcuts and the Latch task run whatever is checked out. Runtime files (the config install.ps1 writes, the Workers
 Stop flag, worker logs and state) live in `%LOCALAPPDATA%\Workstation\`, never in the clone.
+**Shortcuts and sign-in links** are generated, never committed (`*.lnk` is gitignored). Their definitions are
+`Shortcuts` and `StartupLinks` in `toolkit.psd1`; `workstation\shortcuts\install-shortcuts.ps1` (run by install.ps1)
+creates them pointing at this clone:
+- `shortcuts\`: Workers Start, Workers Stop, Workstation Status, Dashboard, Desktop Commander Remote Start (`-Show`)
+  and Desktop Commander Remote Stop.
+- Startup folder: Desktop Commander Remote (hidden, via `run-hidden.vbs`) and Dashboard (`start-dashboard.ps1 -NoPause`).
+  A Startup link of the same name is replaced only if it already runs the same script, after a backup to
+  `%LOCALAPPDATA%\Workstation\backups\startup-links-<time>\`.
+- Desktop Commander remote (`workstation\desktop-commander-remote\`) runs `npx @wonderwhy-er/desktop-commander@latest
+  remote`; it keeps no token in the repo (the device login is held by Desktop Commander itself), and its logs go to
+  `%LOCALAPPDATA%\Workstation\desktop-commander-remote\`.
 WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `bash setup.sh`.
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).

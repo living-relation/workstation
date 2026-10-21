@@ -333,6 +333,14 @@ foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'startup' })) {
   else { Note 'WARN' "no longer starts Cursor.exe, left alone: $p" }
 }
 
+foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'startup-link' })) {
+  $p = [string]$m.path
+  if (-not (Test-Path -LiteralPath $p)) { continue }
+  $a = ''; try { $a = (New-Object -ComObject WScript.Shell).CreateShortcut($p).Arguments } catch { }
+  if ($a -match [regex]::Escape((Split-Path ([string]$m.script) -Leaf))) { Invoke-Change "remove sign-in link added by install: $p" { Backup-File $p; Remove-Item -LiteralPath $p -Force } }
+  else { Note 'WARN' "sign-in link changed since install (does not run $(Split-Path ([string]$m.script) -Leaf)), left alone: $p" }
+}
+
 # 2d. 80% handoff pieces that are present but not in the manifest: listed, never touched.
 $listedAny = @($ManifestJson | ForEach-Object { [string]$_.path })
 if ((Test-Path -LiteralPath $SettingsPath) -and ([IO.File]::ReadAllText($SettingsPath)).Contains('context-guard.ps1') -and -not @($ManifestJson | Where-Object { $_.target -eq 'claude' -and $_.kind -match '^(hook|hook-updated|statusline|statusline-updated)$' }).Count) {

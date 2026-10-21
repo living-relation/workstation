@@ -26,10 +26,23 @@
   # (the workstation repo clone), relative to the package root, so no personal path is stored; the generated .lnk
   # files are gitignored. install.ps1 passes the resolved folder to ShortcutsInstaller as -LinkDir.
   ShortcutFolder     = 'shortcuts'
+  # Icon = index in shell32.dll; Args = extra arguments after -File <script>.
   Shortcuts          = @(
-    @{ Name = 'Workers Start';      Script = 'shortcuts\workers-start.ps1' }
-    @{ Name = 'Workers Stop';       Script = 'shortcuts\workers-stop.ps1' }
-    @{ Name = 'Workstation Status'; Script = 'shortcuts\workstation-status.ps1' }
+    @{ Name = 'Workers Start';      Script = 'shortcuts\workers-start.ps1';      Icon = 137 }
+    @{ Name = 'Workers Stop';       Script = 'shortcuts\workers-stop.ps1';       Icon = 131 }
+    @{ Name = 'Workstation Status'; Script = 'shortcuts\workstation-status.ps1'; Icon = 23 }
+    @{ Name = 'Dashboard';          Script = 'shortcuts\dashboard.ps1';          Icon = 13 }
+    @{ Name = 'Desktop Commander Remote Start'; Script = 'desktop-commander-remote\start-dc-remote.ps1'; Args = '-Show'; Icon = 137 }
+    @{ Name = 'Desktop Commander Remote Stop';  Script = 'desktop-commander-remote\stop-dc-remote.ps1';  Icon = 131 }
+  )
+
+  # Sign-in links that ShortcutsInstaller puts in the user's Startup folder (install.ps1 passes -StartupDir).
+  # Hidden = start through desktop-commander-remote\run-hidden.vbs (wscript, no window). A link of the same name
+  # is only replaced when it already runs the same script file name (from any folder: older copies under
+  # %LOCALAPPDATA% or a worktree); it is backed up first. Anything else is left alone with a warning.
+  StartupLinks       = @(
+    @{ Name = 'Desktop Commander Remote'; Script = 'desktop-commander-remote\start-dc-remote.ps1'; Hidden = $true }
+    @{ Name = 'Dashboard';                Script = 'dashboard\start-dashboard.ps1'; Args = '-NoPause' }
   )
 
   # Old Desktop shortcut folders: 'Bridge' (before the rename) and 'Workstation' (Desktop location before the links
