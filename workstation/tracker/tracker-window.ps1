@@ -1,11 +1,11 @@
-﻿# Live task tracker window (read-only except the Clear finished button). Started by: tracker.ps1 -Show. Single instance (named mutex).
+﻿# Live task tracker window: read-only, never creates or writes files (state in HKCU\Software\Workstation\Tracker). Started by: tracker.ps1 -Show. Single instance (named mutex).
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'tracker-common.ps1')
 $created = $false
 $mutex = New-Object Threading.Mutex($true, $TrackerWindowMutex, [ref]$created)
-if (-not $created) { [IO.File]::WriteAllText($TrackerShowSignal, (Get-Date).ToString('o')); exit 0 }
-Initialize-TrackerDir
-Remove-Item -LiteralPath $TrackerShowSignal -ErrorAction SilentlyContinue   # this start is the -Show
+if (-not $created) { try { $e = [Threading.EventWaitHandle]::OpenExisting($TrackerShowEvent); [void]$e.Set(); $e.Dispose() } catch { }; exit 0 }
+$showEv = New-Object Threading.EventWaitHandle($false, [Threading.EventResetMode]::AutoReset, $TrackerShowEvent)
+[void]$showEv.WaitOne(0)   # this start is the -Show; drop a stale signal
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 
 [xml]$xaml = @'
@@ -25,7 +25,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
         </StackPanel>
       </Grid>
       <StackPanel DockPanel.Dock="Top" Margin="14,0,14,8">
-        <DockPanel><Button x:Name="ClearBtn" DockPanel.Dock="Right" Content="Clear finished" FontFamily="Segoe UI" FontSize="12" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center" Background="#FF2A2C31" Foreground="#FFB0B3B8" BorderBrush="#FF3A3D44" BorderThickness="1" Cursor="Hand" ToolTip="Remove all finished jobs from the list (backs up tracker.json first)"/><TextBlock x:Name="CountText" Foreground="#FFECECEC" FontFamily="Segoe UI Semibold" FontSize="19"/></DockPanel>
+        <DockPanel><Button x:Name="ClearBtn" DockPanel.Dock="Right" Content="Clear finished" FontFamily="Segoe UI" FontSize="12" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center" Background="#FF2A2C31" Foreground="#FFB0B3B8" BorderBrush="#FF3A3D44" BorderThickness="1" Cursor="Hand" ToolTip="Hide finished jobs in this window (the list file is not changed)"/><TextBlock x:Name="CountText" Foreground="#FFECECEC" FontFamily="Segoe UI Semibold" FontSize="19"/></DockPanel>
         <TextBlock x:Name="SubCountText" Foreground="#FF9DA1A8" FontFamily="Segoe UI" FontSize="13" Margin="0,0,0,4"/>
         <ProgressBar x:Name="Bar" Height="6" Minimum="0" Maximum="1" Background="#FF2A2C31" Foreground="#FF4C8DFF" BorderThickness="0"/>
       </StackPanel>
@@ -41,8 +41,21 @@ $c = @{}; foreach ($n in 'TitleBar','TitleText','PinBtn','MinBtn','CloseBtn','Co
 $bc = New-Object Windows.Media.BrushConverter
 function Brush($h) { $bc.ConvertFromString($h) }
 
-# Settings: pin state + position
-$settings = Read-JsonFile $TrackerSettings
+# Window state from the registry; on first run migrate once (read-only) from an old settings.json.
+function Read-TrackerPrefs {
+  try {
+    if (Test-Path $TrackerRegKey) {
+      $r = Get-ItemProperty -Path $TrackerRegKey
+      $ex = [pscustomobject]@{}; foreach ($x in @(([string]$r.Expanded) -split ',' | ? { $_ })) { $ex | Add-Member -Force $x $true }
+      return [pscustomobject]@{ pinned = $(if ($null -ne $r.Pinned) { [int]$r.Pinned -ne 0 } else { $null }); left = $(if ($r.Left) { [double]$r.Left } else { $null })
+        top = $(if ($r.Top) { [double]$r.Top } else { $null }); width = [double]$r.Width; height = [double]$r.Height; expanded = $ex }
+    }
+    $old = Read-JsonFile $TrackerSettings
+    if ($old) { $script:migrate = $true }
+    return $old
+  } catch { return $null }
+}
+$settings = Read-TrackerPrefs
 $pinned = $true
 if ($settings) {
   if ($null -ne $settings.pinned) { $pinned = [bool]$settings.pinned }
@@ -60,7 +73,13 @@ if ($win.WindowStartupLocation -ne 'Manual') {
 }
 $script:expand = @{}   # job id -> expanded (collapsed by default; remembered in settings.json)
 if ($settings -and $settings.expanded) { foreach ($p in $settings.expanded.PSObject.Properties) { if ($p.Value) { $script:expand[$p.Name] = $true } } }
-function Save-Settings { try { Write-JsonAtomic $TrackerSettings ([ordered]@{ pinned = $pinned; left = $win.Left; top = $win.Top; width = $win.Width; height = $win.Height; expanded = $script:expand }) } catch { } }
+function Save-Settings { try {
+  if (-not (Test-Path $TrackerRegKey)) { New-Item -Path $TrackerRegKey -Force | Out-Null }
+  $inv = [Globalization.CultureInfo]::InvariantCulture
+  Set-ItemProperty -Path $TrackerRegKey -Name Pinned -Value ([int][bool]$pinned) -Type DWord
+  foreach ($n in 'Left','Top','Width','Height') { Set-ItemProperty -Path $TrackerRegKey -Name $n -Value ([double]$win.$n).ToString($inv) -Type String }
+  Set-ItemProperty -Path $TrackerRegKey -Name Expanded -Value (@($script:expand.Keys) -join ',') -Type String
+} catch { } }
 function Set-Pin { $win.Topmost = $pinned
   if ($pinned) { $c.PinBtn.Content = [char]0xE841; $c.PinBtn.Foreground = Brush '#FF4C8DFF'; $c.PinBtn.ToolTip = 'Pinned on top (click to unpin)' }
   else { $c.PinBtn.Content = [char]0xE718; $c.PinBtn.Foreground = Brush '#FFB0B3B8'; $c.PinBtn.ToolTip = 'Not on top (click to pin)' } }
@@ -71,28 +90,14 @@ $c.PinBtn.Add_Click({ $script:pinned = -not $script:pinned; Set-Pin; Save-Settin
 $c.MinBtn.Add_Click({ $win.WindowState = 'Minimized' })
 $c.CloseBtn.Add_Click({ $win.Close() })
 $win.Add_Closing({ Save-Settings })
-# Clear finished: the window's only write. Removes done jobs (with their subtasks) under the shared write mutex,
-# after an atomic copy to tracker.json.bak (one backup, overwritten). A failure shows a short note on the button.
-$script:clearNote = New-Object Windows.Threading.DispatcherTimer
-$script:clearNote.Interval = [TimeSpan]::FromSeconds(6)
-$script:clearNote.Add_Tick({ $script:clearNote.Stop(); $c.ClearBtn.Content = 'Clear finished'; $c.ClearBtn.Foreground = Brush '#FFB0B3B8'
-  $c.ClearBtn.ToolTip = 'Remove all finished jobs from the list (backs up tracker.json first)' })
+# Clear finished: hides done jobs in this window only (tracker.json is never written). A hidden job comes back if it
+# changes in the list or the window restarts.
+$script:hidden = @{}   # job id -> compact JSON of the job when it was hidden
+function Get-JobKey($t) { $t | ConvertTo-Json -Compress -Depth 8 }
 $c.ClearBtn.Add_Click({
-  try {
-    Invoke-TrackerLocked -TimeoutSec 3 {
-      $d = Read-JsonFile $TrackerFile; if (-not $d) { throw 'could not read tracker.json' }
-      $keep = @($d.tasks | ? { $_ -and (Get-JobStatus $_) -ne 'done' })
-      if ($keep.Count -eq @($d.tasks | ? { $_ }).Count) { return }
-      Backup-TrackerFile
-      $o = [ordered]@{}; foreach ($p in $d.PSObject.Properties) { $o[$p.Name] = $p.Value }
-      $o['tasks'] = $keep; $o['updated'] = (Get-Date).ToString('o')
-      Write-JsonAtomic $TrackerFile $o
-    }
-    $script:dirty = $true
-  } catch {
-    $c.ClearBtn.Content = 'Clear failed'; $c.ClearBtn.Foreground = Brush '#FFF2A33A'; $c.ClearBtn.ToolTip = "Clear failed: $($_.Exception.Message)"
-    $script:clearNote.Stop(); $script:clearNote.Start()
-  }
+  $d = Read-JsonFile $TrackerFile
+  if ($d) { foreach ($t in @($d.tasks | ? { $_ -and (Get-JobStatus $_) -eq 'done' })) { $script:hidden[[string]$t.id] = Get-JobKey $t } }
+  $script:dirty = $true
 })
 
 
@@ -143,7 +148,7 @@ $script:hideTimer.Interval = [TimeSpan]::FromSeconds(60)
 $script:hideTimer.Add_Tick({
   $script:hideTimer.Stop()
   # A -Show that is pending (signal not yet drained) cancels the close; tracker.ps1 relaunches if we exit anyway.
-  if (Test-Path -LiteralPath $TrackerShowSignal) { $script:showHold = $true; $script:dirty = $true; $script:raise = $true; return }
+  if ($showEv.WaitOne(0)) { $script:showHold = $true; $script:dirty = $true; $script:raise = $true; return }
   $win.Close() })  # exits the process
 
 function Add-Clickable($el, [string]$agentId, [string]$bot) {
@@ -250,6 +255,11 @@ function Render {
   $d = Read-JsonFile $TrackerFile
   $tasks = @(); $title = 'Tasks'
   if ($d) { $tasks = @($d.tasks | ? { $_ }); if ($d.title) { $title = [string]$d.title } }
+  # Jobs hidden by Clear finished stay hidden while unchanged.
+  if ($d -and $script:hidden.Count) {
+    $ids = @($tasks | % { [string]$_.id }); foreach ($k in @($script:hidden.Keys | ? { $_ -notin $ids })) { $script:hidden.Remove($k) }
+    $tasks = @($tasks | ? { $k = [string]$_.id; if ($script:hidden.ContainsKey($k)) { if ($script:hidden[$k] -eq (Get-JobKey $_)) { $false } else { $script:hidden.Remove($k); $true } } else { $true } })
+  }
   # Forget the expanded state of jobs that are no longer in the list (only when the list was read).
   if ($d) {
     $ids = @($tasks | % { [string]$_.id })
@@ -299,7 +309,7 @@ function Render {
   $c.Scroll.UpdateLayout(); $c.Scroll.ScrollToVerticalOffset($scrollY)
 }
 
-# Only for an explicit -Show (show.signal): restore if minimized and raise without taking focus.
+# Only for an explicit -Show (named show event): restore if minimized and raise without taking focus.
 function Bring-Front {
   if ($win.WindowState -eq 'Minimized') { $win.WindowState = 'Normal' }
   $h = (New-Object Windows.Interop.WindowInteropHelper $win).Handle
@@ -308,33 +318,37 @@ function Bring-Front {
   [TrkWin]::SetWindowPos($h, $after, 0, 0, 0, 0, 0x13) | Out-Null
 }
 
-# Live refresh: FileSystemWatcher on the tracker folder; changes are applied on the UI thread.
+# Live refresh: FileSystemWatcher on the tracker folder (started once the folder exists; the window never creates it).
 $script:dirty = $false; $script:raise = $false
 $script:showHold = $true   # this process was started by -Show, so an all-done list stays open until it has open jobs again
-$fsw = New-Object IO.FileSystemWatcher $TrackerDir
-$fsw.NotifyFilter = 'LastWrite, FileName, Size'
-$fsw.EnableRaisingEvents = $true
-# Events are queued by PowerShell (no cross-thread callbacks) and drained on the UI timer below.
-Register-ObjectEvent $fsw Changed -SourceIdentifier TrkChanged | Out-Null
-Register-ObjectEvent $fsw Created -SourceIdentifier TrkCreated | Out-Null
-Register-ObjectEvent $fsw Renamed -SourceIdentifier TrkRenamed | Out-Null
+$script:fsw = $null
+function Start-Watch {
+  if ($script:fsw -or -not (Test-Path -LiteralPath $TrackerDir)) { return }
+  $script:fsw = New-Object IO.FileSystemWatcher $TrackerDir
+  $script:fsw.NotifyFilter = 'LastWrite, FileName, Size'
+  $script:fsw.EnableRaisingEvents = $true
+  # Events are queued by PowerShell (no cross-thread callbacks) and drained on the UI timer below.
+  Register-ObjectEvent $script:fsw Changed -SourceIdentifier TrkChanged | Out-Null
+  Register-ObjectEvent $script:fsw Created -SourceIdentifier TrkCreated | Out-Null
+  Register-ObjectEvent $script:fsw Renamed -SourceIdentifier TrkRenamed | Out-Null
+  $script:dirty = $true
+}
+Start-Watch
 $poll = New-Object Windows.Threading.DispatcherTimer
 $poll.Interval = [TimeSpan]::FromMilliseconds(400)
 $poll.Add_Tick({
+  if (-not $script:fsw) { Start-Watch }
   foreach ($ev in @(Get-Event -ErrorAction SilentlyContinue | ? { $_.SourceIdentifier -like 'Trk*' })) {
-    $n = $ev.SourceEventArgs.Name
-    if ($n -in 'tracker.json','bots.json') { $script:dirty = $true }
-    elseif ($n -eq 'show.signal') { $script:dirty = $true; $script:raise = $true }
-    if ($n -eq 'show.signal') { $script:showHold = $true; $script:hideTimer.Stop() }
+    if ($ev.SourceEventArgs.Name -in 'tracker.json','bots.json') { $script:dirty = $true }
     Remove-Event -EventIdentifier $ev.EventIdentifier
   }
+  if ($showEv.WaitOne(0)) { $script:showHold = $true; $script:hideTimer.Stop(); $script:dirty = $true; $script:raise = $true }
   if ($script:dirty) { $script:dirty = $false; try { Render } catch { } }
-  if ($script:raise) { $script:raise = $false; try { Bring-Front } catch { }
-    Remove-Item -LiteralPath $TrackerShowSignal -ErrorAction SilentlyContinue }   # ack to tracker.ps1 -Show
-  elseif (Test-Path -LiteralPath $TrackerShowSignal) { $script:showHold = $true; $script:hideTimer.Stop(); $script:dirty = $true; $script:raise = $true } })   # missed event
+  if ($script:raise) { $script:raise = $false; try { Bring-Front } catch { } } })
 $poll.Start()
 
 Render
+if ($script:migrate) { Save-Settings }   # one-time copy of an old settings.json into the registry (the file is left alone)
 $win.Add_ContentRendered({ Bring-Front })
 $app = New-Object Windows.Application
 $app.ShutdownMode = 'OnExplicitShutdown'

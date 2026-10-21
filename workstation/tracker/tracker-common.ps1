@@ -4,14 +4,18 @@ $TrackerDir      = if ($env:WORKSTATION_TRACKER_DIR) { $env:WORKSTATION_TRACKER_
 $TrackerFile     = Join-Path $TrackerDir 'tracker.json'
 $TrackerBots     = Join-Path $TrackerDir 'bots.json'
 $TrackerSettings = Join-Path $TrackerDir 'settings.json'
-$TrackerWindowMutex = 'Local\WorkstationTrackerWindow' + $(if ($env:WORKSTATION_TRACKER_DIR) {
+# Per-data-folder suffix (empty for the default folder) so a test folder never talks to the live window.
+$TrackerSuffix = if ($env:WORKSTATION_TRACKER_DIR) {
   $sha = [Security.Cryptography.SHA1]::Create()
   '-' + (-join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($TrackerDir.ToLower())) | % { $_.ToString('x2') }))
-} else { '' })
-$TrackerShowSignal = Join-Path $TrackerDir 'show.signal'
-$TrackerBackup     = Join-Path $TrackerDir 'tracker.json.bak'
-# Every read-modify-write of tracker.json (tracker.ps1 and the window's Clear finished) holds this named mutex.
-$TrackerWriteMutex = $TrackerWindowMutex.Replace('WorkstationTrackerWindow', 'WorkstationTrackerWrite')
+} else { '' }
+$TrackerWindowMutex = 'Local\WorkstationTrackerWindow' + $TrackerSuffix
+# -Show handshake: tracker.ps1 sets this auto-reset event; the open window waits on it (no files involved).
+$TrackerShowEvent  = 'Local\WorkstationTrackerShow' + $TrackerSuffix
+# Window state (pin, position, size, expanded jobs) lives in the registry; the window never writes files.
+$TrackerRegKey     = 'HKCU:\Software\Workstation\Tracker' + $(if ($TrackerSuffix) { '\test' + $TrackerSuffix } else { '' })
+# Every read-modify-write of tracker.json by tracker.ps1 holds this named mutex.
+$TrackerWriteMutex = 'Local\WorkstationTrackerWrite' + $TrackerSuffix
 
 # Runs $Body while holding the write mutex (waits up to $TimeoutSec; an abandoned mutex counts as acquired).
 function Invoke-TrackerLocked([scriptblock]$Body, [int]$TimeoutSec = 10) {
@@ -22,14 +26,6 @@ function Invoke-TrackerLocked([scriptblock]$Body, [int]$TimeoutSec = 10) {
     if (-not $got) { throw "tracker.json is locked by another writer (waited $TimeoutSec s)." }
     & $Body
   } finally { if ($got) { $m.ReleaseMutex() }; $m.Dispose() }
-}
-
-# Copies tracker.json to tracker.json.bak atomically (temp file, then replace). Only the latest backup is kept.
-function Backup-TrackerFile {
-  if (-not (Test-Path -LiteralPath $TrackerFile)) { return }
-  $tmp = "$TrackerBackup.$PID.tmp"
-  Copy-Item -LiteralPath $TrackerFile -Destination $tmp -Force
-  if (Test-Path -LiteralPath $TrackerBackup) { [IO.File]::Replace($tmp, $TrackerBackup, [NullString]::Value) } else { [IO.File]::Move($tmp, $TrackerBackup) }
 }
 
 # Job status: an explicit 'blocked' on the job wins; otherwise derived from subtasks when it has any.
@@ -47,14 +43,17 @@ function Get-JobStatus($t) {
 function Initialize-TrackerDir {
   if (-not (Test-Path -LiteralPath $TrackerDir)) { New-Item -ItemType Directory -Force -Path $TrackerDir | Out-Null }
   $readme = Join-Path $TrackerDir 'README.txt'
-  if (-not (Test-Path -LiteralPath $readme)) {
-    @"
+  $text = @"
 This folder belongs to the workstation repo (github.com/living-relation/workstation, tool: workstation\tracker).
-It holds runtime state for the live task tracker window: tracker.json (tasks), bots.json (bot name -> agentId),
-settings.json (pin state, window position, expanded jobs),
-tracker.json.bak (copy taken just before the last Clear finished; only the latest is kept). Safe to delete; the tracker recreates it. Schema: workstation\tracker\README.md.
-"@ | Set-Content -LiteralPath $readme -Encoding UTF8
-  }
+It holds the live task tracker's data: tracker.json (tasks, written only by tracker.ps1) and bots.json
+(bot name -> agentId). The tracker window is read-only and never writes here; its pin state, position, size and
+expanded jobs are kept in the registry (HKCU\Software\Workstation\Tracker). A settings.json left from older
+versions is read once for migration and otherwise ignored. Safe to delete; tracker.ps1 recreates it.
+Schema: workstation\tracker\README.md.
+"@
+  # Rewritten when the text changes (tracker.ps1 only; the window never calls this).
+  $cur = if (Test-Path -LiteralPath $readme) { (Get-Content -LiteralPath $readme -Raw).Trim() } else { '' }
+  if ($cur -ne $text.Trim()) { $text | Set-Content -LiteralPath $readme -Encoding UTF8 }
   # Start empty; the example file in the repo is documentation only, never copied.
   if (-not (Test-Path -LiteralPath $TrackerBots)) { [IO.File]::WriteAllText($TrackerBots, '{}', (New-Object Text.UTF8Encoding $false)) }
 }
