@@ -75,7 +75,8 @@ param(
   [string]$StartupFolder,
   [string]$ReportDir,
   [switch]$Bots,
-  [switch]$NoBots
+  [switch]$NoBots,
+  [string]$BotsExistingDir   # folder of the current Grok Bot agents' profile JSON (agents\<id>\profile.json); used by -Bots
 )
 
 $ErrorActionPreference = 'Stop'
@@ -897,9 +898,21 @@ try {
     else { $doBots = ((Read-Host 'Add the optional bot profiles? [y/N]') -match '^(y|yes)$'); if (-not $doBots) { Note 'OK' 'optional bot profiles: skipped (answered No)' } }
     if ($doBots -or ($Bots -and $WhatIf)) {
       $botOut = Join-Path $sd 'bots'
+    # Where the current bots' profiles are, so existing bots are merged, not skipped: -BotsExistingDir, else
+    # $env:GROK_BOT_AGENTS_DIR, else the Grok Bot agents folder when it is reachable from here; otherwise ask.
+    $botDir = @($BotsExistingDir, $env:GROK_BOT_AGENTS_DIR, '/home/box/agent-data/agents') | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Container) } | Select-Object -First 1
+    if (-not $botDir -and -not $WhatIf) {
+      $a = Read-Host "Folder with the current Grok Bot agents' profiles (agents\<id>\profile.json; blank = skip existing-bot check)"
+      if ($a -and (Test-Path -LiteralPath $a.Trim('"') -PathType Container)) { $botDir = $a.Trim('"') }
+      elseif ($a) { Note 'WARN' "not a folder: $a" }
+    }
+    if ($botDir) { Note 'OK' "existing Grok Bot profiles read from $botDir" }
+    elseif ($WhatIf) { Note 'WOULD' "ask for the Grok Bot agents folder (or pass -BotsExistingDir)" }
+    else { Note 'WARN' 'no Grok Bot agents folder given: bots can''t be checked for existing ones, so they are skipped' }
+    $exArg = @{}; if ($botDir) { $exArg.ExistingDir = $botDir }
       foreach ($p in $profiles) {
         try {
-          $r = & (Join-Path $PSScriptRoot 'bots\merge-bot-profile.ps1') -ProfilePath $p.FullName -OutDir $botOut -NonInteractive:$Bots -WhatIf:$WhatIf
+          $r = & (Join-Path $PSScriptRoot 'bots\merge-bot-profile.ps1') -ProfilePath $p.FullName @exArg -OutDir $botOut -NonInteractive:$Bots -WhatIf:$WhatIf
           foreach ($x in @($r)) { if ($x) { Note $(if ($WhatIf) { 'WOULD' } else { 'DONE' }) "bot profile '$($x.Bot)': $($x.Action)$(if ($x.Sheet) { " -> $($x.Sheet)" })" } }
         } catch { Note 'ERROR' ("bot profile $($p.Name) -- " + $_.Exception.Message) }
       }

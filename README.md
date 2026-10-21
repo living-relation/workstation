@@ -46,7 +46,7 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
 
 `install.ps1` checks whether Grok Bot is installed: an uninstall entry named "Grok Bot", a "Grok Bot" Start-menu shortcut, or
 `%APPDATA%\Grok Bot`. If it isn't, the step is skipped without a message. If it is, the installer asks
-**"Add the optional bot profiles? [y/N]"** (default No). `-Bots` says yes, `-NoBots` says no, and `-WhatIf` only reports.
+**"Add the optional bot profiles? [y/N]"** (default No). `-Bots` says yes, `-NoBots` says no, and `-WhatIf` only reports. With `-Bots`, existing bots are found in `-BotsExistingDir` (else `$env:GROK_BOT_AGENTS_DIR`, else the Grok Bot agents folder when reachable); if none is found it asks for the folder, and a blank answer skips existing-bot checks.
 
 "Add" runs `bots\merge-bot-profile.ps1` for each `bots\profiles\*.profile.json` and **only writes files** to
 `%LOCALAPPDATA%\Workstation\bots\`: a ready-to-apply `<bot>.<new|update|merged>.json` and a `<bot>.md` paste sheet
