@@ -124,28 +124,76 @@ function Get-AgentWorkerProcs($procs, $supIds) {
     })
 }
 
-# Claude Code remote control: only claude/node processes whose command line contains --remote-control.
+# Claude Code remote control started by Workers Start (`claude --bg --remote-control`).
+# Matches ONLY the --remote-control session processes and the `--bg-pty-host` that hosts one (its inner
+# command after ' -- ' is a --remote-control session, or a child of it is). Other `claude --bg` sessions,
+# their PTY hosts and the shared `claude.exe daemon run` never match, so Stop and Status don't touch them.
+function Test-RemoteControlArgs([string]$cmd) { $cmd -match '(^|\s)--remote-control(=|\s|$)' }
+# The session id Workers Start launched remote control with (state file; Stop and Status prefer it).
+$RemoteControlStateFile = Join-Path $WsStateDir 'claude-remote-control.json'
+function Get-RemoteControlStateId { try { [string]((Get-Content -LiteralPath $RemoteControlStateFile -Raw -ErrorAction Stop | ConvertFrom-Json).sessionId) } catch { '' } }
 function Get-RemoteControlProcs($procs) {
+    $procs = @($procs | Where-Object { $_.ProcessId -ne $PID -and $_.Name -in @('claude.exe', 'node.exe') })
+    $sessions = @($procs | Where-Object { "$($_.CommandLine)" -notmatch '--bg-pty-host' -and (Test-RemoteControlArgs "$($_.CommandLine)") })
+    $sessionParents = @($sessions | ForEach-Object { $_.ParentProcessId })
+    $hosts = @($procs | Where-Object {
+        $c = "$($_.CommandLine)"
+        $c -match '--bg-pty-host' -and (
+            (($c -split ' -- ', 2).Count -eq 2 -and (Test-RemoteControlArgs ($c -split ' -- ', 2)[1])) -or
+            ($sessionParents -contains $_.ProcessId))
+    })
+    @($sessions) + @($hosts)
+}
+
+# Desktop Commander remote connector (`npx ... desktop-commander ... remote`).
+# Started at logon by Startup\Desktop Commander Remote.lnk, or by the manual Start shortcut.
+function Get-DesktopCommanderRemoteProcs($procs) {
     @($procs | Where-Object {
-        $_.ProcessId -ne $PID -and $_.Name -in @('claude.exe', 'node.exe') -and "$($_.CommandLine)" -match '--remote-control'
+        $_.ProcessId -ne $PID -and
+        "$($_.CommandLine)" -match 'desktop-commander' -and
+        "$($_.CommandLine)" -match '\bremote\b' -and
+        "$($_.CommandLine)" -notmatch 'start-dc-remote' -and
+        "$($_.CommandLine)" -notmatch 'stop-dc-remote'
     })
 }
 
 # `claude --bg --remote-control` hands off to a background session named "remote-control".
 # Returns the active ones from `claude agents --json`.
-function Get-RemoteControlSessions {
+# Every active `claude --bg` session from `claude agents --json`. Sets $script:ClaudeAgentsOk = $false when the
+# list couldn't be read, so callers never treat "unknown" as "none".
+function Get-ClaudeBgSessions {
+    $script:ClaudeAgentsOk = $false
     if (-not $ClaudeExe) { return @() }
     $list = $null
     try {
         $json = (& $ClaudeExe agents --json 2>$null) | Out-String
+        if ($LASTEXITCODE -ne 0) { return @() }
         if ($json.Trim()) { $list = ConvertFrom-Json $json }
     } catch { return @() }
+    # Some versions wrap the list: { "agents": [...] } or { "sessions": [...] }.
+    if ($list -and -not ($list -is [array])) { if ($null -ne $list.agents) { $list = $list.agents } elseif ($null -ne $list.sessions) { $list = $list.sessions } }
+    $script:ClaudeAgentsOk = $true
     $out = @()
     foreach ($s in @($list)) {
         if ($null -eq $s) { continue }
-        if ("$($s.name)" -match 'remote-control' -and "$($s.state)" -notin @('stopped', 'done', 'failed')) { $out += $s }
+        if ("$($s.state)" -notin @('stopped', 'done', 'failed')) { $out += $s }
     }
     return $out
+}
+# Remote-control sessions, found by id, never by name: the session id Workers Start saved, or a session whose pid
+# or sessionId belongs to the --remote-control process tree. Pass $Sessions to reuse a list already read.
+function Get-RemoteControlSessions($procs = $null, $Sessions = $null) {
+    if ($null -eq $procs) { $procs = Get-ProcSnapshot }
+    if ($null -eq $Sessions) { $Sessions = Get-ClaudeBgSessions }
+    $rcp = @(Get-RemoteControlProcs $procs)
+    $pids = @($rcp | ForEach-Object { [int]$_.ProcessId })
+    $cmds = ($rcp | ForEach-Object { "$($_.CommandLine)" }) -join "`n"
+    $saved = Get-RemoteControlStateId
+    @($Sessions | Where-Object {
+        ($saved -and "$($_.sessionId)" -eq $saved) -or
+        ($_.pid -and $pids -contains [int]$_.pid) -or
+        ($_.sessionId -and $cmds.Contains("$($_.sessionId)"))
+    })
 }
 
 function Test-WorkerHealth {
@@ -212,6 +260,10 @@ function Show-BridgeStatus {
     $wp = Get-WatchPullProcs $procs
     if ($wp) { Write-Warn "watch-pull RUNNING (pid $(Format-Pids $wp)) - should be off; Workers Stop ends it" }
     else { Write-Ok 'watch-pull off (pulls are manual, one repo at a time)' }
+
+    $dc = Get-DesktopCommanderRemoteProcs $procs
+    if ($dc) { Write-Ok "Desktop Commander remote running (pid $(Format-Pids $dc))" }
+    else { Write-Off 'Desktop Commander remote not running' }
 
     # Stop flag
     if (Test-Path -LiteralPath $BridgeStopFlag) {
@@ -600,13 +652,26 @@ function Show-Automations {
         default   { Write-Warn "Claude startup switch state unknown ($($claude.TaskId))" }
     }
 
-    # 5b. Desktop Commander remote mode (kept on purpose; optional on other PCs)
-    $dcTask = Get-ScheduledTask -TaskName 'DesktopCommander-Remote' -ErrorAction SilentlyContinue
-    $dcScript = Join-Path $BridgeRoot 'desktop-commander\run-remote.ps1'
-    if (-not $dcTask) { Write-Off 'Desktop Commander remote task not installed (optional; run Desktop Commander Setup)' }
-    elseif ($dcTask.State -eq 'Disabled') { Write-Warn 'Desktop Commander remote task DesktopCommander-Remote is disabled' }
-    elseif (-not (Test-Path -LiteralPath $dcScript)) { Write-Bad "Desktop Commander task present but script missing: $dcScript" }
-    else { Write-Ok "Desktop Commander remote task DesktopCommander-Remote $($dcTask.State) -> $dcScript" }
+    # 5b. Desktop Commander remote: Startup shortcut + the repo launcher (workstation\desktop-commander-remote; not a scheduled task)
+    $dcDir    = Join-Path $BridgeRoot 'desktop-commander-remote'
+    $dcScript = Join-Path $dcDir 'start-dc-remote.ps1'
+    $dcLnk    = Join-Path ([Environment]::GetFolderPath('Startup')) 'Desktop Commander Remote.lnk'
+    $dcManual = Join-Path (Split-Path $BridgeRoot -Parent) 'shortcuts\Desktop Commander Remote Start.lnk'
+    if (-not (Test-Path -LiteralPath $dcScript)) {
+        Write-Off 'Desktop Commander remote not installed (no start-dc-remote.ps1)'
+    } else {
+        if (Test-Path -LiteralPath $dcLnk) {
+            $tog = Get-StartupToggleInfo 'StartupFolder' 'Desktop Commander Remote.lnk'
+            if ($tog.State -eq 'off') {
+                Write-Warn 'Desktop Commander remote Startup shortcut is OFF (Settings > Apps > Startup)'
+                $script:StartupOff += [pscustomobject]@{ Label = 'Desktop Commander remote'; Type = 'approved'; Kind = 'StartupFolder'; Key = $tog.Key; Name = 'Desktop Commander Remote.lnk'; Pkg = $null }
+            } else { Write-Ok "Startup Desktop Commander Remote.lnk -> $dcScript (switch on)" }
+        } else {
+            Write-Warn "Desktop Commander remote script present but Startup shortcut missing ($dcLnk)"
+        }
+        if (Test-Path -LiteralPath $dcManual) { Write-Ok "manual Start shortcut: $dcManual" }
+        else { Write-Off 'manual Desktop Commander Remote Start.lnk not in workstation\shortcuts' }
+    }
 
     # 6. Retired items must stay gone
     $back = @()

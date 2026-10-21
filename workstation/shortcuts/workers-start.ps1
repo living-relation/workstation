@@ -30,7 +30,7 @@ if ($sup) {
 
 # 2. Claude remote control
 $rc  = Get-RemoteControlProcs $procs
-$rcs = Get-RemoteControlSessions
+$rcs = Get-RemoteControlSessions $procs
 if ($rc -or $rcs) {
     Write-Ok 'Claude remote control already running'
 } elseif (-not $ClaudeExe) {
@@ -39,11 +39,17 @@ if ($rc -or $rcs) {
     $outFile = Join-Path $env:TEMP 'workers-start-claude.out.txt'
     $errFile = Join-Path $env:TEMP 'workers-start-claude.err.txt'
     try {
-        $p = Start-Process -FilePath $ClaudeExe -ArgumentList @('--bg', '--remote-control') `
+        # A fixed session id and a name, saved to the state file, so Stop finds exactly this session.
+        $sid = [guid]::NewGuid().ToString()
+        $p = Start-Process -FilePath $ClaudeExe -ArgumentList @('--bg', '--remote-control', '--session-id', $sid, '--name', 'workstation-remote-control') `
             -WorkingDirectory $BridgeProjects -WindowStyle Hidden -PassThru -ErrorAction Stop `
             -RedirectStandardOutput $outFile -RedirectStandardError $errFile
         if ($p.WaitForExit(30000)) {
-            Write-Ok "started Claude remote control (claude --bg --remote-control, exit $($p.ExitCode))"
+            Write-Ok "started Claude remote control (claude --bg --remote-control, session $sid, exit $($p.ExitCode))"
+            try {
+                New-Item -ItemType Directory -Path (Split-Path $RemoteControlStateFile) -Force | Out-Null
+                [IO.File]::WriteAllText($RemoteControlStateFile, (@{ sessionId = $sid; startedAt = (Get-Date).ToString('o') } | ConvertTo-Json))
+            } catch { Write-Warn "couldn't save $RemoteControlStateFile`: $($_.Exception.Message)" }
         } else {
             Write-Warn 'claude --bg --remote-control still running after 30 s (left running)'
         }
