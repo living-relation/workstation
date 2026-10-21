@@ -17,7 +17,7 @@ function Add-Note([string]$Dir, [string]$Name, [string]$Text) {
 }
 $own = @(
   @{ Dir = $StateDir; What = 'runtime state of the Workstation toolkit (config, logs, backups)' },
-  @{ Dir = (Join-Path $StateDir 'desktop-commander-remote'); What = 'the Desktop Commander remote launcher (start/stop scripts, run-hidden.vbs) and its logs; the device login is held by Desktop Commander itself' },
+  @{ Dir = (Join-Path $StateDir 'desktop-commander-remote'); What = 'the Desktop Commander remote logs (the launcher scripts run from the repo, workstation\desktop-commander-remote\); the device login is held by Desktop Commander itself' },
   @{ Dir = (Join-Path $StateDir 'cursor-worker'); What = 'Cursor worker state and logs' },
   @{ Dir = (Join-Path $StateDir 'dashboard'); What = 'local dashboard runtime files (logs, token, cache; never commit them)' },
   @{ Dir = (Join-Path $StateDir 'backups'); What = 'backups the installer made before replacing links (add-only)' },
