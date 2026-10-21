@@ -889,7 +889,7 @@ try {
   $grokBot = @(Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue | Where-Object { "$($_.DisplayName)" -like 'Grok Bot*' }).Count -gt 0 -or
              (Test-Path -LiteralPath (Join-Path $ra 'Microsoft\Windows\Start Menu\Programs\Grok Bot.lnk')) -or
              (Test-Path -LiteralPath (Join-Path $ra 'Grok Bot'))
-  $profiles = @(Get-ChildItem -Path (Join-Path $PSScriptRoot 'bots\profiles\*.profile.json') -ErrorAction SilentlyContinue)
+  $profiles = @(Get-ChildItem -Path (Join-Path $PSScriptRoot 'bots\profiles\*.profile.json') -ErrorAction SilentlyContinue | Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -notmatch 'TODO' })  # profiles with TODO placeholders are skipped
   if ($grokBot -and $profiles.Count) {
     $doBots = $false
     if ($NoBots) { Note 'OK' 'optional bot profiles: skipped (-NoBots)' }
@@ -899,16 +899,10 @@ try {
     if ($doBots -or ($Bots -and $WhatIf)) {
       $botOut = Join-Path $sd 'bots'
     # Where the current bots' profiles are, so existing bots are merged, not skipped: -BotsExistingDir, else
-    # $env:GROK_BOT_AGENTS_DIR, else the Grok Bot agents folder when it is reachable from here; otherwise ask.
-    $botDir = @($BotsExistingDir, $env:GROK_BOT_AGENTS_DIR, '/home/box/agent-data/agents') | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Container) } | Select-Object -First 1
-    if (-not $botDir -and -not $WhatIf) {
-      $a = Read-Host "Folder with the current Grok Bot agents' profiles (agents\<id>\profile.json; blank = skip existing-bot check)"
-      if ($a -and (Test-Path -LiteralPath $a.Trim('"') -PathType Container)) { $botDir = $a.Trim('"') }
-      elseif ($a) { Note 'WARN' "not a folder: $a" }
-    }
+    # $env:GROK_BOT_AGENTS_DIR. Nothing else is guessed or asked; without a folder, existing-bot checks are skipped.
+    $botDir = @($BotsExistingDir, $env:GROK_BOT_AGENTS_DIR) | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Container) } | Select-Object -First 1
     if ($botDir) { Note 'OK' "existing Grok Bot profiles read from $botDir" }
-    elseif ($WhatIf) { Note 'WOULD' "ask for the Grok Bot agents folder (or pass -BotsExistingDir)" }
-    else { Note 'WARN' 'no Grok Bot agents folder given: bots can''t be checked for existing ones, so they are skipped' }
+    else { Note 'WARN' 'no Grok Bot agents folder (-BotsExistingDir or GROK_BOT_AGENTS_DIR): bots can''t be checked for existing ones, so they are skipped' }
     $exArg = @{}; if ($botDir) { $exArg.ExistingDir = $botDir }
       foreach ($p in $profiles) {
         try {
