@@ -1,7 +1,7 @@
 # workstation (private)
 
 Sets up a Windows + WSL workstation for agent-assisted work: installer and preflight, helper
-scripts (workers, status), memory tooling, agent instruction templates, the shared
+scripts (workers, status), memory/handoff tooling, agent instruction templates, the shared
 non-CAD agent skills, and a single pin file (`workstation.lock.yaml`) that says which repos and
 upstream tools to fetch, at which versions. It holds **no CAD code and no models** - those come
 from the repos listed in the pin file.
