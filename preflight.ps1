@@ -76,9 +76,14 @@ $DotCursor  = Join-Path $UserHome '.cursor'
 $LinkPath   = Join-Path $DotClaude "projects\$ProjectKey\memory"
 $WmLink     = Join-Path $DotClaude 'working-memory'
 $SettingsPath = Join-Path $DotClaude 'settings.json'
+$CursorHooksJson = Join-Path $DotCursor 'hooks.json'
 $Expected = @{
+  'context-guard.ps1'     = (Join-Path $DotClaude 'hooks\context-guard.ps1')
   'memory-link-guard.ps1' = (Join-Path $DotClaude 'hooks\memory-link-guard.ps1')
+  'handoff-at-80.py'      = (Join-Path $DotCursor 'hooks\handoff-at-80.py')
 }
+$ArmedPath = Join-Path $DotCursor 'hooks\state\handoff-at-80\armed'
+$SkillPkg  = Join-Path $PkgRoot 'handoff\skills\handoff-sync-continue'
 if ($testMode) { $AutoMemValue = ($LinkPath -replace '\\', '/') } else { $AutoMemValue = "~/.claude/projects/$ProjectKey/memory" }
 
 # Script names this package ships or retired. Used to spot duplicates of our jobs anywhere.
@@ -86,11 +91,11 @@ if ($testMode) { $AutoMemValue = ($LinkPath -replace '\\', '/') } else { $AutoMe
 $pkgToolkit = Join-Path $PkgRoot $TK.PackageFolder
 $toolkitLeaves = @(Get-ChildItem -LiteralPath $pkgToolkit -Recurse -File -Filter *.ps1 -ErrorAction SilentlyContinue | ForEach-Object Name | Where-Object { @('config.ps1', 'install-shortcuts.ps1', 'repair-sqlite.ps1', 'health-check.ps1', 'run-worker.ps1') -notcontains $_ })
 $legacyLeaves = @($TK.LegacyScripts | Where-Object { $toolkitLeaves -notcontains $_ })
-$OurLeaves = @('sync-claude-memory-to-cursor.ps1', 'memory-link-guard.ps1') + $toolkitLeaves + $legacyLeaves | Select-Object -Unique
+$OurLeaves = @('sync-claude-memory-to-cursor.ps1', 'memory-link-guard.ps1', 'context-guard.ps1', 'handoff-at-80.py') + $toolkitLeaves + $legacyLeaves | Select-Object -Unique
 $OurScriptRx  = '(?i)_claude\\run-hidden\.vbs|(^|[\\/"\s])(' + (($OurLeaves | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
 $RetiredRx    = '(?i)watch-pull|cursor-worker|run-worker\.ps1|LatchBridgeLogon|latch\\logon-|ClaudeCode-?RemoteControl'
 $RetiredNameRx = '(?i)watch-?pull|cursor-?worker|LatchBridgeLogon|ClaudeCode-?RemoteControl'
-$SimilarNameRx = '(?i)memory.?sync|sync.?memory|sync-?pull|sync-?push|remote-?control'
+$SimilarNameRx = '(?i)memory.?sync|sync.?memory|sync-?pull|sync-?push|handoff|context-?guard|remote-?control'
 $CursorExeRx  = '(?i)(^|[\\/"\s])cursor\.exe\b'
 
 # ---------------------------------------------------------------- helpers
@@ -198,6 +203,14 @@ if ($ps.Major -gt 5 -or ($ps.Major -eq 5 -and $ps.Minor -ge 1)) { Add-Finding 'O
 else { Add-Finding 'CONFLICT' 'prereq' 'PowerShell' "version $ps; 5.1 or newer is needed" }
 $git = Get-Command git -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($git) { Add-Finding 'OK' 'prereq' 'git' $git.Source } else { Add-Finding 'WARN' 'prereq' 'git' 'not found. git is recommended for per-repo work (one repo at a time; no batch pull/push).' }
+$PyOk = $false; $pyVer = $null
+$pyCmd = Get-Command py -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($pyCmd) {
+  try { $pyVer = (& py -3 -c "import sys; print('%d.%d' % sys.version_info[:2])" 2>$null | Select-Object -First 1) } catch { }
+  if ($pyVer -match '^3\.(\d+)$' -and [int]$Matches[1] -ge 7) { $PyOk = $true }
+}
+if ($PyOk) { Add-Finding 'OK' 'prereq' 'py launcher' "py -3 = Python $pyVer" }
+else { Add-Finding 'WARN' 'prereq' 'py launcher' ("py -3 (Python 3.7+) not available" + $(if ($pyVer) { " (got $pyVer)" } else { '' }) + '. install.ps1 skips the Cursor 80% handoff hook until Python is installed.') }
 # Claude Code version: AGENTS.md loading needs 2.1.281+; the read-both option's plugin id changed in 2.1.285.
 $ClaudeVer = $null
 $claudeCmd = Get-Command claude -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -346,14 +359,14 @@ if ($null -ne $procs) {
 }
 
 # ---------------------------------------------------------------- 6. Claude settings (user + project)
-$SimilarHookRx = '(?i)compact|backup|memory|context|continuity|snapshot'
+$SimilarHookRx = '(?i)handoff|compact|backup|memory|context|continuity|snapshot'
 function Test-ClaudeSettings([string]$Path, [bool]$IsUser) {
   $j = Read-JsonFile $Path
   if (-not $j.Exists) { if ($IsUser) { Add-Finding 'OK' 'claude' $Path 'not found; install.ps1 creates it' }; return }
   if (-not $j.Ok) { Add-Finding 'CONFLICT' 'claude' $Path "does not parse as JSON ($($j.Err)); install.ps1 cannot merge into it. Fix it first."; return }
   $s = $j.Obj
   $hooks = @(Get-ClaudeHooks $s)
-  $wantEvents = @{ 'memory-link-guard.ps1' = @('SessionStart') }
+  $wantEvents = @{ 'context-guard.ps1' = @('Stop', 'PreCompact'); 'memory-link-guard.ps1' = @('SessionStart') }
   foreach ($leaf in $wantEvents.Keys) {
     $mine = @($hooks | Where-Object { $_.Command -match [regex]::Escape($leaf) })
     foreach ($ev in @($mine | ForEach-Object Event | Sort-Object -Unique)) {
@@ -371,11 +384,23 @@ function Test-ClaudeSettings([string]$Path, [bool]$IsUser) {
     }
   }
   foreach ($h in $hooks) {
-    if ($h.Command -match 'memory-link-guard\.ps1') { continue }
+    if ($h.Command -match 'context-guard\.ps1|memory-link-guard\.ps1') { continue }
     if (@('Stop', 'PreCompact', 'SessionStart', 'SubagentStop', 'SessionEnd') -contains $h.Event -and $h.Command -match $SimilarHookRx) {
-      Add-Finding 'WARN' 'claude' "$Path > hooks.$($h.Event)" "other hook with a similar purpose (backup / memory / context); check it does not double up: $($h.Command)"
+      Add-Finding 'WARN' 'claude' "$Path > hooks.$($h.Event)" "other hook with a similar purpose (handoff / backup / memory); check it does not double up: $($h.Command)"
     }
   }
+  if ($s.PSObject.Properties['statusLine'] -and $s.statusLine) {
+    $cmd = ''; if ($s.statusLine.PSObject.Properties['command']) { $cmd = [string]$s.statusLine.command }
+    if ($cmd -match 'context-guard\.ps1') {
+      $sp = Get-ScriptPath $cmd 'context-guard.ps1'
+      if (-not $IsUser) { Add-Finding 'WARN' 'claude' "$Path > statusLine" 'project statusLine overrides the user one (runs context-guard from the project file)' }
+      elseif ($sp -ieq $Expected['context-guard.ps1']) { Add-Finding 'ALREADY-INSTALLED' 'claude' "$Path > statusLine" $cmd }
+      else { Add-Finding 'WARN' 'claude' "$Path > statusLine" "context-guard statusLine points at $sp; install.ps1 re-points it" }
+    } else {
+      $why = if ($IsUser) { 'install.ps1 will NOT overwrite it, so the Claude Code 80% handoff cannot measure context and will not fire. Decide which statusLine to keep.' } else { 'it overrides the user statusLine in that project, so the Claude Code 80% handoff will not fire there.' }
+      Add-Finding 'WARN' 'claude' "$Path > statusLine" "another statusLine is set ($cmd); $why"
+    }
+  } elseif ($IsUser) { Add-Finding 'OK' 'claude' "$Path > statusLine" 'not set; install.ps1 adds the context-guard statusLine' }
   if ($s.PSObject.Properties['autoMemoryDirectory'] -and $s.autoMemoryDirectory) {
     $am = [string]$s.autoMemoryDirectory; $amFull = Expand-UserPath $am
     if (-not $IsUser) { Add-Finding 'WARN' 'claude' "$Path > autoMemoryDirectory" "project file sets its own memory folder ($am); it overrides the shared store in that project" }
@@ -408,6 +433,37 @@ if (Test-Path -LiteralPath $rootCm) { Add-Finding 'WARN' 'rules' $rootCm ("root 
 elseif (Test-Path -LiteralPath $rootAm) { Add-Finding 'OK' 'rules' $rootAm 'root guide is AGENTS.md (no root CLAUDE.md)' }
 else { Add-Finding 'OK' 'rules' $rootAm 'not there yet; install.ps1 creates it' }
 if (-not $projSettings.Count) { Add-Finding 'OK' 'claude' 'project .claude\settings*.json' "none under $ProjectsRoot (checked the root, its folders and active\*)" }
+
+# ---------------------------------------------------------------- 7. Cursor hooks.json (user + project)
+function Test-CursorHooks([string]$Path, [bool]$IsUser) {
+  $j = Read-JsonFile $Path
+  if (-not $j.Exists) { if ($IsUser) { Add-Finding 'OK' 'cursor' $Path 'not found; install.ps1 creates it (needs py -3)' }; return }
+  if (-not $j.Ok) { Add-Finding 'CONFLICT' 'cursor' $Path "does not parse as JSON ($($j.Err)); install.ps1 cannot merge into it."; return }
+  $hooks = @(Get-CursorHooks $j.Obj)
+  $leaf = 'handoff-at-80.py'
+  $mine = @($hooks | Where-Object { $_.Command -match [regex]::Escape($leaf) })
+  foreach ($ev in @($mine | ForEach-Object Event | Sort-Object -Unique)) {
+    $inEv = @($mine | Where-Object Event -eq $ev); $tag = "$Path > hooks.$ev > $leaf"
+    if (-not $IsUser) { Add-Finding 'CONFLICT' 'cursor' $tag 'project hooks.json also runs it; with the user hook it fires twice. Remove it from the project file.'; continue }
+    if ($inEv.Count -gt 1) { Add-Finding 'CONFLICT' 'cursor' $tag "$($inEv.Count) entries run the same script. Keep one."; continue }
+    $sp = Get-ScriptPath $inEv[0].Command $leaf
+    if ($sp -ieq $Expected[$leaf]) { Add-Finding 'ALREADY-INSTALLED' 'cursor' $tag $inEv[0].Command }
+    else { Add-Finding 'WARN' 'cursor' $tag "points at $sp; install.ps1 re-points it to $($Expected[$leaf])" }
+  }
+  if ($IsUser) {
+    foreach ($ev in 'preCompact', 'stop') { if (-not @($mine | Where-Object Event -eq $ev).Count) { Add-Finding 'OK' 'cursor' "$Path > hooks.$ev > $leaf" 'not wired yet; install.ps1 adds it' } }
+    if ($mine.Count -and -not (Test-Path -LiteralPath $ArmedPath)) { Add-Finding 'WARN' 'cursor' $ArmedPath 'armed flag missing: the Cursor handoff hook is wired but disarmed (install.ps1 creates the flag only on a fresh install of the hook)' }
+  }
+  foreach ($h in $hooks) {
+    if ($h.Command -match [regex]::Escape($leaf)) { continue }
+    if (@('preCompact', 'stop', 'sessionStart', 'sessionEnd') -contains $h.Event -and $h.Command -match $SimilarHookRx) {
+      Add-Finding 'WARN' 'cursor' "$Path > hooks.$($h.Event)" "other hook with a similar purpose; check it does not double up: $($h.Command)"
+    }
+  }
+}
+Test-CursorHooks $CursorHooksJson $true
+foreach ($f in @(@(Get-ChildItem -Path "$ProjectsRoot\.cursor\hooks.json", "$ProjectsRoot\active\*\.cursor\hooks.json" -File -Force -ErrorAction SilentlyContinue) | Sort-Object FullName -Unique)) { Test-CursorHooks $f.FullName $false }
+Add-Finding 'OK' 'cursor' 'Claude hooks inside Cursor' 'Cursor also runs ~/.claude/settings.json hooks; context-guard.ps1 ignores Cursor payloads (conversation_id), so only handoff-at-80.py fires in Cursor.'
 
 # ---------------------------------------------------------------- 8. skills and rules
 $skillRoots = New-Object System.Collections.Generic.List[object]   # {Path; Owner = cursor|claude}
@@ -480,11 +536,27 @@ foreach ($r in @($skillRoots | Where-Object Owner -eq 'cursor')) {
 foreach ($rf in $ruleFiles) { Report-Scan "rule $($rf.FullName)" (Get-MemoryScan @($rf)) }
 Add-Finding 'OK' 'cursor-skills' 'scan scope' ("checked $cursorSkillDirs Cursor skill folder(s) and $($ruleFiles.Count) rule file(s) for hard-coded memory paths. Skill roots: " + $(if ($skillRoots.Count) { (($skillRoots | ForEach-Object Path) -join ' | ') } else { 'none found' }))
 
-# Named skill: where it exists (plain answer).
-$found = @()
-foreach ($r in $skillRoots) { $p = Join-Path $r.Path 'claude-cowork'; if (Test-Path -LiteralPath $p -PathType Container) { $found += [pscustomobject]@{ Path = $p; Owner = $r.Owner } } }
-if ($found.Count) { Add-Finding 'OK' 'skills' "skill 'claude-cowork'" ('EXISTS at: ' + (($found | ForEach-Object Path) -join ' | ') + ' (its memory-path findings are listed under cursor-skills)') }
-else { Add-Finding 'OK' 'skills' "skill 'claude-cowork'" 'not found in any skill folder checked (see cursor-skills scan scope)' }
+# Named skills: where they exist (plain answer), and whether handoff-sync-continue matches the package.
+foreach ($name in 'claude-cowork', 'handoff-sync-continue') {
+  $found = @()
+  foreach ($r in $skillRoots) { $p = Join-Path $r.Path $name; if (Test-Path -LiteralPath $p -PathType Container) { $found += [pscustomobject]@{ Path = $p; Owner = $r.Owner } } }
+  if ($name -eq 'claude-cowork') {
+    if ($found.Count) { Add-Finding 'OK' 'skills' "skill '$name'" ('EXISTS at: ' + (($found | ForEach-Object Path) -join ' | ') + ' (its memory-path findings are listed under cursor-skills)') }
+    else { Add-Finding 'OK' 'skills' "skill '$name'" 'not found in any skill folder checked (see cursor-skills scan scope)' }
+    continue
+  }
+  $userCopy = Join-Path $DotClaude "skills\$name"
+  if (-not $found.Count) { Add-Finding 'OK' 'skills' "skill '$name'" "not installed; install.ps1 adds it to $userCopy" }
+  foreach ($f in $found) {
+    $same = Test-SameTree $SkillPkg $f.Path
+    if ($f.Path -ieq $userCopy) {
+      if ($same) { Add-Finding 'ALREADY-INSTALLED' 'skills' $f.Path 'same content as the package' }
+      else { Add-Finding 'WARN' 'skills' $f.Path 'different content from the package copy. install.ps1 keeps it as is (not overwritten); compare with handoff\skills\handoff-sync-continue and decide.' }
+    } else {
+      Add-Finding 'WARN' 'skills' $f.Path ("second skill with the same name (" + $(if ($same) { 'same content' } else { 'DIFFERENT content' }) + "); the agent may load either copy. The package installs only $userCopy.")
+    }
+  }
+}
 
 # Claude instruction texts (package instructions\, pasted by hand; never edited by install). Read-only check.
 Add-Finding 'OK' 'instructions' 'Instructions for Claude' 'account-level, not on disk: paste instructions\instructions-for-claude.md into Claude desktop > Settings > Instructions for Claude if not done yet'
@@ -653,7 +725,7 @@ if ($ReportPath) { Write-Host "Report: $ReportPath" } else { Write-Host 'Report 
 
 $result = [pscustomobject]@{
   Findings = $Findings.ToArray(); Conflicts = $conf; ReportPath = $ReportPath
-  CursorStartup = $CursorStartup; CursorExe = $CursorExe; StartupFolder = $StartupFolder
+  CursorStartup = $CursorStartup; CursorExe = $CursorExe; PyOk = $PyOk; StartupFolder = $StartupFolder
   ClaudeVer = $ClaudeVer; AgentsPlugin = $AgentsPlugin
 }
 if ($PassThru) { return $result }

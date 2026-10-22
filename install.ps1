@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Workstation setup: shared Claude / Cursor memory, the Bridge toolkit and the Cursor
+  Workstation setup: shared Claude / Cursor memory, the Bridge toolkit, the 80% handoff hooks and the Cursor
   autostart, for the CURRENT Windows user.
 
 .DESCRIPTION
@@ -29,6 +29,9 @@
     An old installed copy (<Projects>\_workstation or _bridge, LegacyFolders) is only reported, never moved.
   - Creates the junction ~\.claude\working-memory -> the memory store (the same path on every PC;
     the Cowork Global instructions line uses it). An existing folder or link there is never changed.
+  - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
+    handoff-at-80.py (Cursor preCompact + stop, needs py -3) and the handoff-sync-continue skill. Entries are
+    merged by script name (never duplicated); an unrelated statusLine is never overwritten.
   - Makes sure Cursor starts at sign-in: an existing Cursor entry (Startup folder or Run key) is left alone,
     even if it is turned off in Startup apps (warning only); otherwise adds Cursor.lnk to the Startup folder.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
@@ -134,7 +137,15 @@ $AddedFiles  = New-Object System.Collections.Generic.List[string]
 # Junctions this install created outside <Projects> (manifest lines 'junction|<full path>'; uninstall removes the link only).
 $AddedLinks  = New-Object System.Collections.Generic.List[string]
 $Templates   = Join-Path $PkgRoot 'memory\templates'
+# 80% handoff hooks + skill
+$HandoffPkg  = Join-Path $PkgRoot 'handoff'
+$CtxDest     = Join-Path $HooksDir 'context-guard.ps1'
 $DotCursor   = Join-Path $UserHome '.cursor'
+$CursorHookDest = Join-Path $DotCursor 'hooks\handoff-at-80.py'
+$CursorHooksJson = Join-Path $DotCursor 'hooks.json'
+$ArmedPath   = Join-Path $DotCursor 'hooks\state\handoff-at-80\armed'
+$SkillDest   = Join-Path $DotClaude 'skills\handoff-sync-continue'
+$SkillPkg    = Join-Path $HandoffPkg 'skills\handoff-sync-continue'
 if (-not $StartupFolder) {
   if ($testMode) { $StartupFolder = Join-Path $UserHome 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup' }
   else { $StartupFolder = [Environment]::GetFolderPath('Startup') }
@@ -146,6 +157,10 @@ $AddedJson   = New-Object System.Collections.Generic.List[string]
 # autoMemoryDirectory = the junction path (resolves to the store). Same Projects path as the junction name.
 if ($testMode) { $AutoMemValue = ($LinkPath -replace '\\', '/') } else { $AutoMemValue = "~/.claude/projects/$ProjectKey/memory" }
 $GuardCommand = 'powershell -NoProfile -ExecutionPolicy Bypass -File "' + ($GuardDest -replace '\\', '/') + '"'
+# Same command shapes as the hand-made originals, built from this user's real profile path (forward slashes).
+function Get-CtxCommand([string]$Mode) { return ('powershell -NoProfile -ExecutionPolicy Bypass -File "' + ($CtxDest -replace '\\', '/') + '" ' + $Mode) }
+$CursorHookFwd = ($CursorHookDest -replace '\\', '/')
+$CursorCommand = 'py -3 ' + $(if ($CursorHookFwd -match '\s') { '"' + $CursorHookFwd + '"' } else { $CursorHookFwd })
 
 $Placeholders = [ordered]@{
   '{{USERPROFILE_FWD}}'   = ($UserHome -replace '\\', '/')
@@ -537,7 +552,30 @@ if (-not $wmItem) {
   Note 'WARN' "$WmLink is a file, not a junction. Left alone; move it aside by hand and re-run install.ps1."
 }
 
-# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart guard hook + read-both option), keep everything else
+# 6c. 80% handoff files: context-guard.ps1, handoff-at-80.py (only with py -3), the skill (never overwritten)
+Copy-HomeFile (Join-Path $HandoffPkg 'claude\context-guard.ps1') $CtxDest
+$CursorHookOk = [bool]$Preflight.PyOk
+if ($CursorHookOk) { Copy-HomeFile (Join-Path $HandoffPkg 'cursor\handoff-at-80.py') $CursorHookDest }
+else { Note 'WARN' "py -3 (Python 3.7+) not available: Cursor 80% handoff hook skipped ($CursorHookDest, $CursorHooksJson unchanged). Install Python 3, then re-run install.ps1." }
+if (Test-Path -LiteralPath $SkillDest) {
+  $pkgFiles = @(Get-ChildItem -LiteralPath $SkillPkg -Recurse -File -Force)
+  $same = ($pkgFiles.Count -eq @(Get-ChildItem -LiteralPath $SkillDest -Recurse -File -Force).Count)
+  foreach ($f in $pkgFiles) { $d = Join-Path $SkillDest $f.FullName.Substring($SkillPkg.Length + 1); if (-not (Test-Path -LiteralPath $d) -or (Get-Sha $d) -ne (Get-Sha $f.FullName)) { $same = $false } }
+  if ($same) { Note 'OK' "skill up to date: $SkillDest" }
+  else { Note 'WARN' "skill $SkillDest exists with different content; kept as is (not overwritten). Compare with $SkillPkg and update by hand if wanted." }
+} else {
+  Invoke-Change "install skill $SkillDest" {
+    New-RecordedDir $SkillDest
+    foreach ($f in @(Get-ChildItem -LiteralPath $SkillPkg -Recurse -File -Force)) {
+      $d = Join-Path $SkillDest $f.FullName.Substring($SkillPkg.Length + 1)
+      New-RecordedDir (Split-Path $d -Parent)
+      Copy-Item -LiteralPath $f.FullName -Destination $d
+      Add-ManifestJson @{ kind = 'file'; path = $d; sha256 = (Get-Sha $d) }
+    }
+  }
+}
+
+# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart guard hook + handoff hooks/statusLine), keep everything else
 $settings = $null; $settingsOk = $true; $settingsExisted = Test-Path -LiteralPath $SettingsPath
 if ($AutoMemAtStore) {
   $settingsOk = $false
@@ -591,7 +629,29 @@ if ($settingsOk) {
     Add-ManifestJson @{ kind = 'guard-hook'; target = 'claude'; command = $GuardCommand }
   }
 
+  # 80% handoff: Stop + PreCompact hooks and the statusLine (context-guard.ps1)
   $pendingS = New-Object System.Collections.Generic.List[object]
+  if (-not $settings.PSObject.Properties['hooks'] -or -not $settings.hooks) {
+    if ($settings.PSObject.Properties['hooks']) { $settings.hooks = New-Object psobject } else { $settings | Add-Member -NotePropertyName hooks -NotePropertyValue (New-Object psobject) }
+  }
+  $stopCmd = Get-CtxCommand 'stop'; $preCmd = Get-CtxCommand 'precompact'
+  Merge-HookCommand $settings.hooks 'PreCompact' 'context-guard.ps1' $preCmd ([pscustomobject]@{ hooks = @([pscustomobject]@{ type = 'command'; command = $preCmd; timeout = 60; statusMessage = 'Backing up before compaction...' }) }) 'claude' $pendingS ([ref]$changes) -Nested
+  Merge-HookCommand $settings.hooks 'Stop' 'context-guard.ps1' $stopCmd ([pscustomobject]@{ hooks = @([pscustomobject]@{ type = 'command'; command = $stopCmd; timeout = 15 }) }) 'claude' $pendingS ([ref]$changes) -Nested
+  $slCmd = Get-CtxCommand 'statusline'
+  $curSl = $null; if ($settings.PSObject.Properties['statusLine']) { $curSl = $settings.statusLine }
+  $curSlCmd = ''; if ($curSl -and $curSl.PSObject.Properties['command']) { $curSlCmd = [string]$curSl.command }
+  if (-not $curSl) {
+    $newSl = [pscustomobject]@{ type = 'command'; command = $slCmd }
+    if ($settings.PSObject.Properties['statusLine']) { $settings.statusLine = $newSl } else { $settings | Add-Member -NotePropertyName statusLine -NotePropertyValue $newSl }
+    $pendingS.Add(@{ kind = 'statusline'; target = 'claude'; command = $slCmd }); $changes += 'statusLine = context-guard.ps1 statusline'
+  } elseif ($curSlCmd -match 'context-guard\.ps1') {
+    if ((Get-ScriptPath $curSlCmd 'context-guard.ps1') -ieq $CtxDest) { Note 'OK' 'statusLine already runs context-guard.ps1' }
+    else { $curSl.command = $slCmd; $pendingS.Add(@{ kind = 'statusline-updated'; target = 'claude'; old = $curSlCmd; new = $slCmd }); $changes += 'statusLine: re-point context-guard.ps1' }
+  } else {
+    $shown = if ($curSlCmd) { $curSlCmd } else { ($curSl | ConvertTo-Json -Compress) }
+    Note 'WARN' "an unrelated statusLine is set and was NOT overwritten: $shown. The Claude Code 80% handoff cannot measure context without the context-guard statusLine, so it will not fire. Decide which one to keep."
+    Add-ManifestJson @{ kind = 'note'; what = 'statusline-kept'; existing = $shown }
+  }
 
   # Project instructions: read CLAUDE.md AND AGENTS.md. Without this, any CLAUDE.md or CLAUDE.local.md (the memory
   # pointer) at or above the working folder hides AGENTS.md. Honored only in the user settings file.
@@ -636,6 +696,42 @@ if ($settingsOk) {
       Write-JsonChecked $SettingsPath $settings $raw $settingsExisted $bak
       foreach ($p in $pendingS) { Add-ManifestJson $p }
     }
+  }
+}
+
+# 7b. ~\.cursor\hooks.json: preCompact + stop run handoff-at-80.py (only with py -3); armed flag
+if ($CursorHookOk) {
+  $hjExisted = Test-Path -LiteralPath $CursorHooksJson
+  $hj = $null; $hjRaw = $null; $hjOk = $true
+  if ($hjExisted) {
+    try { $hjRaw = [IO.File]::ReadAllText($CursorHooksJson); if ($hjRaw.Trim()) { $hj = $hjRaw | ConvertFrom-Json } else { $hj = New-Object psobject } }
+    catch { $hjOk = $false; Note 'ERROR' "could not parse $CursorHooksJson (left unchanged): $($_.Exception.Message)" }
+  } else { $hj = [pscustomobject]@{ version = 1; hooks = (New-Object psobject) } }
+  if ($hjOk) {
+    if (-not $hj.PSObject.Properties['version']) { $hj | Add-Member -NotePropertyName version -NotePropertyValue 1 }
+    if (-not $hj.PSObject.Properties['hooks'] -or -not $hj.hooks) {
+      if ($hj.PSObject.Properties['hooks']) { $hj.hooks = New-Object psobject } else { $hj | Add-Member -NotePropertyName hooks -NotePropertyValue (New-Object psobject) }
+    }
+    $hjChanges = @(); $pendingC = New-Object System.Collections.Generic.List[object]
+    Merge-HookCommand $hj.hooks 'preCompact' 'handoff-at-80.py' $CursorCommand ([pscustomobject]@{ command = $CursorCommand; timeout = 10 }) 'cursor' $pendingC ([ref]$hjChanges)
+    Merge-HookCommand $hj.hooks 'stop' 'handoff-at-80.py' $CursorCommand ([pscustomobject]@{ command = $CursorCommand; timeout = 10; loop_limit = 1 }) 'cursor' $pendingC ([ref]$hjChanges)
+    if ($hjChanges.Count) {
+      $hbak = Get-FreePath "$CursorHooksJson.bak-$Stamp"
+      Invoke-Change ("update $CursorHooksJson (" + ($hjChanges -join '; ') + ')' + $(if ($hjExisted) { "; backup $hbak" } else { '; new file' })) {
+        if (-not $hjExisted) { New-RecordedDir (Split-Path $CursorHooksJson -Parent) }
+        Write-JsonChecked $CursorHooksJson $hj $hjRaw $hjExisted $hbak
+        if (-not $hjExisted) { Add-ManifestJson @{ kind = 'file-created'; target = 'cursor'; path = $CursorHooksJson } }
+        foreach ($p in $pendingC) { Add-ManifestJson $p }
+      }
+    }
+    if (Test-Path -LiteralPath $ArmedPath) { Note 'OK' "Cursor handoff hook armed: $ArmedPath" }
+    elseif ($pendingC.Count -and @($pendingC | Where-Object { $_.kind -eq 'hook' }).Count -eq $pendingC.Count) {
+      Invoke-Change "arm the Cursor handoff hook: $ArmedPath" {
+        New-RecordedDir (Split-Path $ArmedPath -Parent)
+        [IO.File]::WriteAllText($ArmedPath, 'armed', $Utf8NoBom)
+        Add-ManifestJson @{ kind = 'file'; path = $ArmedPath; sha256 = (Get-Sha $ArmedPath) }
+      }
+    } else { Note 'WARN' "Cursor handoff hook was already wired but is disarmed (no $ArmedPath). Left as is; create that file to arm it." }
   }
 }
 

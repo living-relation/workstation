@@ -17,7 +17,7 @@ Grok Bot: please set up this PC with my workstation setup. Follow these steps in
 
 5. Reorganize: show me the plan from REORGANIZE.md step 1 (inventory -> proposed moves). Move nothing until I approve. Then do the moves I approved and the rest of REORGANIZE.md (steps 2 to 5). Step 5: merge the Projects-root CLAUDE.md into AGENTS.md yourself (the root is not a git repo; check first, back up first, keep every rule and the shared-memory marker block, then delete the root CLAUDE.md). Then list every CLAUDE.md / AGENTS.md in active\ projects and repos as a table and wait for my yes per file; a repo merge is a commit I make myself, and nothing is pushed. Leave every CLAUDE.local.md alone.
 
-6. Run install.ps1 for real (same parameters as the dry run). Add -AcceptConflicts only if I accepted the remaining conflicts in step 2. It copies no toolkit files (the toolkit runs from the clone's workstation\ folder); it writes %LOCALAPPDATA%\Workstation\workstation.json (the Projects root), creates the Workers Start, Workers Stop and Workstation Status shortcuts in the package's shortcuts\ folder and makes sure Cursor starts at sign-in. Show me the summary, the prerequisite results and any warnings.
+6. Run install.ps1 for real (same parameters as the dry run). Add -AcceptConflicts only if I accepted the remaining conflicts in step 2. It copies no toolkit files (the toolkit runs from the clone's workstation\ folder); it writes %LOCALAPPDATA%\Workstation\workstation.json (the Projects root), creates the Workers Start, Workers Stop and Workstation Status shortcuts in the package's shortcuts\ folder, installs the 80% handoff hooks and makes sure Cursor starts at sign-in. Show me the summary, the prerequisite results and any warnings.
    At the end, install.ps1 runs Workstation Status (-NoPause) and prints its FAIL / WARN counts. FAIL or WARN lines are expected at this point; the steps below clear them. Exit code 0 is expected. Exit code 1 (error) or 2 (preflight conflict) is not: show me what went wrong.
 
 7. Admin command (manual, by me): give me the ONE admin command to paste (it is printed at the end of install.ps1; it runs install-admin.ps1). I run it in PowerShell opened with "Run as admin" under my own account. Wait for my "done". Then check that the task Claude-Memory-To-Cursor-Sync exists and the first memory sync worked.
@@ -40,7 +40,8 @@ Grok Bot: please set up this PC with my workstation setup. Follow these steps in
 13. Prerequisites and sign-ins (manual, by me): using the install results and Workstation Status, tell me what is missing and give me the exact steps for each, then wait for my "done":
    - git, and the GitHub sign-in (per-repo pull/push needs git);
    - the Cursor agent sign-in ("agent login");
-   - Claude Code sign-in ("claude") and the Claude desktop app sign-in.
+   - Claude Code sign-in ("claude") and the Claude desktop app sign-in;
+   - Python 3, if install skipped the Cursor 80% handoff hook because Python was missing (then re-run install.ps1 so the hook is installed).
 
 14. Any other required step that REVIEW-NOTES.md lists for this PC and that is not done yet (for example removing old automations): do it as REVIEW-NOTES.md says, with my approval where it asks for it.
 
