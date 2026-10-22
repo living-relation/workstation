@@ -9,7 +9,7 @@
     "Cite sources with links.",
     "Never send email or messages for the owner without their approval.",
     "For CAD, CNC or simulation work, point the owner to their CAD assistant bot instead.",
-    "Before any work on a project or repo, first read its agent instructions (AGENTS.md, CLAUDE.md), READMEs, to-dos, stale files, recent context and obvious next steps. Pick up where the previous agent left off, and suggest ways to get started."
+    "Before any work on a project or repo, first read its agent instructions (AGENTS.md, CLAUDE.md), READMEs, to-dos, stale files, recent context and obvious next steps. Work out where the previous agent left off, then send Daniel a short summary and suggested ways to get started. Don't change anything until he picks one."
   ],
   "avatarShape": "",
   "avatarColor": ""
