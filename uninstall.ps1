@@ -13,14 +13,14 @@
   - memory sections (between <!-- shared-memory:v1 --> markers) install created or appended; a file install created
     that holds nothing else is removed. A marked section that was already there stays, markers included,
   - in ~\.claude\settings.json: the SessionStart guard hook install added; autoMemoryDirectory put back to the value
-    it had before install (or removed if there was none; left alone if it changed since); the 80% handoff hook
-    entries (a re-pointed entry gets its old command back); the statusLine while it is still the one install set;
+    it had before install (or removed if there was none; left alone if it changed since); from older installs, the retired
+    80% handoff hook entries (a re-pointed entry gets its old command back) and the statusLine while it is still the one install set;
     pluginConfigs > <agents-md plugin> > options.instructionFiles put back to its value before install (or removed,
     with the empty parent objects install created; left alone if it changed since),
-  - in ~\.cursor\hooks.json: the handoff-at-80.py entries install added; the file if install created it and it is
+  - in ~\.cursor\hooks.json (older installs): the retired handoff-at-80.py entries install added; the file if install created it and it is
     empty again,
-  - files install created (guard script and config, context-guard.ps1, handoff-at-80.py, the armed flag, the
-    handoff-sync-continue skill, the runtime config %LOCALAPPDATA%\<StateFolder>\<ConfigFile>, sync scripts, and
+  - files install created (guard script and config; from older installs the retired context-guard.ps1, handoff-at-80.py,
+    armed flag and handoff-sync-continue skill; the runtime config %LOCALAPPDATA%\<StateFolder>\<ConfigFile>, sync scripts, and
     toolkit files an older install copied into <Projects>\_workstation or _bridge) only while unchanged, and
     folders install created (only if empty). The toolkit itself runs from the repo clone; uninstall never touches
     the clone's files. Runtime logs under %LOCALAPPDATA%\<StateFolder> stay (that folder is kept while not empty),
@@ -284,7 +284,7 @@ if (Test-Path -LiteralPath $SettingsPath) {
         $changes += 'remove SessionStart memory-link-guard hook'
       }
     }
-    # 80% handoff hooks and statusLine (only what the manifest says install added or re-pointed)
+    # Older installs: retired 80% handoff hooks and statusLine (only what the manifest says install added or re-pointed)
     if ($s.PSObject.Properties['hooks'] -and $s.hooks) { $changes += @(Undo-Hooks $s.hooks 'claude' -Nested) }
     foreach ($m in @($ManifestJson | Where-Object { $_.target -eq 'claude' -and $_.kind -like 'statusline*' })) {
       if (-not $s.PSObject.Properties['statusLine'] -or -not $s.statusLine -or -not $s.statusLine.PSObject.Properties['command']) { continue }
@@ -301,7 +301,7 @@ if (Test-Path -LiteralPath $SettingsPath) {
   }
 }
 
-# 2b. ~\.cursor\hooks.json: the handoff-at-80.py entries install added; the file itself if install created it
+# 2b. ~\.cursor\hooks.json (older installs): the retired handoff-at-80.py entries install added; the file itself if install created it
 if (Test-Path -LiteralPath $CursorHooksJson) {
   $rawH = [IO.File]::ReadAllText($CursorHooksJson); $hj = $null
   try { $hj = $rawH | ConvertFrom-Json } catch { Note 'ERROR' "could not parse $CursorHooksJson (left unchanged)" }
@@ -360,7 +360,7 @@ foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'startup-link' })) {
   else { Note 'WARN' "sign-in link changed since install (does not run $(Split-Path ([string]$m.script) -Leaf)), left alone: $p" }
 }
 
-# 2d. 80% handoff pieces that are present but not in the manifest: listed, never touched.
+# 2d. Retired 80% handoff pieces (older installs) that are present but not in the manifest: listed, never touched.
 $listedAny = @($ManifestJson | ForEach-Object { [string]$_.path })
 if ((Test-Path -LiteralPath $SettingsPath) -and ([IO.File]::ReadAllText($SettingsPath)).Contains('context-guard.ps1') -and -not @($ManifestJson | Where-Object { $_.target -eq 'claude' -and $_.kind -match '^(hook|hook-updated|statusline|statusline-updated)$' }).Count) {
   Note 'OK' "80% handoff hooks / statusLine in settings.json: not installed by this package, left alone"

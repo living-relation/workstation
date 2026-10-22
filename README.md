@@ -1,7 +1,7 @@
 # workstation (private)
 
 Sets up a Windows + WSL workstation for agent-assisted work: installer and preflight, helper
-scripts (workers, status), memory/handoff tooling, agent instruction templates, the shared
+scripts (workers, status), memory tooling, agent instruction templates, the shared
 non-CAD agent skills, and a single pin file (`workstation.lock.yaml`) that says which repos and
 upstream tools to fetch, at which versions. It holds **no CAD code and no models** - those come
 from the repos listed in the pin file.
@@ -21,7 +21,8 @@ Stop flag, worker logs and state) live in `%LOCALAPPDATA%\Workstation\`, never i
 creates them pointing at this clone:
 - `shortcuts\`: Workers Start, Workers Stop, Workstation Status, Dashboard, Desktop Commander Remote Start (`-Show`)
   and Desktop Commander Remote Stop.
-- Startup folder: Desktop Commander Remote (hidden, via `run-hidden.vbs`) and Dashboard (`start-dashboard.ps1 -NoPause`).
+- Startup folder: Desktop Commander Remote only (hidden, via `run-hidden.vbs`). The Dashboard does not start at sign-in;
+  only the Dashboard shortcut starts it.
   A Startup link of the same name is replaced only if it already runs the same script, after a backup to
   `%LOCALAPPDATA%\Workstation\backups\startup-links-<time>\`.
 - Desktop Commander remote (`workstation\desktop-commander-remote\`) runs `npx @wonderwhy-er/desktop-commander@<pinned version>

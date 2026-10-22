@@ -1,9 +1,9 @@
 # Local project dashboard
 
 A page on this PC that reads the projects under the workstation projects root
-(`active\` from `%LOCALAPPDATA%\Workstation\workstation.json`) and the Claude,
-Cursor, and Grok processes that are already running. It does not start or stop
-those workers.
+(`active\` from `%LOCALAPPDATA%\Workstation\workstation.json`) and the Claude and
+Cursor processes that are already running. It does not start or stop
+those workers. It does not start at sign-in: only the Dashboard shortcut starts it.
 
 The Cursor worker health port is 8787. This page uses 8791.
 

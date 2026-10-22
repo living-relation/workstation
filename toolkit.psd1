@@ -41,7 +41,6 @@
   # %LOCALAPPDATA% or a worktree); it is backed up first. Anything else is left alone with a warning.
   StartupLinks       = @(
     @{ Name = 'Desktop Commander Remote'; Script = 'desktop-commander-remote\start-dc-remote.ps1'; Hidden = $true }
-    @{ Name = 'Dashboard';                Script = 'dashboard\start-dashboard.ps1'; Args = '-NoPause' }
   )
 
   # Old Desktop shortcut folders: 'Bridge' (before the rename) and 'Workstation' (Desktop location before the links

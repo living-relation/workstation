@@ -46,7 +46,7 @@ function Initialize-TrackerDir {
   $text = @"
 This folder belongs to the workstation repo (github.com/living-relation/workstation, tool: workstation\tracker).
 It holds the live task tracker's data: tracker.json (tasks, written only by tracker.ps1) and bots.json
-(bot name -> agentId). The tracker window is read-only and never writes here; its pin state, position, size and
+(optional owner name -> color). The tracker window is read-only and never writes here; its pin state, position, size and
 expanded jobs are kept in the registry (HKCU\Software\Workstation\Tracker). A settings.json left from older
 versions is read once for migration and otherwise ignored. Safe to delete; tracker.ps1 recreates it.
 Schema: workstation\tracker\README.md.
@@ -54,7 +54,7 @@ Schema: workstation\tracker\README.md.
   # Rewritten when the text changes (tracker.ps1 only; the window never calls this).
   $cur = if (Test-Path -LiteralPath $readme) { (Get-Content -LiteralPath $readme -Raw).Trim() } else { '' }
   if ($cur -ne $text.Trim()) { $text | Set-Content -LiteralPath $readme -Encoding UTF8 }
-  # Start empty; the example file in the repo is documentation only, never copied.
+  # Start empty (optional owner colors).
   if (-not (Test-Path -LiteralPath $TrackerBots)) { [IO.File]::WriteAllText($TrackerBots, '{}', (New-Object Text.UTF8Encoding $false)) }
 }
 

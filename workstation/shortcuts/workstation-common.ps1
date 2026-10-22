@@ -518,11 +518,6 @@ function Show-Automations {
     if (-not (Test-Path -LiteralPath $mlg)) { Write-Warn "memory-link-guard.ps1 missing: $mlg" }
     elseif (-not $mlgRef) { Write-Warn 'memory-link-guard.ps1 exists but no hook in settings.json runs it' }
     else { Write-Ok "memory-link-guard hook: $(($mlgRef | ForEach-Object Event | Sort-Object -Unique) -join ', ') -> $mlg" }
-    foreach ($c in @($hookCmds | Where-Object { $_.Command -match 'context-guard' })) {
-        $p = Get-PathFromCommand $c.Command 'ps1'
-        if ($p -and (Test-Path -LiteralPath $p)) { Write-Ok "context-guard hook ($($c.Event)) -> $p" }
-        else { Write-Bad "context-guard hook ($($c.Event)) points at a missing script: $($c.Command)" }
-    }
 
     if ($settings) {
         $amd = $settings.autoMemoryDirectory

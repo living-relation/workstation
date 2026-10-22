@@ -1150,40 +1150,6 @@ def _usage_limits() -> dict:
         "claude": {"reported": bool(claude), "fields": claude},
         "dispatch": {"reported": bool(claude), "fields": claude, "note": "Same Claude account as the CLI."},
         "cursor": cursor,
-        "grok": {"reported": False, "note": "Grok Bot does not publish a usage limit in desktop-status.json."},
-    }
-
-
-def _grok() -> dict:
-    status_path = Path(os.environ.get("APPDATA") or "") / "Grok Bot" / "desktop-status.json"
-    signed_in = None
-    version = None
-    fresh = False
-    if status_path.is_file():
-        try:
-            data = json.loads(status_path.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                signed_in = data.get("signedIn")
-                version = data.get("appVersion") or data.get("version")
-            age = time.time() - status_path.stat().st_mtime
-            fresh = age < 300
-        except (OSError, json.JSONDecodeError):
-            pass
-    code, out, _err = _run(
-        [
-            "powershell",
-            "-NoProfile",
-            "-Command",
-            "(Get-Process -Name 'Grok Bot' -ErrorAction SilentlyContinue | Measure-Object).Count",
-        ],
-        timeout=15,
-    )
-    running = code == 0 and out.strip().isdigit() and int(out.strip()) > 0
-    return {
-        "running": running,
-        "signedIn": signed_in,
-        "version": version if isinstance(version, (str, int, float)) else None,
-        "statusFresh": fresh,
     }
 
 
@@ -1255,11 +1221,6 @@ def _capabilities(cursor_auth: bool) -> dict:
             if cursor_auth
             else "agent status is not logged in, so a Cursor chat cannot receive a snippet from this page.",
         },
-        "grok": {
-            "send": False,
-            "command": None,
-            "note": "Grok Bot has no local send CLI and no listening port. The button focuses the app.",
-        },
     }
 
 
@@ -1301,7 +1262,6 @@ def build_snapshot(lite: bool = False) -> dict:
                         }
                     )
     projects.sort(key=lambda item: item.get("name", "").lower())
-    grok = _grok()
     worker = _worker()
     remote = _claude_remote(_agent_rows())
     alerts: list[dict] = []
@@ -1309,8 +1269,6 @@ def build_snapshot(lite: bool = False) -> dict:
         alerts.append({"level": "warning", "text": "Cursor worker is not answering on 127.0.0.1:8787."})
     if not remote["up"]:
         alerts.append({"level": "warning", "text": "Claude remote control is not running."})
-    if not grok["running"]:
-        alerts.append({"level": "warning", "text": "Grok Bot is not running."})
     for project in projects:
         for failure in project.get("ciFailures") or []:
             alerts.append(
