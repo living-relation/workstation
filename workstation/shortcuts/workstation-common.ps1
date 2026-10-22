@@ -10,7 +10,6 @@ $BridgeProjects  = $WsProjectsRoot
 $BridgeActive    = Join-Path $BridgeProjects 'active'
 $BridgeWorkerDir = Join-Path $BridgeRoot 'cursor-worker'
 $BridgeStopFlag  = $WsStopFlag
-$GrokStatusFile  = Join-Path $env:APPDATA 'Grok Bot\desktop-status.json'
 
 # Claude Code CLI: PATH first (skipping the Claude desktop app's WindowsApps alias), then usual install spots.
 function Find-ClaudeExe {
@@ -37,16 +36,6 @@ function Find-AgentCli {
     foreach ($p in @((Join-Path $env:LOCALAPPDATA 'cursor-agent\agent.ps1'), (Join-Path $env:LOCALAPPDATA 'cursor-agent\agent.cmd'))) {
         if (Test-Path -LiteralPath $p) { return $p }
     }
-    return $null
-}
-
-# Grok Bot desktop app: machine-wide or per-user install.
-function Find-GrokBotExe {
-    $cands = @()
-    foreach ($root in @($env:ProgramFiles, ${env:ProgramFiles(x86)}, (Join-Path $env:LOCALAPPDATA 'Programs'))) {
-        if ($root) { $cands += (Join-Path $root 'Grok Bot\Grok Bot.exe') }
-    }
-    foreach ($p in $cands) { if (Test-Path -LiteralPath $p) { return $p } }
     return $null
 }
 
@@ -208,26 +197,6 @@ function Test-WorkerHealth {
 function Show-BridgeStatus {
     $procs = Get-ProcSnapshot
 
-    # Grok Bot (stays automatic; shown for reference)
-    $grok = @(Get-Process -Name 'Grok Bot' -ErrorAction SilentlyContinue)
-    $hb = ''
-    if (Test-Path -LiteralPath $GrokStatusFile) {
-        $fi = Get-Item -LiteralPath $GrokStatusFile
-        $hb = "; status file written $(Format-Age ((Get-Date) - $fi.LastWriteTime)) ago"
-        try {
-            $j = Get-Content -LiteralPath $GrokStatusFile -Raw | ConvertFrom-Json
-            if ($j.pid) {
-                $alive = [bool](Get-Process -Id ([int]$j.pid) -ErrorAction SilentlyContinue)
-                $hb += " (pid $($j.pid) alive=$alive signedIn=$($j.signedIn) v$($j.appVersion))"
-            }
-        } catch { }
-    } else { $hb = '; no desktop-status.json' }
-    if ($grok) { Write-Ok "Grok Bot running ($($grok.Count) procs)$hb" }
-    else {
-        $gexe = Find-GrokBotExe
-        if ($gexe) { Write-Bad "Grok Bot NOT running (installed at $gexe)$hb" } else { Write-Bad "Grok Bot NOT running and not found under Program Files or LocalAppData\Programs$hb" }
-    }
-
     # Cursor worker
     $sup = Get-SupervisorProcs $procs
     $supIds = @($sup | ForEach-Object { $_.ProcessId })
@@ -327,10 +296,6 @@ function Show-Prerequisites {
         if ($li) { Write-Ok "Claude Code CLI: $ClaudeExe - logged in" }
         else { Write-Bad "Claude Code CLI found ($ClaudeExe) but not logged in (run 'claude' once and sign in)" }
     } else { Write-Bad "Claude Code CLI (claude.exe) not found (Workers Start needs it for remote control)" }
-
-    $gexe = Find-GrokBotExe
-    if ($gexe) { Write-Ok "Grok Bot installed: $gexe (optional; open it if you want Grok Bot checks)" }
-    else { Write-Warn 'Grok Bot not installed (optional)' }
 
     try {
         $code = (Invoke-WebRequest -Uri 'https://github.com' -Method Head -UseBasicParsing -TimeoutSec 8).StatusCode
@@ -504,28 +469,7 @@ function Show-Automations {
     Write-Host ''
     Write-Host 'Automations (read-only)' -ForegroundColor Cyan
 
-    # 1. GrokBot Run entry
-    $v = Get-RunValue 'GrokBot'
-    if (-not $v) { Write-Warn 'HKCU Run GrokBot missing (Grok Bot will not open at logon)' }
-    else {
-        $exe = Get-PathFromCommand $v 'exe'
-        if ($exe -and (Test-Path -LiteralPath $exe)) { Write-Ok "HKCU Run GrokBot -> $exe" }
-        else { Write-Bad "HKCU Run GrokBot points at a missing file: $v" }
-    }
-
-    # 2. Latch-EnsureGrokBot task + its script (runs straight from this toolkit: <toolkit>\latch\ensure-grokbot.ps1)
-    $lt = Test-AutomationTask 'Latch-EnsureGrokBot' 'Grok Bot launcher'
-    $egWant = Join-Path $BridgeRoot 'latch\ensure-grokbot.ps1'
-    if ($lt.Status -eq 'ok') {
-        $eg = $null
-        foreach ($a in @($lt.Task.Actions)) { if (-not $eg) { $eg = Get-PathFromCommand "$($a.Arguments)" 'ps1' } }
-        if (-not $eg) { Write-Warn "Grok Bot launcher task has no script path in its action" }
-        elseif (-not (Test-Path -LiteralPath $eg)) { Write-Bad "Grok Bot launcher task runs a missing script: $eg" }
-        elseif ($eg -ieq $egWant) { Write-Ok "launcher script (from the repo clone): $eg" }
-        else { Write-Warn "Grok Bot launcher task still runs an old copy ($eg); re-run install-admin.ps1 (admin) so it runs $egWant" }
-    }
-
-    # 3. Claude-Memory-To-Cursor-Sync task: age + script from its action
+    # 1. Claude-Memory-To-Cursor-Sync task: age + script from its action
     $t = Test-AutomationTask 'Claude-Memory-To-Cursor-Sync' 'memory sync'
     if ($t.Status -eq 'ok') {
         if ($t.Info -and $t.Info.LastRunTime -and $t.Info.LastRunTime.Year -gt 2000) {
@@ -552,7 +496,7 @@ function Show-Automations {
         }
     }
 
-    # 4. Claude hooks and memory folders (settings.json parsed read-only)
+    # 2. Claude hooks and memory folders (settings.json parsed read-only)
     $claudeDir = Join-Path $HOME '.claude'
     $settingsPath = Join-Path $claudeDir 'settings.json'
     $settings = $null
@@ -600,7 +544,7 @@ function Show-Automations {
         Write-Bad "working-memory is a broken link: $wm"
     } else { Write-Ok 'working-memory not present (optional)' }
 
-    # 4b. Claude reads AGENTS.md too ("read both"), and the Projects root has no CLAUDE.md
+    # 2b. Claude reads AGENTS.md too ("read both"), and the Projects root has no CLAUDE.md
     if ($settings) {
         $ifv = $null
         foreach ($pn in 'cc-plugin-agents-md@builtin','agents-md@builtin') {
@@ -614,7 +558,7 @@ function Show-Automations {
     if (Test-Path -LiteralPath $rootClaude) { Write-Warn "root CLAUDE.md found ($rootClaude); merge it into AGENTS.md" }
     else { Write-Ok 'Projects root has no CLAUDE.md (AGENTS.md only)' }
 
-    # 5. Startup apps: entries present AND their Settings > Apps > Startup switch on.
+    # 3. Startup apps: entries present AND their Settings > Apps > Startup switch on.
     # Off switches are only reported here; Workstation Status (interactive) then offers to turn them on.
     $script:StartupOff = @()
     $startup = [Environment]::GetFolderPath('Startup')
@@ -633,13 +577,6 @@ function Show-Automations {
         }
         else { Write-Ok "Startup $($c.Name) -> $($c.Target) (switch on)" }
     }
-    if ($v) {
-        $gt = Get-StartupToggleInfo 'Run' 'GrokBot'
-        if ($gt.State -eq 'off') {
-            Write-Warn 'Grok Bot startup switch is OFF (Settings > Apps > Startup)'
-            $script:StartupOff += [pscustomobject]@{ Label = 'Grok Bot'; Type = 'approved'; Kind = 'Run'; Key = $gt.Key; Name = 'GrokBot'; Pkg = $null }
-        }
-    }
     $claude = Get-PackagedStartupState 'Claude'
     switch ($claude.State) {
         'on'      { Write-Ok "Claude startup switch on ($($claude.TaskId))" }
@@ -652,7 +589,7 @@ function Show-Automations {
         default   { Write-Warn "Claude startup switch state unknown ($($claude.TaskId))" }
     }
 
-    # 5b. Desktop Commander remote: Startup shortcut + the repo launcher (workstation\desktop-commander-remote; not a scheduled task)
+    # 3b. Desktop Commander remote: Startup shortcut + the repo launcher (workstation\desktop-commander-remote; not a scheduled task)
     $dcDir    = Join-Path $BridgeRoot 'desktop-commander-remote'
     $dcScript = Join-Path $dcDir 'start-dc-remote.ps1'
     $dcLnk    = Join-Path ([Environment]::GetFolderPath('Startup')) 'Desktop Commander Remote.lnk'
@@ -673,7 +610,7 @@ function Show-Automations {
         else { Write-Off 'manual Desktop Commander Remote Start.lnk not in workstation\shortcuts' }
     }
 
-    # 6. Retired items must stay gone
+    # 4. Retired items must stay gone
     $back = @()
     foreach ($n in @('LatchBridgeLogon', 'CursorWorker')) { if (Get-RunValue $n) { $back += "HKCU Run $n" } }
     $denied = @()

@@ -91,12 +91,11 @@ if ($testMode) { $AutoMemValue = ($LinkPath -replace '\\', '/') } else { $AutoMe
 $pkgToolkit = Join-Path $PkgRoot $TK.PackageFolder
 $toolkitLeaves = @(Get-ChildItem -LiteralPath $pkgToolkit -Recurse -File -Filter *.ps1 -ErrorAction SilentlyContinue | ForEach-Object Name | Where-Object { @('config.ps1', 'install-shortcuts.ps1', 'repair-sqlite.ps1', 'health-check.ps1', 'run-worker.ps1') -notcontains $_ })
 $legacyLeaves = @($TK.LegacyScripts | Where-Object { $toolkitLeaves -notcontains $_ })
-$OurLeaves = @('sync-claude-memory-to-cursor.ps1', 'ensure-grokbot.ps1', 'memory-link-guard.ps1', 'context-guard.ps1', 'handoff-at-80.py') + $toolkitLeaves + $legacyLeaves | Select-Object -Unique
+$OurLeaves = @('sync-claude-memory-to-cursor.ps1', 'memory-link-guard.ps1', 'context-guard.ps1', 'handoff-at-80.py') + $toolkitLeaves + $legacyLeaves | Select-Object -Unique
 $OurScriptRx  = '(?i)_claude\\run-hidden\.vbs|(^|[\\/"\s])(' + (($OurLeaves | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
 $RetiredRx    = '(?i)watch-pull|cursor-worker|run-worker\.ps1|LatchBridgeLogon|latch\\logon-|ClaudeCode-?RemoteControl'
 $RetiredNameRx = '(?i)watch-?pull|cursor-?worker|LatchBridgeLogon|ClaudeCode-?RemoteControl'
-$SimilarNameRx = '(?i)memory.?sync|sync.?memory|ensure-?grok|grok.?bot|sync-?pull|sync-?push|handoff|context-?guard|remote-?control'
-$GrokExeRx    = '(?i)grok ?bot\.exe|ensure-grokbot\.ps1'
+$SimilarNameRx = '(?i)memory.?sync|sync.?memory|sync-?pull|sync-?push|handoff|context-?guard|remote-?control'
 $CursorExeRx  = '(?i)(^|[\\/"\s])cursor\.exe\b'
 
 # ---------------------------------------------------------------- helpers
@@ -236,8 +235,6 @@ else { Add-Finding 'OK' 'prereq' 'elevation' 'normal window (right for install.p
 # ---------------------------------------------------------------- 2. scheduled tasks
 $knownTasks = @{
   'Claude-Memory-To-Cursor-Sync' = @((Join-Path $ClaudeDir 'run-hidden.vbs'), (Join-Path $ClaudeDir 'sync-claude-memory-to-cursor.ps1'))
-  # runs ensure-grokbot.ps1 straight from this clone (older installs ran a copy in ~\.grokbot\latch\: WARN, re-registered)
-  'Latch-EnsureGrokBot'          = @((Join-Path $BridgeDir 'latch\ensure-grokbot.ps1'))
 }
 $tasks = $null
 try { $tasks = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskPath -notlike '\Microsoft\*' }) }
@@ -296,30 +293,18 @@ foreach ($sf in @(@{ Dir = $StartupFolder; Hive = 'HKCU:' }, @{ Dir = $CommonSta
     $autostarts += [pscustomobject]@{ Where = $sf.Dir; FullWhere = $f.FullName; Kind = 'StartupFolder'; Name = $f.Name; Command = $cmd; Toggle = (Get-StartupToggle $sf.Hive 'StartupFolder' $f.Name); IsUserRun = $false }
   }
 }
-$cursorEntries = @(); $grokEntries = @()
+$cursorEntries = @()
 foreach ($a in $autostarts) {
   $id = "$($a.Where)\$($a.Name)"
   if ($a.Kind -eq 'StartupFolder') { $id = $a.FullWhere }
   if ($a.Name -match $RetiredNameRx -or $a.Command -match $RetiredRx) {
     Add-Finding 'CONFLICT' 'autostart' $id "retired auto-start, should be gone: $($a.Command)"
-  } elseif ($a.Command -match $GrokExeRx -or $a.Name -ieq 'GrokBot') {
-    $grokEntries += $a
   } elseif ($a.Command -match $CursorExeRx) {
     $cursorEntries += $a
   } elseif ($a.Command -match $OurScriptRx) {
     Add-Finding 'CONFLICT' 'autostart' $id "starts one of this package's scripts at sign-in (they are manual or run by tasks): $($a.Command)"
   }
 }
-# Grok Bot: the one expected launcher is HKCU Run 'GrokBot' (install-admin.ps1 adds it if missing).
-$std = @($grokEntries | Where-Object { $_.IsUserRun -and $_.Name -ieq 'GrokBot' })
-$other = @($grokEntries | Where-Object { -not ($_.IsUserRun -and $_.Name -ieq 'GrokBot') })
-if ($std.Count) { Add-Finding 'ALREADY-INSTALLED' 'autostart' 'HKCU Run GrokBot' "$($std[0].Command) [$($std[0].Toggle)]" }
-else { Add-Finding 'OK' 'autostart' 'HKCU Run GrokBot' 'not set yet (install-admin.ps1 adds it when Grok Bot is installed)' }
-foreach ($o in $other) {
-  $id = if ($o.Kind -eq 'StartupFolder') { $o.FullWhere } else { "$($o.Where)\$($o.Name)" }
-  Add-Finding 'CONFLICT' 'autostart' $id "second Grok Bot launcher (the standard one is HKCU Run 'GrokBot'): $($o.Command) [$($o.Toggle)]"
-}
-
 # ---------------------------------------------------------------- 4. Cursor autostart (install.ps1 makes sure there is exactly one)
 function Find-CursorExe {
   $c = @()

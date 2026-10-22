@@ -27,7 +27,8 @@
   - junctions install created (the link only; the notes stay in the store),
   - the shortcuts and shortcut folder install created (in the package's shortcuts\ folder, or an older Desktop one) (only while they still run the toolkit scripts),
   - the Cursor.lnk autostart if install created it. Existing Cursor autostarts are never touched.
-  Prints the admin commands for the scheduled tasks and how to remove the GrokBot startup entry.
+  Prints the admin command for the scheduled task (plus, for older installs, how to remove the retired Latch task
+  and its startup entry).
   Every changed or removed file is copied first to <Projects>\_archive\automation-uninstall-backup-<time>\.
   Keeps: the memory store, Cursor's copy, all notes, the Projects layout folders, all projects.
   Scheduled tasks need admin: the commands are printed for you to run in an admin PowerShell.
@@ -458,11 +459,12 @@ if (-not $testMode) {
 Write-Host ''
 Write-Host 'Scheduled tasks need admin. In PowerShell opened with "Run as admin" (same account), run:' -ForegroundColor White
 Write-Host "  Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false"
-Write-Host "  Unregister-ScheduledTask -TaskName 'Latch-EnsureGrokBot' -Confirm:`$false"
 Write-Host ''
-Write-Host 'Only if Grok Bot should stop starting at sign-in, remove the GrokBot startup entry (normal PowerShell, no admin):' -ForegroundColor White
+Write-Host 'Older installs only (this repo no longer ships them): if task Latch-EnsureGrokBot exists, remove it in the same admin PowerShell:' -ForegroundColor White
+Write-Host "  Unregister-ScheduledTask -TaskName 'Latch-EnsureGrokBot' -Confirm:`$false"
+Write-Host 'and, only if the app should stop starting at sign-in, the GrokBot startup entry it added (normal PowerShell):' -ForegroundColor White
 Write-Host "  Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'GrokBot'"
-Write-Host '  (or turn off "Grok Bot" in Task Manager > Startup apps). The launcher log (and any old launcher copy) stays in %USERPROFILE%\.grokbot\latch\ (harmless).'
+Write-Host '  Its old log in %USERPROFILE%\.grokbot\latch\ is harmless and can be deleted by hand.'
 
 Write-Host ''
 Write-Host 'Kept on purpose: memory store, Cursor copy, every note, the Projects layout folders, all projects, the workstation repo clone (the toolkit runs from it), and any toolkit / _claude script that was there before install.'

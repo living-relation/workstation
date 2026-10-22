@@ -56,7 +56,7 @@ Inside the store, `MEMORY.md` is the no-project index (general notes, one line p
 
 ## Workstation toolkit (`{{TOOLKIT_PATH}}\`)
 
-Operator scripts for syncing remote Claude/Cursor sessions into local `active\` trees. **Git is the primary bridge** (commit + push remotely, then `git pull --ff-only` in that one repo on this PC). The scripts run straight from the workstation repo clone (keep that clone on `main`); there is no installed copy under the Projects root. Shortcuts in the workstation repo's `shortcuts\` folder: **Workers Start**, **Workers Stop**, **Workstation Status** (scripts in `{{TOOLKIT_PATH}}\shortcuts\`). Runtime files (stop flag, worker logs) live in `%LOCALAPPDATA%\Workstation\`, never in the clone. There are no batch pull/push shortcuts. Nothing auto-starts bridge pieces; only Grok Bot launching is automatic. See `{{TOOLKIT_PATH}}\README.md`.
+Operator scripts for syncing remote Claude/Cursor sessions into local `active\` trees. **Git is the primary bridge** (commit + push remotely, then `git pull --ff-only` in that one repo on this PC). The scripts run straight from the workstation repo clone (keep that clone on `main`); there is no installed copy under the Projects root. Shortcuts in the workstation repo's `shortcuts\` folder: **Workers Start**, **Workers Stop**, **Workstation Status** (scripts in `{{TOOLKIT_PATH}}\shortcuts\`). Runtime files (stop flag, worker logs) live in `%LOCALAPPDATA%\Workstation\`, never in the clone. There are no batch pull/push shortcuts. Nothing auto-starts bridge pieces. See `{{TOOLKIT_PATH}}\README.md`.
 
 ```powershell
 powershell -File "{{TOOLKIT_PATH}}\{{TOOLKIT_STATUS}}"

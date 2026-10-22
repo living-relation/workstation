@@ -5,7 +5,7 @@
 
 .DESCRIPTION
   Run as a normal user (not elevated) from the workstation repo clone (normally <Projects>\active\workstation; the
-  toolkit scripts, shortcuts and the Latch task run straight from this clone, so keep it on main):
+  toolkit scripts and shortcuts run straight from this clone, so keep it on main):
     powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -WhatIf
     powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
@@ -36,10 +36,9 @@
     even if it is turned off in Startup apps (warning only); otherwise adds Cursor.lnk to the Startup folder.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
   - Does NOT migrate old memory. See MIGRATION.md.
-  Scheduled tasks need admin: run install-admin.ps1 afterwards in an elevated PowerShell (it also re-points the
-  Latch-EnsureGrokBot task to <clone>\workstation\latch\ensure-grokbot.ps1).
+  Scheduled tasks need admin: run install-admin.ps1 afterwards in an elevated PowerShell.
   - Ends by running Workstation Status (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts.
-    The manual steps (admin command, the two instruction pastes, sign-ins, bots) are walked through by the
+    The manual steps (admin command, the two instruction pastes, sign-ins) are walked through by the
     installing agent from SETUP-PROMPT.txt. Setup is finished only when Workstation Status shows 0 FAIL, 0 WARN.
 
 .PARAMETER ProjectsRoot
@@ -78,10 +77,7 @@ param(
   [switch]$AcceptConflicts,
   [string]$StartupFolder,
   [string]$ReportDir,
-  [switch]$Bots,
-  [switch]$NoBots,
-  [switch]$LinkSkills,
-  [string]$BotsExistingDir   # folder of the current Grok Bot agents' profile JSON (agents\<id>\profile.json); used by -Bots
+  [switch]$LinkSkills
 )
 
 $ErrorActionPreference = 'Stop'
@@ -388,7 +384,7 @@ function Merge-HookCommand($Container, [string]$Event, [string]$Leaf, [string]$C
 
 # ---------------------------------------------------------------- final Workstation Status check
 # Runs Workstation Status -NoPause (read-only, never prompts) and reports the FAIL / WARN counts.
-# The manual steps (admin command, the two pastes, sign-ins, bots) are walked through by the installing
+# The manual steps (admin command, the two pastes, sign-ins) are walked through by the installing
 # agent from SETUP-PROMPT.txt; install does not list or confirm them. Setup is finished only when
 # Workstation Status shows 0 FAIL and 0 WARN (SETUP-PROMPT.txt last check).
 function Invoke-StatusCheck {
@@ -784,7 +780,7 @@ if (Test-Path -LiteralPath $gitDir) {
   $ErrorActionPreference = 'Continue'
   $br = $null; try { $br = (& git -C $PkgRoot rev-parse --abbrev-ref HEAD 2>$null | Select-Object -First 1) } catch { }
   $ErrorActionPreference = 'Stop'
-  if ($br -and @('main', 'master') -notcontains [string]$br) { Note 'WARN' "this clone is on branch '$br', not main: the shortcuts, the Cursor worker and the Latch task run whatever is checked out here. Switch it back to main." }
+  if ($br -and @('main', 'master') -notcontains [string]$br) { Note 'WARN' "this clone is on branch '$br', not main: the shortcuts and the Cursor worker run whatever is checked out here. Switch it back to main." }
   elseif ($br) { Note 'OK' "package clone is on $br (the toolkit runs what is checked out)" }
   else { Note 'INFO' "could not read this clone's branch with git (keep it on main: the toolkit runs what is checked out)" }
 }
@@ -889,40 +885,6 @@ else { try {
     else { Note 'DONE' "skill $($r.Path) -> $($r.Target) ($($r.Action))"; Add-ManifestJson @{ kind = 'skill-link'; path = $r.Path; target = $r.Target; backup = $r.Backup } }
   }
 } catch { Note 'ERROR' ("link skills -- " + $_.Exception.Message) } }
-
-# 9c. Optional Grok Bot bot profiles (Grok Bot only). Skipped quietly when Grok Bot isn't installed.
-#     "Add" only writes ready-to-apply profile files + paste sheets to <StateDir>\bots (see README "Optional bot profiles").
-try {
-  $ra = if ($RoamingAppData) { $RoamingAppData } else { $env:APPDATA }
-  $sd = if ($StateDir) { $StateDir } else { Join-Path $env:LOCALAPPDATA 'Workstation' }
-  $grokBot = @(Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue | Where-Object { "$($_.DisplayName)" -like 'Grok Bot*' }).Count -gt 0 -or
-             (Test-Path -LiteralPath (Join-Path $ra 'Microsoft\Windows\Start Menu\Programs\Grok Bot.lnk')) -or
-             (Test-Path -LiteralPath (Join-Path $ra 'Grok Bot'))
-  $profiles = @(Get-ChildItem -Path (Join-Path $PSScriptRoot 'bots\profiles\*.profile.json') -ErrorAction SilentlyContinue | Where-Object { $raw = Get-Content -LiteralPath $_.FullName -Raw; -not ($raw.Contains("TODO: the live bot's description is empty; fill it in.") -or $raw.Contains('TODO: the live bot has no rules on record; add them.')) })  # profiles still holding the TODO placeholders are skipped
-  if ($grokBot -and $profiles.Count) {
-    $doBots = $false
-    if ($NoBots) { Note 'OK' 'optional bot profiles: skipped (-NoBots)' }
-    elseif ($Bots) { $doBots = $true }
-    elseif ($WhatIf) { Note 'WOULD' "ask 'Add the optional bot profiles?' (default No; -Bots / -NoBots answer it)" }
-    else { $doBots = ((Read-Host 'Add the optional bot profiles? [y/N]') -match '^(y|yes)$'); if (-not $doBots) { Note 'OK' 'optional bot profiles: skipped (answered No)' } }
-    if ($doBots -or ($Bots -and $WhatIf)) {
-      $botOut = Join-Path $sd 'bots'
-    # Where the current bots' profiles are, so existing bots are merged, not skipped: -BotsExistingDir, else
-    # $env:GROK_BOT_AGENTS_DIR. Nothing else is guessed or asked; without a folder, existing-bot checks are skipped.
-    $botDir = @($BotsExistingDir, $env:GROK_BOT_AGENTS_DIR) | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Container) } | Select-Object -First 1
-    if ($botDir) { Note 'OK' "existing Grok Bot profiles read from $botDir" }
-    else { Note 'WARN' 'no Grok Bot agents folder (-BotsExistingDir or GROK_BOT_AGENTS_DIR): bots can''t be checked for existing ones, so they are skipped' }
-    $exArg = @{}; if ($botDir) { $exArg.ExistingDir = $botDir }
-      foreach ($p in $profiles) {
-        try {
-          $r = & (Join-Path $PSScriptRoot 'bots\merge-bot-profile.ps1') -ProfilePath $p.FullName @exArg -OutDir $botOut -NonInteractive:$Bots -WhatIf:$WhatIf
-          foreach ($x in @($r)) { if ($x) { Note $(if ($WhatIf) { 'WOULD' } else { 'DONE' }) "bot profile '$($x.Bot)': $($x.Action)$(if ($x.Sheet) { " -> $($x.Sheet)" })" } }
-        } catch { Note 'ERROR' ("bot profile $($p.Name) -- " + $_.Exception.Message) }
-      }
-      if ($doBots -and -not $WhatIf) { Note 'TODO' "apply the bot profiles in Grok Bot by hand from the paste sheets in $botOut" }
-    }
-  }
-} catch { Note 'WARN' ("optional bot profiles skipped -- " + $_.Exception.Message) }
 
 # 9d. Ownership notes in the folders this install creates (add-only).
 try {

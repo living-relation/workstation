@@ -16,7 +16,6 @@
 
   # Scripts inside the toolkit.
   ShortcutsInstaller = 'shortcuts\install-shortcuts.ps1'
-  LatchRegister      = 'latch\register-ensure-grokbot-task.ps1'
   CommonScript       = 'shortcuts\workstation-common.ps1'
   PullScript         = ''  # was repo-pull.ps1; do not recreate batch pull
   StatusScript       = 'repo-status.ps1'
