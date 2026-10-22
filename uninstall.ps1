@@ -13,21 +13,22 @@
   - memory sections (between <!-- shared-memory:v1 --> markers) install created or appended; a file install created
     that holds nothing else is removed. A marked section that was already there stays, markers included,
   - in ~\.claude\settings.json: the SessionStart guard hook install added; autoMemoryDirectory put back to the value
-    it had before install (or removed if there was none; left alone if it changed since); the 80% handoff hook
-    entries (a re-pointed entry gets its old command back); the statusLine while it is still the one install set;
+    it had before install (or removed if there was none; left alone if it changed since); from older installs, the retired
+    80% handoff hook entries (a re-pointed entry gets its old command back) and the statusLine while it is still the one install set;
     pluginConfigs > <agents-md plugin> > options.instructionFiles put back to its value before install (or removed,
     with the empty parent objects install created; left alone if it changed since),
-  - in ~\.cursor\hooks.json: the handoff-at-80.py entries install added; the file if install created it and it is
+  - in ~\.cursor\hooks.json (older installs): the retired handoff-at-80.py entries install added; the file if install created it and it is
     empty again,
-  - files install created (guard script and config, context-guard.ps1, handoff-at-80.py, the armed flag, the
-    handoff-sync-continue skill, the runtime config %LOCALAPPDATA%\<StateFolder>\<ConfigFile>, sync scripts, and
+  - files install created (guard script and config; from older installs the retired context-guard.ps1, handoff-at-80.py,
+    armed flag and handoff-sync-continue skill; the runtime config %LOCALAPPDATA%\<StateFolder>\<ConfigFile>, sync scripts, and
     toolkit files an older install copied into <Projects>\_workstation or _bridge) only while unchanged, and
     folders install created (only if empty). The toolkit itself runs from the repo clone; uninstall never touches
     the clone's files. Runtime logs under %LOCALAPPDATA%\<StateFolder> stay (that folder is kept while not empty),
   - junctions install created (the link only; the notes stay in the store),
   - the shortcuts and shortcut folder install created (in the package's shortcuts\ folder, or an older Desktop one) (only while they still run the toolkit scripts),
   - the Cursor.lnk autostart if install created it. Existing Cursor autostarts are never touched.
-  Prints the admin commands for the scheduled tasks and how to remove the GrokBot startup entry.
+  Prints the admin command for the scheduled task (plus, for older installs, how to remove the retired Latch task
+  and its startup entry).
   Every changed or removed file is copied first to <Projects>\_archive\automation-uninstall-backup-<time>\.
   Keeps: the memory store, Cursor's copy, all notes, the Projects layout folders, all projects.
   Scheduled tasks need admin: the commands are printed for you to run in an admin PowerShell.
@@ -283,7 +284,7 @@ if (Test-Path -LiteralPath $SettingsPath) {
         $changes += 'remove SessionStart memory-link-guard hook'
       }
     }
-    # 80% handoff hooks and statusLine (only what the manifest says install added or re-pointed)
+    # Older installs: retired 80% handoff hooks and statusLine (only what the manifest says install added or re-pointed)
     if ($s.PSObject.Properties['hooks'] -and $s.hooks) { $changes += @(Undo-Hooks $s.hooks 'claude' -Nested) }
     foreach ($m in @($ManifestJson | Where-Object { $_.target -eq 'claude' -and $_.kind -like 'statusline*' })) {
       if (-not $s.PSObject.Properties['statusLine'] -or -not $s.statusLine -or -not $s.statusLine.PSObject.Properties['command']) { continue }
@@ -300,7 +301,7 @@ if (Test-Path -LiteralPath $SettingsPath) {
   }
 }
 
-# 2b. ~\.cursor\hooks.json: the handoff-at-80.py entries install added; the file itself if install created it
+# 2b. ~\.cursor\hooks.json (older installs): the retired handoff-at-80.py entries install added; the file itself if install created it
 if (Test-Path -LiteralPath $CursorHooksJson) {
   $rawH = [IO.File]::ReadAllText($CursorHooksJson); $hj = $null
   try { $hj = $rawH | ConvertFrom-Json } catch { Note 'ERROR' "could not parse $CursorHooksJson (left unchanged)" }
@@ -359,7 +360,7 @@ foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'startup-link' })) {
   else { Note 'WARN' "sign-in link changed since install (does not run $(Split-Path ([string]$m.script) -Leaf)), left alone: $p" }
 }
 
-# 2d. 80% handoff pieces that are present but not in the manifest: listed, never touched.
+# 2d. Retired 80% handoff pieces (older installs) that are present but not in the manifest: listed, never touched.
 $listedAny = @($ManifestJson | ForEach-Object { [string]$_.path })
 if ((Test-Path -LiteralPath $SettingsPath) -and ([IO.File]::ReadAllText($SettingsPath)).Contains('context-guard.ps1') -and -not @($ManifestJson | Where-Object { $_.target -eq 'claude' -and $_.kind -match '^(hook|hook-updated|statusline|statusline-updated)$' }).Count) {
   Note 'OK' "80% handoff hooks / statusLine in settings.json: not installed by this package, left alone"
@@ -458,11 +459,12 @@ if (-not $testMode) {
 Write-Host ''
 Write-Host 'Scheduled tasks need admin. In PowerShell opened with "Run as admin" (same account), run:' -ForegroundColor White
 Write-Host "  Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false"
-Write-Host "  Unregister-ScheduledTask -TaskName 'Latch-EnsureGrokBot' -Confirm:`$false"
 Write-Host ''
-Write-Host 'Only if Grok Bot should stop starting at sign-in, remove the GrokBot startup entry (normal PowerShell, no admin):' -ForegroundColor White
+Write-Host 'Older installs only (this repo no longer ships them): if task Latch-EnsureGrokBot exists, remove it in the same admin PowerShell:' -ForegroundColor White
+Write-Host "  Unregister-ScheduledTask -TaskName 'Latch-EnsureGrokBot' -Confirm:`$false"
+Write-Host 'and, only if the app should stop starting at sign-in, the GrokBot startup entry it added (normal PowerShell):' -ForegroundColor White
 Write-Host "  Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'GrokBot'"
-Write-Host '  (or turn off "Grok Bot" in Task Manager > Startup apps). The launcher log (and any old launcher copy) stays in %USERPROFILE%\.grokbot\latch\ (harmless).'
+Write-Host '  Its old log in %USERPROFILE%\.grokbot\latch\ is harmless and can be deleted by hand.'
 
 Write-Host ''
 Write-Host 'Kept on purpose: memory store, Cursor copy, every note, the Projects layout folders, all projects, the workstation repo clone (the toolkit runs from it), and any toolkit / _claude script that was there before install.'

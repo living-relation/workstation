@@ -3,7 +3,7 @@
   Update the live task tracker (%LOCALAPPDATA%\Workstation\tracker\tracker.json). Writes are atomic.
 .EXAMPLE
   tracker.ps1 -Set -Path plan.json          # replace everything (or pipe JSON on stdin)
-  tracker.ps1 -Add -Id t1 -Title 'Fix X' -Group 'Repo' [-Status pending] [-Owner 'Helper Bot'] [-AgentId <id>]
+  tracker.ps1 -Add -Id t1 -Title 'Fix X' -Group 'Repo' [-Status pending] [-Owner 'Helper']
   tracker.ps1 -Update -Id t1 -Status done -Note 'merged #12'
   tracker.ps1 -ListTitle 'Today'             # set the list title only
   tracker.ps1 -AddSub -Job t1 -Id s1 -Title 'Step one' [-Status pending] [-Note ..]
@@ -16,7 +16,7 @@ param(
   [switch]$Set, [switch]$Update, [switch]$Add, [switch]$Clear, [switch]$Remove, [switch]$Show, [switch]$AddSub, [switch]$UpdateSub, [string]$Job,
   [string]$Path, [string]$Id, [string]$Title, [string]$Group,
   [ValidateSet('pending','in_progress','done','blocked')][string]$Status,
-  [string]$Note, [string]$Owner, [string]$AgentId, [string]$ListTitle
+  [string]$Note, [string]$Owner, [string]$ListTitle
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'tracker-common.ps1')
@@ -64,7 +64,7 @@ if ($Set) {
     }
     if ($d.tasks | ? { $_.id -eq $Id }) { throw "Task id '$Id' already exists; use -Update." }
     $t = [ordered]@{ id = $Id; title = $Title; group = $(if ($Group) { $Group } else { 'General' }); status = $(if ($Status) { $Status } else { 'pending' }); note = $Note }
-    if ($Owner) { $t.owner = $Owner }; if ($AgentId) { $t.agentId = $AgentId }
+    if ($Owner) { $t.owner = $Owner }
     $d.tasks = @($d.tasks) + [pscustomobject]$t
   } elseif ($AddSub -or $UpdateSub) {
     $j = $d.tasks | ? { $_.id -eq $Job } | Select -First 1
@@ -86,7 +86,7 @@ if ($Set) {
     if (-not $t) { throw "No task with id '$Id'." }
     if ($Remove) { $d.tasks = @($d.tasks | ? { $_.id -ne $Id }) }
     else {
-      foreach ($k in 'Status','Note','Title','Group','Owner','AgentId') {
+      foreach ($k in 'Status','Note','Title','Group','Owner') {
         if ($bp.ContainsKey($k)) { $n = $k.Substring(0,1).ToLower() + $k.Substring(1); $t | Add-Member -Force $n $bp[$k] }
       }
     }

@@ -56,12 +56,6 @@ def deliver(app: str, session: dict, text: str) -> dict:
         return _deliver_claude(session_id, text)
     if app == "cursor":
         return _deliver_cursor(session, text)
-    if app == "grok":
-        return {
-            "ok": False,
-            "sent": False,
-            "error": "Grok Bot has no local send command. Focus the app instead.",
-        }
     return {"ok": False, "sent": False, "error": "Unknown session type."}
 
 
@@ -160,27 +154,6 @@ def _deliver_cursor(session: dict, text: str) -> dict:
     return {"ok": True, "sent": True, "reply": reply or "(no reply text)"}
 
 
-def focus_grok() -> dict:
-    program = os.environ.get("ProgramFiles") or r"C:\Program Files"
-    exe = str(Path(program) / "Grok Bot" / "Grok Bot.exe")
-    script = (
-        "$shell = New-Object -ComObject WScript.Shell; "
-        "$procs = @(Get-Process -Name 'Grok Bot' -ErrorAction SilentlyContinue | "
-        "Where-Object { $_.MainWindowHandle -ne 0 }); "
-        "if ($procs.Count -gt 0) { $shell.AppActivate($procs[0].Id) | Out-Null; 'focused' } "
-        f"elseif (Test-Path -LiteralPath '{exe}') {{ Start-Process -FilePath '{exe}'; 'started' }} "
-        "else { 'missing' }"
-    )
-    code, out, err = _run(
-        ["powershell", "-NoProfile", "-Command", script],
-        timeout=20,
-    )
-    detail = (out or err).strip()
-    if code != 0 or detail == "missing":
-        return {"ok": False, "sent": False, "error": "Grok Bot is not open and the app was not found."}
-    return {"ok": True, "sent": False, "reply": "Grok Bot was brought forward. No message was sent."}
-
-
 def open_session(app: str, session: dict) -> dict:
     app = (app or "").lower()
     session_id = str(session.get("id") or "")
@@ -209,6 +182,4 @@ def open_session(app: str, session: dict) -> dict:
                 return {"ok": False, "error": str(exc)}
             return {"ok": True, "opened": "desktop"}
         return {"ok": False, "error": "This Cursor chat has no folder to open."}
-    if app == "grok":
-        return focus_grok()
     return {"ok": False, "error": "Unknown session type."}

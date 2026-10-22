@@ -102,7 +102,7 @@ $c.ClearBtn.Add_Click({
 })
 
 
-# Chat links: grokbot://app/v1/agent?id=<agentId>; fall back to focusing the Grok Bot app.
+# Win32 helpers: keep this window on top / bring it to the front.
 Add-Type @'
 using System; using System.Runtime.InteropServices;
 public static class TrkWin {
@@ -111,27 +111,15 @@ public static class TrkWin {
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr a, int x, int y, int cx, int cy, uint f);
 }
 '@
-function Open-Chat([string]$agentId) {
-  $ok = $false
-  if ((Test-AgentId $agentId) -and (Test-Path 'Registry::HKEY_CLASSES_ROOT\grokbot')) {
-    try { Start-Process "grokbot://app/v1/agent?id=$agentId"; $ok = $true } catch { }
-  }
-  if (-not $ok) {
-    $p = Get-Process -Name 'Grok Bot' -ErrorAction SilentlyContinue | ? { $_.MainWindowHandle -ne 0 } | Select -First 1
-    if ($p) { [TrkWin]::ShowWindow($p.MainWindowHandle, 9) | Out-Null; [TrkWin]::SetForegroundWindow($p.MainWindowHandle) | Out-Null }
-  }
-}
-function Test-AgentId([string]$id) { $g = [Guid]::Empty; [Guid]::TryParse($id, [ref]$g) -and $g -ne [Guid]::Empty -and $id -notmatch '^[0-]+$' }
-# bots.json: { "Name": "<agentId>" } or { "Name": { "agentId": "<id>", "color": "#RRGGBB" } }
-$DefaultColors = @{ 'Grok Bot' = '#4C8DFF' }
+# bots.json (optional owner colors): { "Name": "#RRGGBB" } or { "Name": { "color": "#RRGGBB" } }
+$DefaultColors = @{ 'Me' = '#4C8DFF' }
 $Palette = @('#A371F7','#3FB950','#F778BA','#2DD4BF','#F2A33A','#FF7B72','#79C0FF','#D2A8FF')
 function Get-Bots {
   $m = @{}; $b = Read-JsonFile $TrackerBots
   if ($b) { foreach ($p in $b.PSObject.Properties) {
-    $v = $p.Value; $id = ''; $col = ''
-    if ($v -is [string]) { $id = $v } else { $id = [string]$v.agentId; $col = [string]$v.color }
-    if (-not (Test-AgentId $id)) { $id = '' }
-    $m[$p.Name] = @{ id = $id; color = $col }
+    $v = $p.Value
+    $col = if ($v -is [string]) { $v } else { [string]$v.color }
+    $m[$p.Name] = @{ color = $col }
   } }
   $m
 }
@@ -142,7 +130,6 @@ function Get-BotColor([string]$name, $bots) {
   $h = 0; foreach ($ch in $name.ToCharArray()) { $h = ($h * 31 + [int]$ch) % 100003 }
   $Palette[$h % $Palette.Count]
 }
-function Get-BotId([string]$name, $bots) { if ($bots[$name]) { $bots[$name].id } else { '' } }
 
 $script:hideTimer = New-Object Windows.Threading.DispatcherTimer
 $script:hideTimer.Interval = [TimeSpan]::FromSeconds(60)
@@ -151,14 +138,6 @@ $script:hideTimer.Add_Tick({
   # A -Show that is pending (signal not yet drained) cancels the close; tracker.ps1 relaunches if we exit anyway.
   if ($showEv.WaitOne(0)) { $script:showHold = $true; $script:dirty = $true; $script:raise = $true; return }
   $win.Close() })  # exits the process
-
-function Add-Clickable($el, [string]$agentId, [string]$bot) {
-  if (-not (Test-AgentId $agentId)) { $agentId = '' }
-  $el.Cursor = [Windows.Input.Cursors]::Hand
-  $el.ToolTip = "Open $bot chat"
-  $el.Tag = $agentId   # empty -> Open-Chat just focuses Grok Bot
-  $el.Add_MouseLeftButtonUp({ param($s, $e) Open-Chat ([string]$s.Tag); $e.Handled = $true })
-}
 
 
 function New-Text([string]$text, [double]$size, [string]$color, [string]$font = 'Segoe UI') {
@@ -177,7 +156,7 @@ function New-StatusIcon([string]$status, [double]$size) {
 }
 function Shade([string]$hex, [byte]$alpha) { '#{0:X2}{1}' -f $alpha, $hex.TrimStart('#') }
 
-function New-Bubble($t, [string]$bot, [string]$color, [string]$agentId) {
+function New-Bubble($t, [string]$bot, [string]$color) {
   $status = Get-JobStatus $t
   $isDone = ($status -eq 'done')
   $subs = @($t.subtasks | ? { $_ })
@@ -249,7 +228,6 @@ function New-Bubble($t, [string]$bot, [string]$color, [string]$agentId) {
   }
   [void]$outer.Children.Add($acc); [void]$outer.Children.Add($body); [void]$outer.Children.Add($hl)
   $card.Child = $outer
-  Add-Clickable $card $agentId $bot
   $card
 }
 function Render {
@@ -280,13 +258,12 @@ function Render {
   $scrollY = $c.Scroll.VerticalOffset
   $c.List.Children.Clear()
   $mine = @($tasks | ? { -not $_.owner }); $deleg = @($tasks | ? { $_.owner })
-  # Owner of un-delegated jobs: tracker.json top-level "owner" (default Grok Bot).
-  $me = if ($d -and $d.owner) { [string]$d.owner } else { 'Grok Bot' }; $meColor = Get-BotColor $me $bots
+  # Owner of un-delegated jobs: tracker.json top-level "owner" (default Me).
+  $me = if ($d -and $d.owner) { [string]$d.owner } else { 'Me' }; $meColor = Get-BotColor $me $bots
   foreach ($g in ($mine | % { if ($_.group) { [string]$_.group } else { 'General' } } | Select -Unique)) {
     $h = New-Text $g.ToUpper() 12 '#FF8B9097' 'Segoe UI Semibold'; $h.Margin = '2,10,0,2'; [void]$c.List.Children.Add($h)
     foreach ($t in @($mine | ? { $(if ($_.group) { [string]$_.group } else { 'General' }) -eq $g })) {
-      $aid = if (Test-AgentId $t.agentId) { $t.agentId } else { Get-BotId $me $bots }
-      [void]$c.List.Children.Add((New-Bubble $t $me $meColor $aid))
+      [void]$c.List.Children.Add((New-Bubble $t $me $meColor))
     }
   }
   if ($deleg.Count) {
@@ -295,12 +272,10 @@ function Render {
     [void]$c.List.Children.Add($line)
     foreach ($o in ($deleg | % { [string]$_.owner } | Select -Unique)) {
       $oc = Get-BotColor $o $bots; $ojobs = @($deleg | ? { [string]$_.owner -eq $o })
-      $oid = ($ojobs | ? { Test-AgentId $_.agentId } | Select -First 1).agentId; if (-not $oid) { $oid = Get-BotId $o $bots }
       $oh = New-Text $o 14 $oc 'Segoe UI Semibold'; $oh.Margin = '4,7,0,0'; $oh.Background = Brush '#00000000'
-      Add-Clickable $oh $oid $o; [void]$c.List.Children.Add($oh)
+      [void]$c.List.Children.Add($oh)
       foreach ($t in $ojobs) {
-        $aid = if (Test-AgentId $t.agentId) { $t.agentId } else { $oid }
-        [void]$c.List.Children.Add((New-Bubble $t $o $oc $aid))
+        [void]$c.List.Children.Add((New-Bubble $t $o $oc))
       }
     }
   }

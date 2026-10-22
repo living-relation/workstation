@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # Workers Stop: write the stop flag, then stop watch-pull, the Cursor worker supervisor + agent worker,
-# and Claude remote control. Only positively matched processes are stopped; Grok Bot, the Cursor app
+# and Claude remote control. Only positively matched processes are stopped; the Cursor app
 # and other Claude sessions are never touched.
 param([switch]$NoPause)
 . (Join-Path $PSScriptRoot 'workstation-common.ps1')

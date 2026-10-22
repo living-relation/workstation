@@ -2,7 +2,7 @@
 
 **In scope:** installer and preflight, `workstation.lock.yaml`, `patches/`, the non-CAD skills
 (`skills/`: safe-repo-preflight, backup-dryrun-apply, agent-handoff-pack, primary-source-spec-check),
-`automations/` (routine texts, docs only), agent rules and instruction templates, bot docs,
+`automations/` (routine texts, docs only), agent rules and instruction templates,
 workstation helper scripts.
 
 **Never:** CAD code or models (they belong to the CAD repo), part files, binaries, archives,

@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # Start the local project dashboard if it is not already answering.
-# Does not start or stop Cursor, Claude, or Grok workers.
+# Does not start or stop Cursor or Claude workers.
 param([switch]$NoPause)
 $ErrorActionPreference = 'Continue'
 $here = $PSScriptRoot
@@ -152,10 +152,6 @@ if (-not $linkDir -or -not (Test-Path -LiteralPath $linkDir)) {
 }
 if (Test-Path -LiteralPath $linkDir) {
     New-DashLink (Join-Path $linkDir 'Dashboard.lnk') (Join-Path $here 'start-dashboard.ps1')
-}
-$startup = [Environment]::GetFolderPath('Startup')
-if ($startup) {
-    New-DashLink (Join-Path $startup 'Dashboard.lnk') (Join-Path $here 'start-dashboard.ps1')
 }
 
 Push-Location -LiteralPath $here

@@ -4,7 +4,6 @@
 - `repo-status.ps1`, `repo-branch.ps1` - read-only status of project repos.
 - `paths.ps1` - shared paths: the Projects root (from `%LOCALAPPDATA%\Workstation\workstation.json`, which install.ps1 writes) and the runtime folder `%LOCALAPPDATA%\Workstation\`.
 - `cursor-worker/` - Cursor agent worker supervisor (logs, state and sqlite cache go to `%LOCALAPPDATA%\Workstation\cursor-worker\`, never into the clone).
-- `latch/` - keeps the Grok Bot desktop app running (scheduled task `Latch-EnsureGrokBot`, registered by install-admin.ps1, runs `latch\ensure-grokbot.ps1` from this clone; its log stays in `%USERPROFILE%\.grokbot\latch\`).
 
 These scripts run straight from the workstation repo clone (no installed copy under the Projects root), so keep the
 clone on `main`.

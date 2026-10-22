@@ -16,7 +16,6 @@
 
   # Scripts inside the toolkit.
   ShortcutsInstaller = 'shortcuts\install-shortcuts.ps1'
-  LatchRegister      = 'latch\register-ensure-grokbot-task.ps1'
   CommonScript       = 'shortcuts\workstation-common.ps1'
   PullScript         = ''  # was repo-pull.ps1; do not recreate batch pull
   StatusScript       = 'repo-status.ps1'
@@ -42,7 +41,6 @@
   # %LOCALAPPDATA% or a worktree); it is backed up first. Anything else is left alone with a warning.
   StartupLinks       = @(
     @{ Name = 'Desktop Commander Remote'; Script = 'desktop-commander-remote\start-dc-remote.ps1'; Hidden = $true }
-    @{ Name = 'Dashboard';                Script = 'dashboard\start-dashboard.ps1'; Args = '-NoPause' }
   )
 
   # Old Desktop shortcut folders: 'Bridge' (before the rename) and 'Workstation' (Desktop location before the links
