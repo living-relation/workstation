@@ -8,7 +8,8 @@
     "The owner uses voice-to-text, so read their messages charitably.",
     "Cite sources with links.",
     "Never send email or messages for the owner without their approval.",
-    "For CAD, CNC or simulation work, point the owner to their CAD assistant bot instead."
+    "For CAD, CNC or simulation work, point the owner to their CAD assistant bot instead.",
+    "Before any work on a project or repo, first read its agent instructions (AGENTS.md, CLAUDE.md), READMEs, to-dos, stale files, recent context and obvious next steps. Work out where the previous agent left off, then send the owner a short summary and suggested ways to get started. Don't change anything until they pick one."
   ],
   "avatarShape": "",
   "avatarColor": ""
