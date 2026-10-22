@@ -58,6 +58,10 @@
   Testing only. Startup folder for the Cursor autostart. Default: the user's Startup folder
   (test mode: under -UserHome).
 
+.PARAMETER LinkSkills
+  Opt in to linking this repo's skills\ into ~\.claude\skills and ~\.cursor\skills (link-skills.ps1, junctions). Off by
+  default. Re-running it also removes links it made whose skill was renamed or removed (the link only).
+
 .PARAMETER ReportDir
   Folder for the preflight report. Default: %TEMP% (never the package/repo folder).
 
@@ -76,6 +80,7 @@ param(
   [string]$ReportDir,
   [switch]$Bots,
   [switch]$NoBots,
+  [switch]$LinkSkills,
   [string]$BotsExistingDir   # folder of the current Grok Bot agents' profile JSON (agents\<id>\profile.json); used by -Bots
 )
 
@@ -870,16 +875,20 @@ if ($cs.Count -ge 1) {
   }
 }
 
-# 9b. Skills: link (junction) this repo's skills\ into ~\.claude\skills and ~\.cursor\skills. link-skills.ps1 backs up a
-#     same-name folder first; no deletes. Other repos link their own skills from their own setup.
+# 9b. Skills (opt-in, -LinkSkills): link (junction) this repo's skills\ into ~\.claude\skills and ~\.cursor\skills.
+#     link-skills.ps1 backs up a same-name folder first and removes only its own links whose skill is gone (link only).
+#     Other repos link their own skills from their own setup.
 $skillTargets = @((Join-Path $DotClaude 'skills'), (Join-Path $DotCursor 'skills'))
-try {
+if (-not $LinkSkills) { Note 'OK' 'skills: not linked (opt in with -LinkSkills)' }
+else { try {
   foreach ($r in @(& (Join-Path $PSScriptRoot 'link-skills.ps1') -From (Join-Path $PSScriptRoot 'skills') -Targets $skillTargets -BackupRoot (Join-Path $UserHome '.skills-backup') -WhatIf:$WhatIf)) {
     if ($r.Action -eq 'ok') { Note 'OK' "skill link already in place: $($r.Path)" }
     elseif ($r.Action -eq 'would-link') { Note 'WOULD' "link skill $($r.Path) -> $($r.Target)" }
+    elseif ($r.Action -eq 'would-prune') { Note 'WOULD' "remove dead skill link $($r.Path) -> $($r.Target)" }
+    elseif ($r.Action -eq 'pruned') { Note 'DONE' "removed dead skill link $($r.Path) -> $($r.Target)" }
     else { Note 'DONE' "skill $($r.Path) -> $($r.Target) ($($r.Action))"; Add-ManifestJson @{ kind = 'skill-link'; path = $r.Path; target = $r.Target; backup = $r.Backup } }
   }
-} catch { Note 'ERROR' ("link skills -- " + $_.Exception.Message) }
+} catch { Note 'ERROR' ("link skills -- " + $_.Exception.Message) } }
 
 # 9c. Optional Grok Bot bot profiles (Grok Bot only). Skipped quietly when Grok Bot isn't installed.
 #     "Add" only writes ready-to-apply profile files + paste sheets to <StateDir>\bots (see README "Optional bot profiles").

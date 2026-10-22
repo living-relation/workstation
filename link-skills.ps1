@@ -1,6 +1,7 @@
 # link-skills.ps1 - link this repo's skills into Claude Code/Desktop and Cursor as junctions (a git pull updates them).
 # Usage: .\link-skills.ps1 [-From <skills folder>] [-WhatIf]   (default: this repo's skills\)
-# A same-name skill that is not already this link is moved to -BackupRoot first; never touches other skills; no deletes.
+# A same-name skill that is not already this link is moved to -BackupRoot first; never touches other skills.
+# The only delete: a junction into -From whose skill is gone (renamed or removed) is removed - the link only.
 # Stops if a skill name is in two sources. Output: one object per link (Path, Target, Action). install.ps1 runs it.
 [CmdletBinding(SupportsShouldProcess = $true)]
 param([string[]]$From = @((Join-Path $PSScriptRoot 'skills')),
@@ -37,5 +38,18 @@ foreach ($s in $plan) {
     }
     New-Item -ItemType Junction -Path $dest -Target $want | Out-Null
     [pscustomobject]@{ Path = $dest; Target = $want; Backup = $backup; Action = $(if ($backup) { "relinked; the old one is backed up at $backup" } else { 'linked' }) }
+  }
+}
+# Prune: remove only junctions in -Targets that point into a -From folder at a skill that is gone (the link only, never
+# its target). Links to anything else, and real folders, are never touched.
+$roots = @($From | ForEach-Object { (Resolve-Path -LiteralPath $_).Path.TrimEnd('\') + '\' })
+foreach ($t in $Targets) {
+  foreach ($item in @(Get-ChildItem -LiteralPath $t -Force -ErrorAction SilentlyContinue | Where-Object { $_.LinkType -eq 'Junction' })) {
+    $tgt = "$(@($item.Target)[0])".TrimEnd('\')
+    if (-not @($roots | Where-Object { $tgt.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }).Count) { continue }
+    if (Test-Path -LiteralPath (Join-Path $tgt 'SKILL.md')) { continue }
+    if (-not $PSCmdlet.ShouldProcess($item.FullName, "remove dead skill link -> $tgt")) { [pscustomobject]@{ Path = $item.FullName; Target = $tgt; Action = 'would-prune' }; continue }
+    [IO.Directory]::Delete($item.FullName, $false)
+    [pscustomobject]@{ Path = $item.FullName; Target = $tgt; Action = 'pruned' }
   }
 }
