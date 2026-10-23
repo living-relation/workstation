@@ -235,3 +235,87 @@ async function tick() {
 
 tick();
 setInterval(tick, 15000);
+
+// ---- Toggle row: one switch per toggle (toggles.json + %LOCALAPPDATA%\Workstation\toggles.json),
+// a Health button that works only while the toggle is on, and a Process check button.
+async function post(url, body) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  return response.json();
+}
+
+function showCheck(title, text) {
+  $("checkout-title").textContent = title;
+  $("checkout-body").textContent = text;
+  $("checkout").showModal();
+}
+
+function processText(result) {
+  const lines = [];
+  const node = result.node || {};
+  lines.push(`Node processes: ${node.count ?? "?"} (${node.mb ?? "?"} MB), limit ${node.limit ?? "?"}`);
+  for (const [owner, row] of Object.entries(node.byOwner || {})) lines.push(`  ${owner}: ${row.count} (${row.mb} MB)`);
+  lines.push("", `Orphaned process trees (parent gone): ${(result.orphans || []).length}`);
+  for (const o of result.orphans || []) {
+    lines.push(`  ${o.expected ? "ok  " : "WARN"} pid ${o.pid} ${o.label || o.name}: ${o.processes} process(es), ${o.mb} MB${o.note ? ` - ${o.note}` : ""}`);
+    lines.push(`       ${o.cmd}`);
+  }
+  lines.push("", `Duplicate MCP / server processes: ${(result.duplicates || []).length}`);
+  for (const d of result.duplicates || []) lines.push(`  x${d.count} (${d.mb} MB) ${d.server}`);
+  lines.push("", (result.problems || []).length ? `Problems:\n  ${result.problems.join("\n  ")}` : "No problems found.");
+  return lines.join("\n");
+}
+
+async function loadToggles() {
+  const response = await fetch("/api/toggles", { cache: "no-store" });
+  if (!response.ok) return;
+  renderToggles((await response.json()).toggles || []);
+}
+
+function renderToggles(rows) {
+  const cells = rows.map((row) => {
+    const state = row.busy ? row.busy : (row.on ? "on" : "off");
+    return `<div class="toggle ${row.on ? "is-on" : ""}" title="${esc(row.detail || "")}">
+      <label><input type="checkbox" data-toggle="${esc(row.id)}" ${row.on ? "checked" : ""} ${row.busy ? "disabled" : ""}>
+      <span>${esc(row.name)}</span> <em>${esc(state)}</em></label>
+      ${row.hasHealth ? `<button type="button" data-health="${esc(row.id)}" ${row.on && !row.busy ? "" : "disabled"}>Health</button>` : ""}
+    </div>`;
+  });
+  cells.push(`<div class="toggle"><button type="button" id="proc-check">Process check</button></div>`);
+  $("toggles").innerHTML = cells.join("");
+  for (const box of $("toggles").querySelectorAll("input[data-toggle]")) {
+    box.addEventListener("change", async () => {
+      box.disabled = true;
+      const result = await post("/api/toggle", { id: box.dataset.toggle, action: box.checked ? "on" : "off" });
+      if (!result.ok) showCheck("Toggle failed", result.error || "failed");
+      setTimeout(loadToggles, 1500);
+    });
+  }
+  for (const button of $("toggles").querySelectorAll("button[data-health]")) {
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      button.textContent = "Checking...";
+      const result = await post("/api/toggle-health", { id: button.dataset.health });
+      button.textContent = result.ok ? "Healthy" : "Problem";
+      button.classList.toggle("bad", !result.ok);
+      button.disabled = false;
+      showCheck(`Health: ${button.dataset.health}`, result.output || result.error || "");
+    });
+  }
+  $("proc-check").addEventListener("click", async () => {
+    const button = $("proc-check");
+    button.disabled = true;
+    button.textContent = "Checking...";
+    const result = await post("/api/process-check", {});
+    button.disabled = false;
+    button.textContent = (result.problems || []).length ? `Process check (${result.problems.length} problem)` : "Process check";
+    showCheck("Process check", processText(result));
+  });
+}
+
+$("checkout-close").addEventListener("click", () => $("checkout").close());
+loadToggles();
+setInterval(() => { if (!$("checkout").open) loadToggles(); }, 10000);

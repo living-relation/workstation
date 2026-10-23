@@ -135,7 +135,7 @@ function Get-RemoteControlProcs($procs) {
 }
 
 # Desktop Commander remote connector (`npx ... desktop-commander ... remote`).
-# Started at logon by Startup\Desktop Commander Remote.lnk, or by the manual Start shortcut.
+# Started by the dashboard's Remote toggle, Remote On, or the manual Start shortcut (not at sign-in).
 function Get-DesktopCommanderRemoteProcs($procs) {
     @($procs | Where-Object {
         $_.ProcessId -ne $PID -and
@@ -597,15 +597,10 @@ function Show-Automations {
     if (-not (Test-Path -LiteralPath $dcScript)) {
         Write-Off 'Desktop Commander remote not installed (no start-dc-remote.ps1)'
     } else {
+        # No longer a sign-in item: it runs only while the dashboard's Remote toggle (or a manual shortcut) has it on.
         if (Test-Path -LiteralPath $dcLnk) {
-            $tog = Get-StartupToggleInfo 'StartupFolder' 'Desktop Commander Remote.lnk'
-            if ($tog.State -eq 'off') {
-                Write-Warn 'Desktop Commander remote Startup shortcut is OFF (Settings > Apps > Startup)'
-                $script:StartupOff += [pscustomobject]@{ Label = 'Desktop Commander remote'; Type = 'approved'; Kind = 'StartupFolder'; Key = $tog.Key; Name = 'Desktop Commander Remote.lnk'; Pkg = $null }
-            } else { Write-Ok "Startup Desktop Commander Remote.lnk -> $dcScript (switch on)" }
-        } else {
-            Write-Warn "Desktop Commander remote script present but Startup shortcut missing ($dcLnk)"
-        }
+            Write-Warn "old Startup shortcut still starts Desktop Commander remote at sign-in ($dcLnk); re-run install.ps1 to remove it"
+        } else { Write-Ok 'Desktop Commander remote does not start at sign-in (dashboard Remote toggle controls it)' }
         if (Test-Path -LiteralPath $dcManual) { Write-Ok "manual Start shortcut: $dcManual" }
         else { Write-Off 'manual Desktop Commander Remote Start.lnk not in workstation\shortcuts' }
     }

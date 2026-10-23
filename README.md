@@ -21,7 +21,7 @@ Stop flag, worker logs and state) live in `%LOCALAPPDATA%\Workstation\`, never i
 creates them pointing at this clone:
 - `shortcuts\`: Workers Start, Workers Stop, Workstation Status, Dashboard, Desktop Commander Remote Start (`-Show`)
   and Desktop Commander Remote Stop.
-- Startup folder: Desktop Commander Remote only (hidden, via `run-hidden.vbs`). The Dashboard does not start at sign-in;
+- Startup folder: nothing. Desktop Commander Remote runs only while the dashboard's Remote toggle is on (or from the Remote On / Desktop Commander Remote Start shortcuts); install removes the old `Desktop Commander Remote.lnk` sign-in link (backup first). The Dashboard does not start at sign-in;
   only the Dashboard shortcut starts it.
   A Startup link of the same name is replaced only if it already runs the same script, after a backup to
   `%LOCALAPPDATA%\Workstation\backups\startup-links-<time>\`.
