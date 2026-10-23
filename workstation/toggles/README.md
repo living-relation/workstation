@@ -43,13 +43,13 @@ Add an entry to `%LOCALAPPDATA%\Workstation\toggles.json` and reload the dashboa
 
 ## Process check
 
-Counts `node.exe` processes and RAM by owning app (Claude, Cursor, ...), lists orphaned process
-trees (their parent process is gone) and duplicate MCP/server processes. Problems: more node
-processes than `maxNode` (default 15), or an orphan that is not expected. Orphans that are normal
+Shows `node.exe` processes and RAM by owning app (Claude, Cursor, ...) for information, lists orphaned
+process trees (their parent process is gone) and duplicate MCP/server processes. A problem (and a watcher
+warning) is an orphan that is not expected; the node count alone never warns. Orphans that are normal
 because a hidden launcher exits on purpose are listed under `expected`, with how many copies are fine:
 
 ```json
-{ "processCheck": { "maxNode": 15, "expected": [ { "match": "launch-my-app\\.bat", "max": 1 } ] } }
+{ "processCheck": { "expected": [ { "match": "launch-my-app\\.bat", "max": 1 } ] } }
 ```
 
 Desktop Commander Remote (max 1 copy) is expected by default, so a second copy is flagged.
@@ -70,5 +70,6 @@ Stop it: `register-watcher-task.ps1 -Remove`, or disable the task in Task Schedu
 
 ## Access
 
-Toggles use the dashboard's existing auth: localhost needs no token, the tailnet address needs the
+Toggles always run on the PC that runs the dashboard: the server runs the command, so flipping one from
+the phone over Tailscale does exactly what flipping it at the PC does. Toggles use the dashboard's existing auth: localhost needs no token, the tailnet address needs the
 dashboard token. Toggles only run commands from the two config files, never from the request.

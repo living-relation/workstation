@@ -1,6 +1,5 @@
 {
   "processCheck": {
-    "maxNode": 15,
     "expected": [
       {
         "match": "pnpm dev:",

@@ -30,7 +30,6 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 TOOLKIT = HERE.parent
 PACKAGE_FILE = HERE / "toggles.json"
-DEFAULT_MAX_NODE = 15
 CREATE_NO_WINDOW = 0x08000000
 _BUSY: dict[str, str] = {}
 _BUSY_LOCK = threading.Lock()
@@ -82,12 +81,8 @@ def load_toggles() -> list[dict]:
 
 def settings() -> dict:
     data = _read(local_file()).get("processCheck") or {}
-    try:
-        max_node = int(data.get("maxNode", DEFAULT_MAX_NODE))
-    except (TypeError, ValueError):
-        max_node = DEFAULT_MAX_NODE
     expected = [e for e in data.get("expected") or [] if isinstance(e, dict) and e.get("match")]
-    return {"maxNode": max_node, "expected": EXPECTED_ORPHANS + expected}
+    return {"expected": EXPECTED_ORPHANS + expected}
 
 
 def find(tid: str) -> dict | None:
@@ -256,7 +251,7 @@ def _mcp_key(cmd: str) -> str:
     return _short(low, 120)
 
 
-def analyze(procs: list[dict], max_node: int = DEFAULT_MAX_NODE, expected: list[dict] | None = None) -> dict:
+def analyze(procs: list[dict], expected: list[dict] | None = None) -> dict:
     """Pure function over a process list (pid, ppid, name, cmd, mem, created)."""
     by_pid = {int(p.get("pid") or 0): p for p in procs}
 
@@ -357,8 +352,6 @@ def analyze(procs: list[dict], max_node: int = DEFAULT_MAX_NODE, expected: list[
     ]
 
     problems = []
-    if len(node) > max_node:
-        problems.append(f"{len(node)} node processes (limit {max_node}), {node_mb:.0f} MB")
     if bad:
         problems.append(
             f"{len(bad)} orphaned process tree(s), {sum(o['mb'] for o in bad):.0f} MB: "
@@ -368,7 +361,6 @@ def analyze(procs: list[dict], max_node: int = DEFAULT_MAX_NODE, expected: list[
         "node": {
             "count": len(node),
             "mb": round(node_mb, 1),
-            "limit": max_node,
             "byOwner": {k: {"count": v["count"], "mb": round(v["mb"], 1)} for k, v in sorted(by_owner.items())},
         },
         "orphans": orphans,
@@ -383,7 +375,7 @@ def process_check() -> dict:
     if not procs:
         return {"problems": ["could not read the process list"], "node": {}, "orphans": [], "duplicates": []}
     conf = settings()
-    return analyze(procs, conf["maxNode"], conf["expected"])
+    return analyze(procs, conf["expected"])
 
 
 def main(argv: list[str]) -> int:
