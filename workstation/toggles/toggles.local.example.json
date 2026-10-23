@@ -1,0 +1,22 @@
+{
+  "processCheck": {
+    "maxNode": 15,
+    "expected": [
+      {
+        "match": "pnpm dev:",
+        "max": 2,
+        "label": "My app dev servers"
+      }
+    ]
+  },
+  "toggles": [
+    {
+      "id": "my-app",
+      "name": "My app",
+      "start": "Start-ScheduledTask -TaskName 'My app autostart'",
+      "stop": "& '{toolkit}\\toggles\\stop-port.ps1' -Port 5173,8080",
+      "status": "& '{toolkit}\\toggles\\check-http.ps1' -Port 5173 -ListenOnly",
+      "health": "& '{toolkit}\\toggles\\check-http.ps1' -Port 5173 -Tailscale"
+    }
+  ]
+}

@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
-PORT = 8791
+PORT = int(os.environ.get("DASHBOARD_PORT") or 8791)
 WORKER_HEALTH = "http://127.0.0.1:8787/readyz"
 SKIP_WALK = {
     ".git",

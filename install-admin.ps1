@@ -8,6 +8,9 @@
   1. Copies the memory sync scripts into <Projects>\_claude (if missing or changed) and runs
      <Projects>\_claude\register-memory-sync-task.ps1: task Claude-Memory-To-Cursor-Sync, every 15 minutes.
      It uses Register-ScheduledTask (an existing task is replaced). Safe to re-run.
+  2. Registers task Workstation-Watcher (workstation\toggles\register-watcher-task.ps1): every 15 minutes it
+     health-checks the dashboard toggles that are on, runs the process check and shows a toast on problems.
+  3. Adds the firewall rule that lets the tailnet reach the dashboard port (8791) on the Tailscale adapter only.
   The task is registered for the account this admin window runs as, so that must be the same
   account that uses Claude / Cursor (checked below).
 
@@ -84,6 +87,21 @@ else {
     Start-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync'
     Write-Host 'Started one sync run now. Its result goes to <Projects>\_claude\sync-claude-memory-to-cursor.log.'
   } else { $failed = $true; Write-Host 'Task Claude-Memory-To-Cursor-Sync not found after registering.' -ForegroundColor Red }
+}
+
+# 3. Workstation-Watcher (every 15 minutes, toast on problems).
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PkgRoot "$($TK.PackageFolder)\toggles\register-watcher-task.ps1")
+if ($LASTEXITCODE -ne 0) { $failed = $true; Write-Host 'Workstation-Watcher was NOT registered (see the message above).' -ForegroundColor Red }
+elseif (Get-ScheduledTask -TaskName 'Workstation-Watcher' -ErrorAction SilentlyContinue) { Write-Host 'Verified: task Workstation-Watcher is registered.' -ForegroundColor Green }
+else { $failed = $true; Write-Host 'Task Workstation-Watcher not found after registering.' -ForegroundColor Red }
+
+# 4. Dashboard tailnet firewall rule (Tailscale adapter only; never the public internet).
+$tsAlias = (Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'Tailscale' -or $_.InterfaceDescription -match 'Tailscale' } | Select-Object -First 1).Name
+if (-not $tsAlias) { Write-Host 'No Tailscale adapter: dashboard firewall rule skipped.' }
+elseif (Get-NetFirewallRule -DisplayName 'Workstation dashboard tailnet' -ErrorAction SilentlyContinue) { Write-Host 'Dashboard firewall rule already there.' }
+else {
+  New-NetFirewallRule -DisplayName 'Workstation dashboard tailnet' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8791 -InterfaceAlias $tsAlias -Profile Any | Out-Null
+  Write-Host "Firewall allows TCP 8791 on $tsAlias only." -ForegroundColor Green
 }
 
 if ($failed) { exit 1 }

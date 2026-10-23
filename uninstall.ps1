@@ -455,10 +455,19 @@ if (-not $testMode) {
   }
 }
 
+# 6b. Workstation-Watcher task (registered by install-admin.ps1): removed here when this window may, else printed below.
+if (-not $testMode) {
+  if (Get-ScheduledTask -TaskName 'Workstation-Watcher' -ErrorAction SilentlyContinue) {
+    Invoke-Change 'remove scheduled task Workstation-Watcher' { Unregister-ScheduledTask -TaskName 'Workstation-Watcher' -Confirm:$false -ErrorAction Stop }
+  } else { Note 'OK' 'task Workstation-Watcher is not registered' }
+}
+
 # 7. Admin-only and optional items: print the commands
 Write-Host ''
 Write-Host 'Scheduled tasks need admin. In PowerShell opened with "Run as admin" (same account), run:' -ForegroundColor White
 Write-Host "  Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false"
+Write-Host "  Unregister-ScheduledTask -TaskName 'Workstation-Watcher' -Confirm:`$false   # only if it is still listed (step above)"
+Write-Host "  Remove-NetFirewallRule -DisplayName 'Workstation dashboard tailnet'   # only if you do not want phone access any more"
 Write-Host ''
 Write-Host 'Older installs only (this repo no longer ships them): if task Latch-EnsureGrokBot exists, remove it in the same admin PowerShell:' -ForegroundColor White
 Write-Host "  Unregister-ScheduledTask -TaskName 'Latch-EnsureGrokBot' -Confirm:`$false"

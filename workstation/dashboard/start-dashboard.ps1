@@ -1,8 +1,19 @@
 #Requires -Version 5.1
 # Start the local project dashboard if it is not already answering.
-# Does not start or stop Cursor or Claude workers.
-param([switch]$NoPause)
+# Does not start or stop Cursor or Claude workers (the dashboard's toggles do, on request).
+# -NoPause: never wait at the end. Otherwise the window waits only when something needs reading
+# (a warning or a failure); on success it opens the page and closes after a few seconds.
+param([switch]$NoPause, [switch]$NoBrowser)
 $ErrorActionPreference = 'Continue'
+$script:Warnings = 0
+function Write-DashWarn([string]$m) { $script:Warnings++; Write-Host "[WARN] $m" -ForegroundColor Yellow }
+function Exit-Dash([int]$code) {
+    if (-not $NoPause) {
+        if ($code -ne 0 -or $script:Warnings -gt 0) { Write-Host 'Press Enter to close.'; Read-Host | Out-Null }
+        else { Write-Host 'Closing in 5 s.' -ForegroundColor DarkGray; Start-Sleep -Seconds 5 }
+    }
+    exit $code
+}
 $here = $PSScriptRoot
 $port = 8791
 $state = Join-Path $env:LOCALAPPDATA 'Workstation\dashboard'
@@ -27,9 +38,9 @@ function New-DashLink([string]$Path, [string]$Script) {
     $wsh = New-Object -ComObject WScript.Shell
     $item = $wsh.CreateShortcut($Path)
     $item.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    $item.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$Script`" -NoPause"
+    $item.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$Script`""
     $item.WorkingDirectory = Split-Path -Parent $Script
-    $item.WindowStyle = 7
+    $item.WindowStyle = 1
     $item.Description = 'Local project dashboard'
     $item.IconLocation = "$(Join-Path $env:SystemRoot 'System32\shell32.dll'),13"
     $item.Save()
@@ -52,8 +63,8 @@ if (Test-Path -LiteralPath $ts) {
 
 $python = Find-Python313
 if (-not $python) {
-    Write-Host 'Python 3.13 was not found. Install it or put python3.13 on PATH.'
-    exit 1
+    Write-Host '[FAIL] Python 3.13 was not found. Install it or put python3.13 on PATH.' -ForegroundColor Red
+    Exit-Dash 1
 }
 
 $healthy = $false
@@ -80,8 +91,8 @@ if (-not $healthy) {
 }
 
 if (-not $healthy) {
-    Write-Host "Dashboard did not answer on http://127.0.0.1:$port/"
-    exit 1
+    Write-Host "[FAIL] Dashboard did not answer on http://127.0.0.1:$port/ (see $state\server.err.log)" -ForegroundColor Red
+    Exit-Dash 1
 }
 Write-Host "Dashboard http://127.0.0.1:$port/"
 
@@ -99,7 +110,7 @@ if (Test-Path -LiteralPath $ts) {
             -RedirectStandardOutput $serveOut -RedirectStandardError $serveErr
         if (-not $serveProc.WaitForExit(20000)) {
             Stop-Process -Id $serveProc.Id -Force -ErrorAction SilentlyContinue
-            Write-Host 'Tailscale serve did not finish. Localhost still works.'
+            Write-DashWarn 'Tailscale serve did not finish. Localhost still works.'
         }
     } else {
         Write-Host 'Tailscale serve already has a different config. Left it alone.'
@@ -120,13 +131,16 @@ if (Test-Path -LiteralPath $ts) {
                 Where-Object { $_.Name -match 'Tailscale' -or $_.InterfaceDescription -match 'Tailscale' } |
                 Select-Object -First 1).Name
             $rule = Get-NetFirewallRule -DisplayName 'Workstation dashboard tailnet' -ErrorAction SilentlyContinue
-            if ($alias -and -not $rule) {
+            $admin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+            if ($alias -and -not $rule -and -not $admin) {
+                Write-DashWarn "No firewall rule for TCP $port on the tailnet yet (adding one needs admin). The dashboard works; from the phone use the https://<pc>.ts.net address. To add the rule once, run install-admin.ps1 as admin."
+            } elseif ($alias -and -not $rule) {
                 try {
                     New-NetFirewallRule -DisplayName 'Workstation dashboard tailnet' -Direction Inbound -Action Allow `
                         -Protocol TCP -LocalPort $port -InterfaceAlias $alias -Profile Any -ErrorAction Stop | Out-Null
                     Write-Host "Firewall allows TCP $port on $alias."
                 } catch {
-                    Write-Host 'Could not add a firewall rule for the tailnet address.'
+                    Write-DashWarn "Could not add the tailnet firewall rule: $($_.Exception.Message). Localhost and https://<pc>.ts.net still work."
                 }
             }
         }
@@ -134,7 +148,7 @@ if (Test-Path -LiteralPath $ts) {
         if ($phoneLines.Count -gt 0) {
             Set-Content -LiteralPath (Join-Path $state 'phone.url') -Value ($phoneLines -join "`n") -Encoding ascii
         }
-    } catch { Write-Host 'Could not read the Tailscale name.' }
+    } catch { Write-DashWarn 'Could not read the Tailscale name. Localhost still works.' }
 } else {
     Write-Host 'Tailscale is not installed. Localhost still works.'
 }
@@ -157,5 +171,5 @@ if (Test-Path -LiteralPath $linkDir) {
 Push-Location -LiteralPath $here
 & $python -c "import json; from collect import state_dir, _capabilities, _usage_limits; usage=_usage_limits(); auth=bool((usage.get('cursor') or {}).get('authenticated')); (state_dir()/'capabilities.json').write_text(json.dumps(_capabilities(auth), indent=2), encoding='utf-8')"
 Pop-Location
-if (-not $NoPause) { Write-Host 'Press Enter to close.'; Read-Host | Out-Null }
-exit 0
+if (-not $NoBrowser -and -not $NoPause) { Start-Process "http://127.0.0.1:$port/" }
+Exit-Dash 0

@@ -1,0 +1,12 @@
+{
+  "toggles": [
+    {
+      "id": "remote",
+      "name": "Remote",
+      "start": "& '{toolkit}\\toggles\\remote.ps1' -Action start",
+      "stop": "& '{toolkit}\\toggles\\remote.ps1' -Action stop",
+      "status": "& '{toolkit}\\toggles\\remote.ps1' -Action status",
+      "health": "& '{toolkit}\\toggles\\remote.ps1' -Action health"
+    }
+  ]
+}

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,6 +18,9 @@ from urllib.parse import parse_qs, urlparse
 
 import collect
 import send
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "toggles"))
+import toggles  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 STATIC = HERE / "static"
@@ -151,6 +155,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/health":
             self._json(200, {"ok": True, "port": PORT})
             return
+        if path == "/api/toggles":
+            self._json(200, {"toggles": toggles.snapshot()})
+            return
         if path == "/api/snapshot":
             lite = "1" in (parse_qs(parsed.query).get("lite") or [])
             self._json(200, snapshot(lite=lite))
@@ -212,6 +219,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(500, {"ok": False, "error": str(exc)})
                 return
             self._json(200, {"ok": True, "opened": file.name})
+            return
+        if path == "/api/toggle":
+            tid = str(body.get("id") or "")
+            action = str(body.get("action") or "")
+            if action not in {"on", "off"}:
+                self._json(400, {"ok": False, "error": "action must be on or off"})
+                return
+            self._json(200, toggles.switch(tid, action == "on"))
+            return
+        if path == "/api/toggle-health":
+            self._json(200, toggles.health(str(body.get("id") or "")))
+            return
+        if path == "/api/process-check":
+            self._json(200, toggles.process_check())
             return
         if path == "/api/shortcut":
             if not self._local_browser():

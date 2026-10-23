@@ -33,6 +33,10 @@
     @{ Name = 'Dashboard';          Script = 'shortcuts\dashboard.ps1';          Icon = 13 }
     @{ Name = 'Desktop Commander Remote Start'; Script = 'desktop-commander-remote\start-dc-remote.ps1'; Args = '-Show'; Icon = 137 }
     @{ Name = 'Desktop Commander Remote Stop';  Script = 'desktop-commander-remote\stop-dc-remote.ps1';  Icon = 131 }
+    # Same commands as the dashboard's Remote toggle and Process check button (toggles\toggles.json).
+    @{ Name = 'Remote On';      Script = 'toggles\toggle.ps1'; Args = '-Id remote -Action on';  Icon = 137 }
+    @{ Name = 'Remote Off';     Script = 'toggles\toggle.ps1'; Args = '-Id remote -Action off'; Icon = 131 }
+    @{ Name = 'Process Check';  Script = 'toggles\toggle.ps1'; Args = '-Action process-check';  Icon = 23 }
   )
 
   # Sign-in links that ShortcutsInstaller puts in the user's Startup folder (install.ps1 passes -StartupDir).
