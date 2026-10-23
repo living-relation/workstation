@@ -43,8 +43,12 @@
   # Hidden = start through desktop-commander-remote\run-hidden.vbs (wscript, no window). A link of the same name
   # is only replaced when it already runs the same script file name (from any folder: older copies under
   # %LOCALAPPDATA% or a worktree); it is backed up first. Anything else is left alone with a warning.
-  StartupLinks       = @(
-    @{ Name = 'Desktop Commander Remote'; Script = 'desktop-commander-remote\start-dc-remote.ps1'; Hidden = $true }
+  # Desktop Commander Remote no longer starts at sign-in: it runs only while the dashboard's Remote toggle is on
+  # (or from the manual Remote On / Desktop Commander Remote Start shortcuts).
+  StartupLinks       = @()
+  # Sign-in links older installs created. ShortcutsInstaller removes them (backup first) when they run Script.
+  RetiredStartupLinks = @(
+    @{ Name = 'Desktop Commander Remote'; Script = 'start-dc-remote.ps1' }
   )
 
   # Old Desktop shortcut folders: 'Bridge' (before the rename) and 'Workstation' (Desktop location before the links

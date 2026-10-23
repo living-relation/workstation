@@ -76,6 +76,26 @@ foreach ($l in $links) {
     }
 }
 
+# Retired sign-in links from older installs: removed (backed up first) only when they run the retired script.
+if (-not $NoStartup) {
+    foreach ($r in @($TK.RetiredStartupLinks)) {
+        if (-not $r) { continue }
+        $lp = Join-Path $StartupDir "$($r.Name).lnk"
+        if (-not (Test-Path -LiteralPath $lp)) { continue }
+        try {
+            $old = (New-Object -ComObject WScript.Shell).CreateShortcut($lp)
+            if ("$($old.TargetPath) $($old.Arguments)" -notmatch [regex]::Escape([string]$r.Script)) {
+                Write-Host "  [WARN] left Startup\$($r.Name).lnk alone: it does not run $($r.Script)" -ForegroundColor Yellow; continue
+            }
+            $rb = Join-Path $env:LOCALAPPDATA ("Workstation\backups\retired-startup-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+            New-Item -ItemType Directory -Force -Path $rb | Out-Null
+            Copy-Item -LiteralPath $lp -Destination $rb -Force
+            Remove-Item -LiteralPath $lp -Force
+            Write-Host "  [ OK ] removed retired Startup\$($r.Name).lnk (no longer starts at sign-in; backup in $rb)" -ForegroundColor Green
+        } catch { Write-Host "  [FAIL] retired Startup $($r.Name): $($_.Exception.Message)" -ForegroundColor Red; $failed++ }
+    }
+}
+
 # Sign-in links in the Startup folder.
 $startupDone = 0
 if (-not $NoStartup -and @($TK.StartupLinks).Count) {

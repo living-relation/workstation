@@ -1,9 +1,9 @@
 #Requires -Version 5.1
 # Start Desktop Commander remote in the background.
-# Logon shortcut calls this with no switches (silent).
+# The dashboard's Remote toggle calls this with no switches (silent); it no longer runs at sign-in.
 # Manual shortcut passes -Show so a window reports status.
 # Command: npx @wonderwhy-er/desktop-commander@<pinned version> remote
-# Lives in the workstation repo; the Startup link and shortcuts come from toolkit.psd1 via install-shortcuts.ps1.
+# Lives in the workstation repo; the shortcuts come from toolkit.psd1 via install-shortcuts.ps1.
 # Logs stay in %LOCALAPPDATA%\Workstation\desktop-commander-remote (never in the clone). No tokens here.
 param([switch]$Show, [switch]$NoPause)
 # Pinned Desktop Commander version; keep in step with workstation.lock.yaml (upstream.desktop_commander).
