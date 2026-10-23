@@ -62,10 +62,6 @@ It is separate from the full sweep above: it updates only the project's living h
 
 Close the current chat so the next chat can start clean. Do **not** continue the work here.
 
-# Handoff
-
-Close the current chat so the next chat can start clean. Do **not** continue the work here.
-
 **Exact workflow name:** perform handoff and documentation updates, and continue project
 
 "Continue project" means: give the user a **copyable paste block for the next chat**. Do not start the next slice in this conversation.

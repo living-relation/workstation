@@ -13,7 +13,7 @@ Follow `<projects>\AGENTS.md`: no new root folders, never commit watcher data.
 
 ## Deploy a project
 
-1. **Ask the owner (plain words, one message):** which project (folder under `<projects>\active\`), and where the shortcuts go (default `<projects>\_tools`). If he already named them, do not ask again. Use the project's folder name as the display name unless he gives one (short, e.g. `ST185`).
+1. **Ask the owner (plain words, one message):** which project (folder under `<projects>\active\`), and where the shortcuts go (default `<projects>\_tools`). If they already named them, do not ask again. Use the project's folder name as the display name unless he gives one (short, e.g. `ST185`).
 2. **Check first:** the project folder exists; the name is not already in `python <projects>\_tools\watcher.py --projects` (if it is, this is a repair, not a new deploy); `python` and `pythonw` are on PATH.
 3. **Create the data folder:** `<project>\_watch\`. Put in it a `README.txt` ("Session watcher data. Local only: never commit or push. Do NOT run `git clean -x` or `git clean -fdx` in this repo: it deletes this folder.") and a `VERSION` file holding the contents of `<projects>\_tools\watch-VERSION`. A `config.json` of `{}` is enough: defaults come from the engine, including the shared ntfy topic. Do not write a topic into it. Leave `stray_check` off (it is on for one project only; check the registry).
 4. **Exclude it from git, locally only** (skip if the project is not a git repo):
