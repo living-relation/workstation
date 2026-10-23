@@ -1,7 +1,7 @@
 # context-guard.ps1 — Claude Code context-pressure handoff + compaction backup.
 # Modes:
 #   statusline : show context % + handoff point; save used/trigger tokens (hooks can't see context).
-#   stop       : at >= $Threshold% of the compaction point (min $Headroom tokens left), block the stop ONCE so Claude runs handoff-sync-continue.
+#   stop       : at >= $Threshold% of the compaction point (min $Headroom tokens left), block the stop ONCE so Claude runs agent-handoff-pack (quick mode).
 #   precompact : back up transcript + git snapshot, then re-arm the 80% trigger for the fresh context.
 # Cursor also runs ~/.claude/settings.json hooks; it has its own handoff-at-80.py, so Cursor
 # payloads (they carry conversation_id) are ignored here to avoid a double handoff.
@@ -51,7 +51,7 @@ switch ($Mode) {
         New-Item -ItemType File -Force -Path $fired | Out-Null
         @{
             decision = 'block'
-            reason   = "CONTEXT PRESSURE: context is at $pct, near the compaction point. Invoke the handoff-sync-continue skill now (context-pressure fast path): update living docs and emit the next-chat paste block (do not commit or push). Do not start new project work."
+            reason   = "CONTEXT PRESSURE: context is at $pct, near the compaction point. Invoke the agent-handoff-pack skill in quick mode now (context-pressure fast path): update living docs and emit the next-chat paste block (do not commit or push). Do not start new project work."
         } | ConvertTo-Json -Compress
         exit 0
     }

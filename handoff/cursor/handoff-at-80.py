@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Arm handoff-sync-continue when chat context is at or above 80%."""
+"""Arm the agent-handoff-pack quick-mode handoff when chat context is at or above 80%."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ STATE_DIR = Path.home() / ".cursor" / "hooks" / "state" / "handoff-at-80"
 ARMED_PATH = STATE_DIR / "armed"
 FOLLOWUP = (
     "CONTEXT PRESSURE: chat context is at or above 80%. "
-    "Run the handoff-sync-continue skill immediately. "
+    "Run the agent-handoff-pack skill in quick mode immediately. "
     "Do not continue coding. Update living handoff docs, then output only the "
     "copyable next-chat paste block. Do not commit or push."
 )
