@@ -16,7 +16,7 @@
     powershell -NoProfile -ExecutionPolicy Bypass -File .\preflight.ps1 [-ProjectsRoot <path>]
   Exit code: 0 = no conflicts, 2 = conflicts found.
 
-.PARAMETER ProjectsRoot   Projects root. Default: %USERPROFILE%\Projects
+.PARAMETER ProjectsRoot   Projects root. Default: the root this clone sits in (<root>\active\workstation), else the prior install's projectsRoot, else %USERPROFILE%\Projects
 .PARAMETER UserHome       Testing only: use this folder instead of %USERPROFILE% (same as install.ps1 -UserHome).
 .PARAMETER StartupFolder  Testing only: user Startup folder to check. Default: the real one (test mode: under -UserHome).
 .PARAMETER ReportDir      Folder for the report file.
@@ -45,7 +45,15 @@ if (-not $realHome) { $realHome = $HOME }
 $testMode = [bool]$UserHome
 if (-not $UserHome) { $UserHome = $realHome }
 $UserHome = [IO.Path]::GetFullPath($UserHome).TrimEnd('\')
-if (-not $ProjectsRoot) { $ProjectsRoot = Join-Path $UserHome 'Projects' }
+if (-not $ProjectsRoot) {
+  # No -ProjectsRoot: use the root this clone sits in (<root>\active\<repo>), then the root a prior install
+  # recorded in %LOCALAPPDATA%\<StateFolder>\<ConfigFile>, and only then <home>\Projects.
+  $pkgParent = Split-Path -Parent $PkgRoot
+  $stateCfg = Join-Path $(if ($UserHome -ne $realHome) { Join-Path $UserHome 'AppData\Local' } else { $env:LOCALAPPDATA }) (Join-Path $(if ($TK.StateFolder) { $TK.StateFolder } else { 'Workstation' }) $(if ($TK.ConfigFile) { $TK.ConfigFile } else { 'workstation.json' }))
+  if ($pkgParent -and (Split-Path -Leaf $pkgParent) -ieq 'active') { $ProjectsRoot = Split-Path -Parent $pkgParent; $RootSource = 'detected from the clone location' }
+  elseif (Test-Path -LiteralPath $stateCfg) { try { $ProjectsRoot = [string](Get-Content -LiteralPath $stateCfg -Raw | ConvertFrom-Json).projectsRoot; $RootSource = "from the prior install ($stateCfg)" } catch { } }
+  if (-not $ProjectsRoot) { $ProjectsRoot = Join-Path $UserHome 'Projects'; $RootSource = 'default' }
+} else { $RootSource = '-ProjectsRoot' }
 $ProjectsRoot = [IO.Path]::GetFullPath($ProjectsRoot).TrimEnd('\')
 if ($testMode) {
   $LocalAppData = Join-Path $UserHome 'AppData\Local'
@@ -299,6 +307,8 @@ foreach ($a in $autostarts) {
   if ($a.Kind -eq 'StartupFolder') { $id = $a.FullWhere }
   if ($a.Name -match $RetiredNameRx -or $a.Command -match $RetiredRx) {
     Add-Finding 'CONFLICT' 'autostart' $id "retired auto-start, should be gone: $($a.Command)"
+  } elseif ($a.Kind -eq 'StartupFolder' -and @($TK.RetiredStartupLinks | Where-Object { $a.Name -ieq ($_.Name + '.lnk') -and $a.Command -match [regex]::Escape($_.Script) }).Count) {
+    Add-Finding 'WARN' 'autostart' $id "retired sign-in link; the shortcuts installer removes it (backup first): $($a.Command)"
   } elseif ($a.Command -match $CursorExeRx) {
     $cursorEntries += $a
   } elseif ($a.Command -match $OurScriptRx) {
@@ -675,7 +685,9 @@ foreach ($dk in @($desks | Where-Object { $_ -and (Test-Path -LiteralPath $_) })
     if ($runs -notmatch $bridgeScriptRx -and $newNames -notcontains $base -and $oldNames -notcontains $base) { continue }
     $scFound++
     $sp = $null; $m = [regex]::Match($runs, '(?i)"([^"]*' + $bridgeScriptRx.Substring(4) + ')"'); if ($m.Success) { $sp = Expand-UserPath $m.Groups[1].Value }
-    $ours = ($sp -and $ourShortcutDirs -contains (Split-Path $sp -Parent).ToLower())
+    # Ours = the script is one of this package's shortcut folders OR anywhere inside this clone's toolkit
+    # (e.g. Dashboard.lnk -> <clone>\workstation\dashboard\start-dashboard.ps1).
+    $ours = ($sp -and ($ourShortcutDirs -contains (Split-Path $sp -Parent).ToLower() -or (Test-Under $sp $BridgeDir)))
     $legacy = ($sp -and (@($LegacyDirs | Where-Object { Test-Under $sp $_ }).Count -or $legacyLeaves -contains (Split-Path $sp -Leaf)))
     $isNew = ($newNames -contains $base)
     if ($ours -and $isNew -and $l.DirectoryName -ieq $ScDir) { Add-Finding 'ALREADY-INSTALLED' 'shortcuts' $l.FullName "runs $sp" }
