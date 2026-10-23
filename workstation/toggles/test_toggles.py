@@ -35,13 +35,14 @@ class MergeTests(unittest.TestCase):
 
 
 class AnalyzeTests(unittest.TestCase):
-    def test_counts_owners_and_limit(self):
-        procs = [proc(1, 0, "claude.exe")] + [proc(10 + i, 1, "node.exe", "node mcp-server-x") for i in range(4)]
-        result = toggles.analyze(procs, max_node=3, expected=[])
-        self.assertEqual(result["node"]["count"], 4)
-        self.assertEqual(result["node"]["byOwner"]["Claude"]["count"], 4)
-        self.assertTrue(any("node processes" in p for p in result["problems"]))
-        self.assertEqual(result["duplicates"][0]["count"], 4)
+    def test_counts_owners_without_node_limit(self):
+        procs = [proc(1, 0, "claude.exe")] + [proc(10 + i, 1, "node.exe", "node mcp-server-x") for i in range(40)]
+        result = toggles.analyze(procs, expected=[])
+        self.assertEqual(result["node"]["count"], 40)
+        self.assertNotIn("limit", result["node"])
+        self.assertEqual(result["node"]["byOwner"]["Claude"]["count"], 40)
+        self.assertEqual(result["problems"], [])
+        self.assertEqual(result["duplicates"][0]["count"], 40)
 
     def test_orphan_tree_and_expected(self):
         dc = "cmd.exe /c npx.cmd --yes @wonderwhy-er/desktop-commander@0.3.0 remote"
@@ -81,7 +82,7 @@ class SettingsTests(unittest.TestCase):
                 conf = toggles.settings()
             finally:
                 toggles.local_file = old
-        self.assertEqual(conf["maxNode"], 3)
+        self.assertNotIn("maxNode", conf)
         self.assertEqual(conf["expected"][-1]["match"], "pnpm dev:")
 
 

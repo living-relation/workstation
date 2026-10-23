@@ -256,7 +256,7 @@ function showCheck(title, text) {
 function processText(result) {
   const lines = [];
   const node = result.node || {};
-  lines.push(`Node processes: ${node.count ?? "?"} (${node.mb ?? "?"} MB), limit ${node.limit ?? "?"}`);
+  lines.push(`Node processes: ${node.count ?? "?"} (${node.mb ?? "?"} MB), for information`);
   for (const [owner, row] of Object.entries(node.byOwner || {})) lines.push(`  ${owner}: ${row.count} (${row.mb} MB)`);
   lines.push("", `Orphaned process trees (parent gone): ${(result.orphans || []).length}`);
   for (const o of result.orphans || []) {
