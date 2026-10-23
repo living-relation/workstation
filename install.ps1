@@ -30,7 +30,8 @@
   - Creates the junction ~\.claude\working-memory -> the memory store (the same path on every PC;
     the Cowork Global instructions line uses it). An existing folder or link there is never changed.
   - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
-    handoff-at-80.py (Cursor preCompact + stop, needs py -3) and the handoff-sync-continue skill. Entries are
+    handoff-at-80.py (Cursor preCompact + stop, needs py -3); the skill they trigger, agent-handoff-pack, is linked by
+    -LinkSkills (which also moves an old handoff-sync-continue copy to ~\.skills-backup). Entries are
     merged by script name (never duplicated); an unrelated statusLine is never overwritten.
   - Makes sure Cursor starts at sign-in: an existing Cursor entry (Startup folder or Run key) is left alone,
     even if it is turned off in Startup apps (warning only); otherwise adds Cursor.lnk to the Startup folder.
@@ -144,8 +145,6 @@ $DotCursor   = Join-Path $UserHome '.cursor'
 $CursorHookDest = Join-Path $DotCursor 'hooks\handoff-at-80.py'
 $CursorHooksJson = Join-Path $DotCursor 'hooks.json'
 $ArmedPath   = Join-Path $DotCursor 'hooks\state\handoff-at-80\armed'
-$SkillDest   = Join-Path $DotClaude 'skills\handoff-sync-continue'
-$SkillPkg    = Join-Path $HandoffPkg 'skills\handoff-sync-continue'
 if (-not $StartupFolder) {
   if ($testMode) { $StartupFolder = Join-Path $UserHome 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup' }
   else { $StartupFolder = [Environment]::GetFolderPath('Startup') }
@@ -557,23 +556,7 @@ Copy-HomeFile (Join-Path $HandoffPkg 'claude\context-guard.ps1') $CtxDest
 $CursorHookOk = [bool]$Preflight.PyOk
 if ($CursorHookOk) { Copy-HomeFile (Join-Path $HandoffPkg 'cursor\handoff-at-80.py') $CursorHookDest }
 else { Note 'WARN' "py -3 (Python 3.7+) not available: Cursor 80% handoff hook skipped ($CursorHookDest, $CursorHooksJson unchanged). Install Python 3, then re-run install.ps1." }
-if (Test-Path -LiteralPath $SkillDest) {
-  $pkgFiles = @(Get-ChildItem -LiteralPath $SkillPkg -Recurse -File -Force)
-  $same = ($pkgFiles.Count -eq @(Get-ChildItem -LiteralPath $SkillDest -Recurse -File -Force).Count)
-  foreach ($f in $pkgFiles) { $d = Join-Path $SkillDest $f.FullName.Substring($SkillPkg.Length + 1); if (-not (Test-Path -LiteralPath $d) -or (Get-Sha $d) -ne (Get-Sha $f.FullName)) { $same = $false } }
-  if ($same) { Note 'OK' "skill up to date: $SkillDest" }
-  else { Note 'WARN' "skill $SkillDest exists with different content; kept as is (not overwritten). Compare with $SkillPkg and update by hand if wanted." }
-} else {
-  Invoke-Change "install skill $SkillDest" {
-    New-RecordedDir $SkillDest
-    foreach ($f in @(Get-ChildItem -LiteralPath $SkillPkg -Recurse -File -Force)) {
-      $d = Join-Path $SkillDest $f.FullName.Substring($SkillPkg.Length + 1)
-      New-RecordedDir (Split-Path $d -Parent)
-      Copy-Item -LiteralPath $f.FullName -Destination $d
-      Add-ManifestJson @{ kind = 'file'; path = $d; sha256 = (Get-Sha $d) }
-    }
-  }
-}
+# The skill the hooks trigger is agent-handoff-pack (skills\), linked by -LinkSkills (section 9b).
 
 # 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart guard hook + handoff hooks/statusLine), keep everything else
 $settings = $null; $settingsOk = $true; $settingsExisted = Test-Path -LiteralPath $SettingsPath
@@ -882,6 +865,8 @@ else { try {
     elseif ($r.Action -eq 'would-link') { Note 'WOULD' "link skill $($r.Path) -> $($r.Target)" }
     elseif ($r.Action -eq 'would-prune') { Note 'WOULD' "remove dead skill link $($r.Path) -> $($r.Target)" }
     elseif ($r.Action -eq 'pruned') { Note 'DONE' "removed dead skill link $($r.Path) -> $($r.Target)" }
+    elseif ($r.Action -eq 'would-retire') { Note 'WOULD' "move retired skill $($r.Path) to $($r.Target)" }
+    elseif ($r.Action -eq 'retired') { Note 'DONE' "moved retired skill $($r.Path) to $($r.Target)" }
     else { Note 'DONE' "skill $($r.Path) -> $($r.Target) ($($r.Action))"; Add-ManifestJson @{ kind = 'skill-link'; path = $r.Path; target = $r.Target; backup = $r.Backup } }
   }
 } catch { Note 'ERROR' ("link skills -- " + $_.Exception.Message) } }

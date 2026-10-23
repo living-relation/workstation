@@ -83,7 +83,6 @@ $Expected = @{
   'handoff-at-80.py'      = (Join-Path $DotCursor 'hooks\handoff-at-80.py')
 }
 $ArmedPath = Join-Path $DotCursor 'hooks\state\handoff-at-80\armed'
-$SkillPkg  = Join-Path $PkgRoot 'handoff\skills\handoff-sync-continue'
 if ($testMode) { $AutoMemValue = ($LinkPath -replace '\\', '/') } else { $AutoMemValue = "~/.claude/projects/$ProjectKey/memory" }
 
 # Script names this package ships or retired. Used to spot duplicates of our jobs anywhere.
@@ -536,7 +535,7 @@ foreach ($r in @($skillRoots | Where-Object Owner -eq 'cursor')) {
 foreach ($rf in $ruleFiles) { Report-Scan "rule $($rf.FullName)" (Get-MemoryScan @($rf)) }
 Add-Finding 'OK' 'cursor-skills' 'scan scope' ("checked $cursorSkillDirs Cursor skill folder(s) and $($ruleFiles.Count) rule file(s) for hard-coded memory paths. Skill roots: " + $(if ($skillRoots.Count) { (($skillRoots | ForEach-Object Path) -join ' | ') } else { 'none found' }))
 
-# Named skills: where they exist (plain answer), and whether handoff-sync-continue matches the package.
+# Named skills: where they exist (plain answer). handoff-sync-continue is retired (merged into agent-handoff-pack).
 foreach ($name in 'claude-cowork', 'handoff-sync-continue') {
   $found = @()
   foreach ($r in $skillRoots) { $p = Join-Path $r.Path $name; if (Test-Path -LiteralPath $p -PathType Container) { $found += [pscustomobject]@{ Path = $p; Owner = $r.Owner } } }
@@ -545,17 +544,8 @@ foreach ($name in 'claude-cowork', 'handoff-sync-continue') {
     else { Add-Finding 'OK' 'skills' "skill '$name'" 'not found in any skill folder checked (see cursor-skills scan scope)' }
     continue
   }
-  $userCopy = Join-Path $DotClaude "skills\$name"
-  if (-not $found.Count) { Add-Finding 'OK' 'skills' "skill '$name'" "not installed; install.ps1 adds it to $userCopy" }
-  foreach ($f in $found) {
-    $same = Test-SameTree $SkillPkg $f.Path
-    if ($f.Path -ieq $userCopy) {
-      if ($same) { Add-Finding 'ALREADY-INSTALLED' 'skills' $f.Path 'same content as the package' }
-      else { Add-Finding 'WARN' 'skills' $f.Path 'different content from the package copy. install.ps1 keeps it as is (not overwritten); compare with handoff\skills\handoff-sync-continue and decide.' }
-    } else {
-      Add-Finding 'WARN' 'skills' $f.Path ("second skill with the same name (" + $(if ($same) { 'same content' } else { 'DIFFERENT content' }) + "); the agent may load either copy. The package installs only $userCopy.")
-    }
-  }
+  if (-not $found.Count) { Add-Finding 'OK' 'skills' "skill '$name'" 'retired (merged into agent-handoff-pack); no old copy found' }
+  foreach ($f in $found) { Add-Finding 'WARN' 'skills' $f.Path "retired skill (merged into agent-handoff-pack); link-skills.ps1 (install.ps1 -LinkSkills) moves it to ~\.skills-backup" }
 }
 
 # Claude instruction texts (package instructions\, pasted by hand; never edited by install). Read-only check.

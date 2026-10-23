@@ -2,11 +2,13 @@
 # Usage: .\link-skills.ps1 [-From <skills folder>] [-WhatIf]   (default: this repo's skills\)
 # A same-name skill that is not already this link is moved to -BackupRoot first; never touches other skills.
 # The only delete: a junction into -From whose skill is gone (renamed or removed) is removed - the link only.
-# Stops if a skill name is in two sources. Output: one object per link (Path, Target, Action). install.ps1 runs it.
+# -Retire: skill names that were merged or removed; a same-name folder or link in -Targets is moved to
+# -BackupRoot\<stamp>\retired\ (never deleted). Stops if a skill name is in two sources. Output: one object per link (Path, Target, Action). install.ps1 runs it.
 [CmdletBinding(SupportsShouldProcess = $true)]
 param([string[]]$From = @((Join-Path $PSScriptRoot 'skills')),
       [string[]]$Targets = @("$env:USERPROFILE\.claude\skills", "$env:USERPROFILE\.cursor\skills"),
-      [string]$BackupRoot = "$env:USERPROFILE\.skills-backup")
+      [string]$BackupRoot = "$env:USERPROFILE\.skills-backup",
+      [string[]]$Retire = @('handoff-sync-continue'))
 $ErrorActionPreference = 'Stop'
 $stamp = Get-Date -Format yyyyMMdd-HHmmss
 $seen = @{}
@@ -51,5 +53,20 @@ foreach ($t in $Targets) {
     if (-not $PSCmdlet.ShouldProcess($item.FullName, "remove dead skill link -> $tgt")) { [pscustomobject]@{ Path = $item.FullName; Target = $tgt; Action = 'would-prune' }; continue }
     [IO.Directory]::Delete($item.FullName, $false)
     [pscustomobject]@{ Path = $item.FullName; Target = $tgt; Action = 'pruned' }
+  }
+}
+# Retire: move (never delete) a retired skill's old folder or link out of -Targets into -BackupRoot.
+foreach ($name in $Retire) {
+  if ($seen.ContainsKey($name)) { continue }
+  foreach ($t in $Targets) {
+    $dest = Join-Path $t $name
+    $item = Get-Item -LiteralPath $dest -Force -ErrorAction SilentlyContinue
+    if (-not $item) { continue }
+    $backup = Join-Path $BackupRoot "$stamp\retired\$(Split-Path (Split-Path $t) -Leaf)\$name"
+    if (-not $PSCmdlet.ShouldProcess($dest, "move retired skill to $backup")) { [pscustomobject]@{ Path = $dest; Target = $backup; Action = 'would-retire' }; continue }
+    New-Item -ItemType Directory -Force (Split-Path $backup) | Out-Null
+    if ($item.LinkType) { New-Item -ItemType Junction -Path $backup -Target "$(@($item.Target)[0])" | Out-Null; [IO.Directory]::Delete($item.FullName, $false) }
+    else { Move-Item -LiteralPath $dest $backup }
+    [pscustomobject]@{ Path = $dest; Target = $backup; Action = 'retired' }
   }
 }
