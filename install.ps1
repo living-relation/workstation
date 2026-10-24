@@ -99,7 +99,15 @@ if (-not $realHome) { $realHome = $HOME }
 $testMode = [bool]$UserHome
 if (-not $UserHome) { $UserHome = $realHome }
 $UserHome = [IO.Path]::GetFullPath($UserHome).TrimEnd('\')
-if (-not $ProjectsRoot) { $ProjectsRoot = Join-Path $UserHome 'Projects' }
+if (-not $ProjectsRoot) {
+  # No -ProjectsRoot: use the root this clone sits in (<root>\active\<repo>), then the root a prior install
+  # recorded in %LOCALAPPDATA%\<StateFolder>\<ConfigFile>, and only then <home>\Projects.
+  $pkgParent = Split-Path -Parent $PkgRoot
+  $stateCfg = Join-Path $(if ($UserHome -ne $realHome) { Join-Path $UserHome 'AppData\Local' } else { $env:LOCALAPPDATA }) (Join-Path $(if ($TK.StateFolder) { $TK.StateFolder } else { 'Workstation' }) $(if ($TK.ConfigFile) { $TK.ConfigFile } else { 'workstation.json' }))
+  if ($pkgParent -and (Split-Path -Leaf $pkgParent) -ieq 'active') { $ProjectsRoot = Split-Path -Parent $pkgParent; $RootSource = 'detected from the clone location' }
+  elseif (Test-Path -LiteralPath $stateCfg) { try { $ProjectsRoot = [string](Get-Content -LiteralPath $stateCfg -Raw | ConvertFrom-Json).projectsRoot; $RootSource = "from the prior install ($stateCfg)" } catch { } }
+  if (-not $ProjectsRoot) { $ProjectsRoot = Join-Path $UserHome 'Projects'; $RootSource = 'default' }
+} else { $RootSource = '-ProjectsRoot' }
 $ProjectsRoot = [IO.Path]::GetFullPath($ProjectsRoot).TrimEnd('\')
 
 if ($testMode) {
@@ -412,7 +420,7 @@ function Invoke-StatusCheck {
 Write-Host ''
 Write-Host ('Workstation setup install' + $(if ($WhatIf) { '  (DRY RUN: nothing will change)' } else { '' })) -ForegroundColor White
 Write-Host "  User home     : $UserHome"
-Write-Host "  Projects root : $ProjectsRoot"
+Write-Host "  Projects root : $ProjectsRoot ($RootSource)"
 Write-Host "  Claude key    : $ProjectKey"
 Write-Host "  Memory store  : $Store"
 Write-Host "  Junction      : $LinkPath"
