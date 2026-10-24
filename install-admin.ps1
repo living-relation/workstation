@@ -1,16 +1,15 @@
 <#
 .SYNOPSIS
-  Admin part of the setup: registers the scheduled task. Run AFTER install.ps1.
+  Admin part of the setup: registers the watcher task and the firewall rule. Run AFTER install.ps1.
 
 .DESCRIPTION
   Open PowerShell with "Run as admin", go to the workstation repo clone (normally <Projects>\active\workstation), then:
     powershell -NoProfile -ExecutionPolicy Bypass -File .\install-admin.ps1
-  1. Copies the memory sync scripts into <Projects>\_claude (if missing or changed) and runs
-     <Projects>\_claude\register-memory-sync-task.ps1: task Claude-Memory-To-Cursor-Sync, every 15 minutes.
-     It uses Register-ScheduledTask (an existing task is replaced). Safe to re-run.
-  2. Registers task Workstation-Watcher (workstation\toggles\register-watcher-task.ps1): every 15 minutes it
+  (No memory sync task any more: Cursor reads the memory store read-only. Older installs may still have
+  task Claude-Memory-To-Cursor-Sync; preflight flags it as retired.)
+  1. Registers task Workstation-Watcher (workstation\toggles\register-watcher-task.ps1): every 15 minutes it
      health-checks the dashboard toggles that are on, runs the process check and shows a toast on problems.
-  3. Adds the firewall rule that lets the tailnet reach the dashboard port (8791) on the Tailscale adapter only.
+  2. Adds the firewall rule that lets the tailnet reach the dashboard port (8791) on the Tailscale adapter only.
   The task is registered for the account this admin window runs as, so that must be the same
   account that uses Claude / Cursor (checked below).
 
@@ -63,39 +62,23 @@ if (-not (Test-Path -LiteralPath $ClaudeDir -PathType Container)) {
   exit 1
 }
 
-# 1. Make sure the _claude scripts are in place (normally install.ps1 already copied them).
-foreach ($f in 'sync-claude-memory-to-cursor.ps1', 'run-hidden.vbs', 'register-memory-sync-task.ps1') {
-  $src = Join-Path $PkgRoot "memory\_claude\$f"
-  $dst = Join-Path $ClaudeDir $f
-  if (-not (Test-Path -LiteralPath $dst)) { Copy-Item -LiteralPath $src -Destination $dst; Write-Host "copied $dst" }
-  elseif ((Get-FileHash -LiteralPath $dst).Hash -ne (Get-FileHash -LiteralPath $src).Hash) {
-    Copy-Item -LiteralPath $dst -Destination "$dst.bak-$Stamp" -Force
-    Copy-Item -LiteralPath $src -Destination $dst -Force
-    Write-Host "updated $dst (old copy kept as .bak-$Stamp)"
-  } else { Write-Host "up to date: $dst" }
-}
-
 $failed = $false
 
-# 2. Claude-Memory-To-Cursor-Sync (every 15 minutes). The script uses Register-ScheduledTask.
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ClaudeDir 'register-memory-sync-task.ps1')
-if ($LASTEXITCODE -ne 0) { $failed = $true; Write-Host 'Claude-Memory-To-Cursor-Sync was NOT registered (see the message above).' -ForegroundColor Red }
-else {
-  $t = Get-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -ErrorAction SilentlyContinue
-  if ($t) {
-    Write-Host "Verified: task Claude-Memory-To-Cursor-Sync is $($t.State)." -ForegroundColor Green
-    Start-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync'
-    Write-Host 'Started one sync run now. Its result goes to <Projects>\_claude\sync-claude-memory-to-cursor.log.'
-  } else { $failed = $true; Write-Host 'Task Claude-Memory-To-Cursor-Sync not found after registering.' -ForegroundColor Red }
+# Retired: the old memory sync task. Reported only; this script never removes it.
+$oldSync = Get-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -ErrorAction SilentlyContinue
+if ($oldSync -and "$($oldSync.State)" -eq 'Disabled') {
+  Write-Host "Retired task Claude-Memory-To-Cursor-Sync is disabled (fine; nothing to do). Optional cleanup: Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false"
+} elseif ($oldSync) {
+  Write-Host "Retired task Claude-Memory-To-Cursor-Sync is still ENABLED (blocks preflight). Disable it: Disable-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' (or remove it: Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false)" -ForegroundColor Yellow
 }
 
-# 3. Workstation-Watcher (every 15 minutes, toast on problems).
+# 1. Workstation-Watcher (every 15 minutes, toast on problems).
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PkgRoot "$($TK.PackageFolder)\toggles\register-watcher-task.ps1")
 if ($LASTEXITCODE -ne 0) { $failed = $true; Write-Host 'Workstation-Watcher was NOT registered (see the message above).' -ForegroundColor Red }
 elseif (Get-ScheduledTask -TaskName 'Workstation-Watcher' -ErrorAction SilentlyContinue) { Write-Host 'Verified: task Workstation-Watcher is registered.' -ForegroundColor Green }
 else { $failed = $true; Write-Host 'Task Workstation-Watcher not found after registering.' -ForegroundColor Red }
 
-# 4. Dashboard tailnet firewall rule (Tailscale adapter only; never the public internet).
+# 2. Dashboard tailnet firewall rule (Tailscale adapter only; never the public internet).
 $tsAlias = (Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'Tailscale' -or $_.InterfaceDescription -match 'Tailscale' } | Select-Object -First 1).Name
 if (-not $tsAlias) { Write-Host 'No Tailscale adapter: dashboard firewall rule skipped.' }
 elseif (Get-NetFirewallRule -DisplayName 'Workstation dashboard tailnet' -ErrorAction SilentlyContinue) { Write-Host 'Dashboard firewall rule already there.' }

@@ -40,7 +40,7 @@ Back up, for each account, every one of these that exists:
 - `~\.claude\projects\*\memory\` (skip a junction; back up its target once instead)
 - the folder named by `autoMemoryDirectory` in `~\.claude\settings.json` and any `settings.json.bak-*`, if it is somewhere else
 - the shared store `<Projects>\_claude\Claude Projects\Working Memory\memory\` (if it already has notes)
-- `<Projects>\_claude\Cursor Copy of Claude Memory\cursor-notes\` and `claude-chat-summaries\`
+- `<Projects>\_claude\Cursor Notes\` (and, on older installs, `<Projects>\_claude\Cursor Copy of Claude Memory\cursor-notes\` and `claude-chat-summaries\`)
 - Claude app data, in both `%APPDATA%\Claude\` and `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\`:
   `spaces\*\memory\` and `local-agent-mode-sessions\*\*\memory\`
 

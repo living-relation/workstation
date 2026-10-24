@@ -465,10 +465,11 @@ if (-not $testMode) {
 # 7. Admin-only and optional items: print the commands
 Write-Host ''
 Write-Host 'Scheduled tasks need admin. In PowerShell opened with "Run as admin" (same account), run:' -ForegroundColor White
-Write-Host "  Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false"
 Write-Host "  Unregister-ScheduledTask -TaskName 'Workstation-Watcher' -Confirm:`$false   # only if it is still listed (step above)"
 Write-Host "  Remove-NetFirewallRule -DisplayName 'Workstation dashboard tailnet'   # only if you do not want phone access any more"
 Write-Host ''
+Write-Host 'Older installs only (this repo no longer ships it): if task Claude-Memory-To-Cursor-Sync exists, remove it in the same admin PowerShell:' -ForegroundColor White
+Write-Host "  Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false"
 Write-Host 'Older installs only (this repo no longer ships them): if task Latch-EnsureGrokBot exists, remove it in the same admin PowerShell:' -ForegroundColor White
 Write-Host "  Unregister-ScheduledTask -TaskName 'Latch-EnsureGrokBot' -Confirm:`$false"
 Write-Host 'and, only if the app should stop starting at sign-in, the GrokBot startup entry it added (normal PowerShell):' -ForegroundColor White
@@ -476,7 +477,7 @@ Write-Host "  Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\Curren
 Write-Host '  Its old log in %USERPROFILE%\.grokbot\latch\ is harmless and can be deleted by hand.'
 
 Write-Host ''
-Write-Host 'Kept on purpose: memory store, Cursor copy, every note, the Projects layout folders, all projects, the workstation repo clone (the toolkit runs from it), and any toolkit / _claude script that was there before install.'
+Write-Host 'Kept on purpose: memory store, Cursor Notes (and any old Cursor copy), every note, the Projects layout folders, all projects, the workstation repo clone (the toolkit runs from it), and any toolkit / _claude script that was there before install.'
 if ($WhatIf) { Write-Host 'Dry run only. Nothing was changed.' -ForegroundColor Cyan }
 if (@($Summary | Where-Object Status -eq 'ERROR').Count) { exit 1 }
 exit 0

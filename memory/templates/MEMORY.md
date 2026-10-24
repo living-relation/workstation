@@ -27,7 +27,7 @@ This file holds general (no-project) notes and one line per project.
 
 ## Cursor's notes
 
-- Cursor's notes (read-only for Claude; extra context, not memory): `{{PROJECTS_ROOT}}\_claude\Cursor Copy of Claude Memory\cursor-notes\INDEX.md`
+- Cursor's notes (read-only for Claude; extra context, not memory): `{{PROJECTS_ROOT}}\_claude\Cursor Notes\INDEX.md`
 
 ## General notes
 

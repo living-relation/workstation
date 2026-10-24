@@ -114,7 +114,7 @@ $ProjectKey  = $ProjectsRoot -replace '[^A-Za-z0-9]', '-'      # Claude Code's f
 $ClaudeDir   = Join-Path $ProjectsRoot '_claude'
 $WorkingMem  = Join-Path $ClaudeDir 'Claude Projects\Working Memory'
 $Store       = Join-Path $WorkingMem 'memory'
-$CursorCopy  = Join-Path $ClaudeDir 'Cursor Copy of Claude Memory'
+$CursorNotes = Join-Path $ClaudeDir 'Cursor Notes'   # Cursor's own notes; Cursor reads $Store read-only
 $DotClaude   = Join-Path $UserHome '.claude'
 $HooksDir    = Join-Path $DotClaude 'hooks'
 $LinkPath    = Join-Path $DotClaude ("projects\$ProjectKey\memory")
@@ -246,7 +246,7 @@ function Add-MemoryBlock([string]$Path, [string]$TemplateName, [switch]$CreateIf
   }
   $existing = [IO.File]::ReadAllText($Path)
   if ($existing.Contains($Marker)) { Note 'OK' "memory section already present (not recorded as added by this run): $Path"; return }
-  if ($existing.Contains('Cursor Copy of Claude Memory')) { Note 'WARN' "already has a shared-memory section without the marker; left alone (no duplicate added): $Path"; return }
+  if ($existing -match '(?i)<!-- shared-memory:v\d+ -->|Cursor Copy of Claude Memory|_claude\\Cursor Notes') { Note 'WARN' "already has a shared-memory section without the marker; left alone (no duplicate added): $Path"; return }
   $block = $full.Substring($full.IndexOf($Marker))
   $nl = if ($existing.Contains("`r`n") -or -not $existing.Contains("`n")) { "`r`n" } else { "`n" }
   $prefix = if ($existing.Length -eq 0 -or $existing.EndsWith("`n")) { $nl } else { $nl + $nl }
@@ -455,10 +455,8 @@ if (Test-Path -LiteralPath $ProjectsRoot) {
   if ($extra.Count -gt 0) { Note 'INFO' ("$($extra.Count) other item(s) in the Projects root (not moved). See REORGANIZE.md: " + (($extra | Select-Object -First 8 | ForEach-Object Name) -join ', ')) }
 }
 
-# 2. _claude scripts (memory sync). The scheduled task itself is registered by install-admin.ps1.
-foreach ($f in 'sync-claude-memory-to-cursor.ps1', 'run-hidden.vbs', 'register-memory-sync-task.ps1') {
-  Copy-PackageFile (Join-Path $PkgRoot "memory\_claude\$f") (Join-Path $ClaudeDir $f)
-}
+# 2. No memory sync: Cursor reads the store below read-only and keeps its own notes in <Projects>\_claude\Cursor Notes.
+#    (Older installs had a Claude-Memory-To-Cursor-Sync task and copy; preflight flags them as retired.)
 
 # 3. Memory store (empty starter files only if missing)
 Ensure-Dir $Store 'memory store'
@@ -468,11 +466,9 @@ New-FileIfMissing (Join-Path $Store 'MEMORY.md') 'MEMORY.md'
 New-FileIfMissing (Join-Path $Store '_unassigned\INDEX.md') 'unassigned-INDEX.md'
 Add-MemoryBlock (Join-Path $WorkingMem 'CLAUDE.md') 'working-memory-CLAUDE.md' -CreateIfMissing
 
-# 4. Cursor's copy
-Ensure-Dir $CursorCopy 'Cursor copy'
-foreach ($sub in 'claude-memory', 'cursor-notes', 'claude-chat-summaries') { Ensure-Dir (Join-Path $CursorCopy $sub) "Cursor copy $sub" }
-New-FileIfMissing (Join-Path $CursorCopy 'README.md') 'cursor-copy-README.md'
-New-FileIfMissing (Join-Path $CursorCopy 'cursor-notes\INDEX.md') 'cursor-notes-INDEX.md'
+# 4. Cursor's own notes folder (one folder, one INDEX.md). Cursor never writes in the store.
+Ensure-Dir $CursorNotes 'Cursor Notes'
+New-FileIfMissing (Join-Path $CursorNotes 'INDEX.md') 'cursor-notes-INDEX.md'
 
 # Safety check (read only): autoMemoryDirectory must be the junction path, not the store itself. The current
 # guard leaves that case alone, but older guard versions treated the store as a stray folder and deleted it.

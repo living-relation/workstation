@@ -64,7 +64,8 @@ $CommonStartup = [Environment]::GetFolderPath('CommonStartup')
 $ProjectKey = $ProjectsRoot -replace '[^A-Za-z0-9]', '-'
 $ClaudeDir  = Join-Path $ProjectsRoot '_claude'
 $Store      = Join-Path $ClaudeDir 'Claude Projects\Working Memory\memory'
-$CursorCopy = Join-Path $ClaudeDir 'Cursor Copy of Claude Memory'
+$CursorNotes = Join-Path $ClaudeDir 'Cursor Notes'   # Cursor's own notes; Cursor reads $Store read-only
+$OldCursorCopy = Join-Path $ClaudeDir 'Cursor Copy of Claude Memory'   # retired frozen mirror (older installs); never a store to merge
 # The toolkit runs straight from this package (the workstation repo clone); nothing is copied under <Projects>.
 $BridgeDir  = Join-Path $PkgRoot $TK.PackageFolder
 # Shortcut folder inside this package (the repo clone); install.ps1 resolves it the same way.
@@ -90,10 +91,10 @@ if ($testMode) { $AutoMemValue = ($LinkPath -replace '\\', '/') } else { $AutoMe
 $pkgToolkit = Join-Path $PkgRoot $TK.PackageFolder
 $toolkitLeaves = @(Get-ChildItem -LiteralPath $pkgToolkit -Recurse -File -Filter *.ps1 -ErrorAction SilentlyContinue | ForEach-Object Name | Where-Object { @('config.ps1', 'install-shortcuts.ps1', 'repair-sqlite.ps1', 'health-check.ps1', 'run-worker.ps1') -notcontains $_ })
 $legacyLeaves = @($TK.LegacyScripts | Where-Object { $toolkitLeaves -notcontains $_ })
-$OurLeaves = @('sync-claude-memory-to-cursor.ps1', 'memory-link-guard.ps1', 'context-guard.ps1', 'handoff-at-80.py') + $toolkitLeaves + $legacyLeaves | Select-Object -Unique
-$OurScriptRx  = '(?i)_claude\\run-hidden\.vbs|(^|[\\/"\s])(' + (($OurLeaves | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
-$RetiredRx    = '(?i)watch-pull|cursor-worker|run-worker\.ps1|LatchBridgeLogon|latch\\logon-|ClaudeCode-?RemoteControl'
-$RetiredNameRx = '(?i)watch-?pull|cursor-?worker|LatchBridgeLogon|ClaudeCode-?RemoteControl'
+$OurLeaves = @('memory-link-guard.ps1', 'context-guard.ps1', 'handoff-at-80.py') + $toolkitLeaves + $legacyLeaves | Select-Object -Unique
+$OurScriptRx  = '(?i)(^|[\\/"\s])(' + (($OurLeaves | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
+$RetiredRx    = '(?i)sync-claude-memory-to-cursor|_claude\\run-hidden\.vbs|watch-pull|cursor-worker|run-worker\.ps1|LatchBridgeLogon|latch\\logon-|ClaudeCode-?RemoteControl'
+$RetiredNameRx = '(?i)Claude-Memory-To-Cursor-Sync|watch-?pull|cursor-?worker|LatchBridgeLogon|ClaudeCode-?RemoteControl'
 $SimilarNameRx = '(?i)memory.?sync|sync.?memory|sync-?pull|sync-?push|handoff|context-?guard|remote-?control'
 $CursorExeRx  = '(?i)(^|[\\/"\s])cursor\.exe\b'
 
@@ -232,9 +233,8 @@ if ($isAdmin) { Add-Finding 'WARN' 'prereq' 'elevation' 'this window is elevated
 else { Add-Finding 'OK' 'prereq' 'elevation' 'normal window (right for install.ps1). install-admin.ps1 needs an elevated PowerShell afterwards (you run that one).' }
 
 # ---------------------------------------------------------------- 2. scheduled tasks
-$knownTasks = @{
-  'Claude-Memory-To-Cursor-Sync' = @((Join-Path $ClaudeDir 'run-hidden.vbs'), (Join-Path $ClaudeDir 'sync-claude-memory-to-cursor.ps1'))
-}
+# No memory sync task any more (Claude-Memory-To-Cursor-Sync is retired; see $RetiredNameRx).
+$knownTasks = @{}
 $tasks = $null
 try { $tasks = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskPath -notlike '\Microsoft\*' }) }
 catch { Add-Finding 'WARN' 'tasks' 'scheduled tasks' "could not list them: $($_.Exception.Message)" }
@@ -252,6 +252,10 @@ if ($null -ne $tasks) {
       foreach ($w in $want) { if ($actX.Contains($w.ToLower())) { $hit = $true } }
       if ($hit) { Add-Finding 'ALREADY-INSTALLED' 'tasks' $label "state $($t.State); runs $act" }
       else { Add-Finding 'WARN' 'tasks' $label "runs '$act', not this install's script ($($want -join ' or ')). install-admin.ps1 re-registers it under the same name." }
+    } elseif ($name -eq 'Claude-Memory-To-Cursor-Sync' -and "$($t.State)" -eq 'Disabled') {
+      Add-Finding 'OK' 'tasks' $label "retired memory sync task, disabled (fine; nothing to do). Optional cleanup in an admin PowerShell: Unregister-ScheduledTask -TaskName '$name' -Confirm:`$false"
+    } elseif ($name -eq 'Claude-Memory-To-Cursor-Sync') {
+      Add-Finding 'CONFLICT' 'tasks' $label "retired memory sync task is still ENABLED (state $($t.State)). Disable it in an admin PowerShell: Disable-ScheduledTask -TaskName '$name' (or remove it: Unregister-ScheduledTask -TaskName '$name' -Confirm:`$false)"
     } elseif ($name -match $RetiredNameRx -or $act -match $RetiredRx) {
       Add-Finding 'CONFLICT' 'tasks' $label "retired item, should be gone (runs '$act'). Remove it in an admin PowerShell: Unregister-ScheduledTask -TaskName '$name' -Confirm:`$false"
     } elseif ($act -match $OurScriptRx) {
@@ -478,12 +482,12 @@ $ruleFiles = @()
 foreach ($p in @((Join-Path $DotCursor 'rules'), (Join-Path $ProjectsRoot '.cursor\rules'))) { if (Test-Path -LiteralPath $p) { $ruleFiles += @(Get-ChildItem -LiteralPath $p -Recurse -File -Force -ErrorAction SilentlyContinue) } }
 $ruleFiles += @(Get-ChildItem -Path "$ProjectsRoot\active\*\.cursor\rules\*" -File -Force -ErrorAction SilentlyContinue)
 
-$memMarker = '<!-- shared-memory:v1 -->'; $memEnd = '<!-- /shared-memory:v1 -->'
+$memSectionRx = '(?s)<!-- shared-memory:v\d+ -->.*?<!-- /shared-memory:v\d+ -->'
 $pathRx = '(?i)(?:[A-Za-z]:|%USERPROFILE%|%HOMEPATH%|\$env:USERPROFILE|~)[\\/][^`''"\r\n|<>*?]+'
 function Get-RefKind([string]$Ref) {
   $p = Expand-UserPath ($Ref -replace '\$env:USERPROFILE', $UserHome)
   if (-not $p) { return 'other' }
-  if ($p -match '(?i)Cursor Copy of Claude Memory') { return 'mirror' }
+  if ($p -match '(?i)\\_claude\\Cursor Notes(\\|$)') { return 'notes' }
   if ((Test-Under $p $Store) -or $p -match '(?i)\\Working Memory\\memory(\\|$)' -or $p -match '(?i)\\\.claude\\working-memory(\\|$)' -or
       $p -match '(?i)\\\.claude\\projects\\[^\\]+\\memory(\\|$)' -or (Split-Path $p -Leaf) -match '^(?i)(MEMORY|INDEX)\.md$' -or $p -match '(?i)\\memory(\\|$)') { return 'memory' }
   if ((Split-Path $p -Leaf) -match '^(?i)(CLAUDE|AGENTS)(\.local)?\.md$|\.mdc$') { return 'rules' }
@@ -495,8 +499,8 @@ function Get-MemoryScan([object[]]$Files) {
   foreach ($f in $Files) {
     if ($f.Length -gt 512KB -or @('.md', '.mdc', '.txt') -notcontains $f.Extension.ToLower()) { continue }
     $text = $null; try { $text = [IO.File]::ReadAllText($f.FullName) } catch { continue }
-    # This package's own marked rule section is fine (it points Cursor at its copy); scan only the rest.
-    $text = [regex]::Replace($text, '(?s)' + [regex]::Escape($memMarker) + '.*?' + [regex]::Escape($memEnd), '')
+    # This package's own marked rule section is fine (read-only memory, notes in Cursor Notes); scan only the rest.
+    $text = [regex]::Replace($text, $memSectionRx, '')
     $short = $f.Name
     foreach ($m in [regex]::Matches($text, $pathRx)) {
       $ref = $m.Value.Trim().TrimEnd('.', ',', ';', ')')
@@ -506,21 +510,23 @@ function Get-MemoryScan([object[]]$Files) {
     for ($i = 0; $i -lt $lines.Count; $i++) {
       $ln = $lines[$i]
       # Relative mentions only (absolute paths were counted above); a "never / do not" line is a prohibition, not a use.
-      if ($ln -match '(?i)Working Memory\W{0,4}memory[/\\]|memory[/\\]MEMORY\.md|\bMEMORY\.md\b' -and $ln -notmatch '(?i)Cursor Copy of Claude Memory|claude-memory[/\\]' -and
+      if ($ln -match '(?i)Working Memory\W{0,4}memory[/\\]|memory[/\\]MEMORY\.md|\bMEMORY\.md\b' -and $ln -notmatch '(?i)Cursor Notes' -and
           $ln -notmatch '(?i)\b(never|do not|don''t)\b' -and -not [regex]::IsMatch($ln, $pathRx)) { $mem.Add("$short line $($i+1): " + $ln.Trim()) }
       if ($ln -match '(?i)\b(write|save|add|append|create|store|put)\b.{0,80}(memory[/\\]|MEMORY\.md|INDEX\.md|memory folder|working memory)' -and
-          $ln -notmatch '(?i)\b(do not|don''t|never|not)\b.{0,20}\b(write|save|add|append|create|store|put)\b' -and $ln -notmatch '(?i)cursor-notes') { $writes.Add("$short line $($i+1)") }
+          $ln -notmatch '(?i)\b(do not|don''t|never|not)\b.{0,20}\b(write|save|add|append|create|store|put)\b' -and $ln -notmatch '(?i)Cursor Notes') { $writes.Add("$short line $($i+1)") }
     }
   }
   return [pscustomobject]@{ Mem = @($mem | Select-Object -Unique); Rules = @($rules | Select-Object -Unique); Writes = @($writes | Select-Object -Unique) }
 }
 function Report-Scan([string]$Item, $Scan) {
-  if ($Scan.Mem.Count) {
+  if ($Scan.Mem.Count -and $Scan.Writes.Count) {
     $d = "references Claude memory files directly: " + ($Scan.Mem -join ' | ')
     if ($Scan.Rules.Count) { $d += ". Also rule files: " + ($Scan.Rules -join ' | ') }
-    $d += ". Tells the agent to write to memory: " + $(if ($Scan.Writes.Count) { 'YES (' + ($Scan.Writes -join ', ') + ')' } else { 'no' })
-    $d += ". Cursor should read Claude memory only through '$CursorCopy\claude-memory' and write only to '$CursorCopy\cursor-notes'."
+    $d += ". Tells the agent to write to memory: YES (" + ($Scan.Writes -join ', ') + ")"
+    $d += ". Cursor may read Claude memory read-only in '$Store' and should write only to '$CursorNotes'."
     Add-Finding 'WARN' 'cursor-skills' $Item $d
+  } elseif ($Scan.Mem.Count) {
+    Add-Finding 'OK' 'cursor-skills' $Item ("reads Claude memory (read-only is fine): " + ($Scan.Mem -join ' | '))
   } elseif ($Scan.Rules.Count) {
     Add-Finding 'OK' 'cursor-skills' $Item ("references only rule files (no memory files): " + ($Scan.Rules -join ' | '))
   }
@@ -606,9 +612,12 @@ if ($st.Ok -and $st.Obj.PSObject.Properties['autoMemoryDirectory'] -and $st.Obj.
 if (Test-Path -LiteralPath $ClaudeDir) {
   foreach ($mf in @(Get-ChildItem -LiteralPath $ClaudeDir -Recurse -File -Force -Depth 5 -Filter 'MEMORY.md' -ErrorAction SilentlyContinue)) {
     $d = $mf.DirectoryName
-    if ((Test-Under $d $Store) -or (Test-Under $d $CursorCopy)) { continue }
+    if ((Test-Under $d $Store) -or (Test-Under $d $CursorNotes) -or (Test-Under $d $OldCursorCopy)) { continue }
     $roots[$d.ToLower()] = $d
   }
+}
+if (Test-Path -LiteralPath $OldCursorCopy) {
+  Add-Finding 'OK' 'memory' $OldCursorCopy 'retired Cursor copy of Claude memory (frozen mirror, not a store; do NOT merge it into memory). Safe to archive to <Projects>\_archive when convenient.'
 }
 if ($roots.Count -gt 1) { Add-Finding 'WARN' 'memory' 'memory stores' ("more than one Claude memory store: " + ($roots.Values -join ' | ') + '. Merge into the shared store with MIGRATION.md.') }
 else { Add-Finding 'OK' 'memory' 'memory stores' $(if ($roots.Count) { "one store: $($roots.Values -join '')" } else { 'none yet' }) }

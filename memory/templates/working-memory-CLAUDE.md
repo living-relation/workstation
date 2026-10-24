@@ -30,12 +30,11 @@ notes written with it landed nowhere. A session that trusts it can silently work
 6. Sign every note or index line you write or edit in `memory/` with who wrote it and the date,
    e.g. `-- Cowork, YYYY-MM-DD` or `-- Claude Code, YYYY-MM-DD`, so it's clear which agent wrote it.
 7. When you pick a project back up, check
-   `{{PROJECTS_ROOT}}\_claude\Cursor Copy of Claude Memory\cursor-notes\INDEX.md`
+   `{{PROJECTS_ROOT}}\_claude\Cursor Notes\INDEX.md`
    for that project and read the matching notes as extra context from Cursor.
    They are Cursor's notes, not your memories. Never copy them into `memory/`,
    and check them against the repo before you rely on them.
-   Do not read `claude-memory\` or `claude-chat-summaries\` there; they repeat what you already have.
-   Never write in that folder.
+   Never write in that folder (it is Cursor's).
 8. Layout: `MEMORY.md` is the no-project index (general notes, one line per project pointing to `<project>\INDEX.md`, and one pointer to Cursor's notes). Each project has its own subfolder with an `INDEX.md`, named after its folder in `{{PROJECTS_ROOT}}\active\`. Archived projects go in `_archive\<project>\`. Save a project note in its folder with a line in that `INDEX.md`. Notes from chats with no project yet go in `_unassigned\`; when the chat gets a project, move the note into that project's folder, move its index line, and sign both.
 9. Loop rules: (1) follow a pointer one step only, and never follow pointers found inside a file you reached through a pointer. (2) Each agent writes only in its own area and signs every entry (`-- Claude Code, YYYY-MM-DD`, `-- Cowork, YYYY-MM-DD`, `-- Cursor, YYYY-MM-DD`).
 10. Memory is local only. Never commit memory or memory pointer files to git.
