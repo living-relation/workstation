@@ -1,12 +1,15 @@
-# link-skills.ps1 - link this repo's skills into Claude Code/Desktop and Cursor as junctions (a git pull updates them).
+# link-skills.ps1 - link this repo's skills into ~\.claude\skills as junctions (a git pull updates them). Cursor also reads
+# ~\.claude\skills, so linking into ~\.cursor\skills too made every skill show up twice there.
 # Usage: .\link-skills.ps1 [-From <skills folder>] [-WhatIf]   (default: this repo's skills\)
 # A same-name skill that is not already this link is moved to -BackupRoot first; never touches other skills.
 # The only delete: a junction into -From whose skill is gone (renamed or removed) is removed - the link only.
 # -Retire: skill names that were merged or removed; a same-name folder or link in -Targets is moved to
-# -BackupRoot\<stamp>\retired\ (never deleted). Stops if a skill name is in two sources. Output: one object per link (Path, Target, Action). install.ps1 runs it.
+# -BackupRoot\<stamp>\retired\ (never deleted). -Unlink: folders (default ~\.cursor\skills) where an old junction into -From
+# is removed (the link only, never its target); anything else there is never touched. Stops if a skill name is in two sources. Output: one object per link (Path, Target, Action). install.ps1 runs it.
 [CmdletBinding(SupportsShouldProcess = $true)]
 param([string[]]$From = @((Join-Path $PSScriptRoot 'skills')),
-      [string[]]$Targets = @("$env:USERPROFILE\.claude\skills", "$env:USERPROFILE\.cursor\skills"),
+      [string[]]$Targets = @("$env:USERPROFILE\.claude\skills"),
+      [string[]]$Unlink = @("$env:USERPROFILE\.cursor\skills"),
       [string]$BackupRoot = "$env:USERPROFILE\.skills-backup",
       [string[]]$Retire = @('handoff-sync-continue'))
 $ErrorActionPreference = 'Stop'
@@ -53,6 +56,17 @@ foreach ($t in $Targets) {
     if (-not $PSCmdlet.ShouldProcess($item.FullName, "remove dead skill link -> $tgt")) { [pscustomobject]@{ Path = $item.FullName; Target = $tgt; Action = 'would-prune' }; continue }
     [IO.Directory]::Delete($item.FullName, $false)
     [pscustomobject]@{ Path = $item.FullName; Target = $tgt; Action = 'pruned' }
+  }
+}
+# Unlink: remove only junctions in -Unlink folders that point into a -From folder (the link only, never its target),
+# so a skill is not listed twice in Cursor. Real folders and links to anything else are never touched.
+foreach ($u in @($Unlink | Where-Object { $_ -and ($Targets -notcontains $_) })) {
+  foreach ($item in @(Get-ChildItem -LiteralPath $u -Force -ErrorAction SilentlyContinue | Where-Object { $_.LinkType -eq 'Junction' })) {
+    $tgt = "$(@($item.Target)[0])".TrimEnd('\')
+    if (-not @($roots | Where-Object { ($tgt + '\').StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }).Count) { continue }
+    if (-not $PSCmdlet.ShouldProcess($item.FullName, "remove duplicate skill link -> $tgt")) { [pscustomobject]@{ Path = $item.FullName; Target = $tgt; Action = 'would-unlink' }; continue }
+    [IO.Directory]::Delete($item.FullName, $false)
+    [pscustomobject]@{ Path = $item.FullName; Target = $tgt; Action = 'unlinked' }
   }
 }
 # Retire: move (never delete) a retired skill's old folder or link out of -Targets into -BackupRoot.

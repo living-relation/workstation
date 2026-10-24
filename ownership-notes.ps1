@@ -31,6 +31,6 @@ foreach ($o in $own) {
 }
 # Shared folders: only a note listing what workstation put there (the folder itself isn't workstation's).
 $names = @(Get-ChildItem -LiteralPath (Join-Path $Repo 'skills') -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'SKILL.md') } | ForEach-Object Name)
-foreach ($d in (Join-Path $UserHome '.claude\skills'), (Join-Path $UserHome '.cursor\skills')) {
+foreach ($d in @((Join-Path $UserHome '.claude\skills'))) {
   Add-Note $d 'README-workstation.md' ("# Workstation skill links`n`nThis folder is shared. The workstation repo ($Url, clone ``$Repo``) owns only these links here, made by link-skills.ps1:`n" + (($names | ForEach-Object { "- $_" }) -join "`n") + "`n`nEvery other entry belongs to its own app or repo. uninstall.ps1 removes only the links it recorded.`n")
 }

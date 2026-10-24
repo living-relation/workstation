@@ -33,7 +33,7 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).
 - No CAD here: this repo does not install, pin or link any CAD tool, CAD skill or CAD repo.
 - `skills/` - this repo's (non-CAD) skills; skills live only in their repo. Linking is opt-in: `install.ps1 -LinkSkills` links
-  (junctions) each one into `~\.claude\skills` and `~\.cursor\skills` with `link-skills.ps1`, so a `git pull` updates them
+  (junctions) each one into `~\.claude\skills` only (Cursor reads it too; old `~\.cursor\skills` links are removed) with `link-skills.ps1`, so a `git pull` updates them
   (by hand: `link-skills.ps1 [-WhatIf]`). Re-running it removes only its own links whose skill was renamed or removed (the
   link only). CAD skills live in the CAD repo, which links them from its own setup.
 - Ownership notes: `install.ps1` runs `ownership-notes.ps1`, which adds a README.md/AGENTS.md ("owned by the workstation repo")

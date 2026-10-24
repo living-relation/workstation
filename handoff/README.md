@@ -8,7 +8,7 @@ It does not commit or push.
 |---|---|---|
 | `claude\context-guard.ps1` | `%USERPROFILE%\.claude\hooks\` | `~\.claude\settings.json`: `statusLine` (measures context), `hooks.Stop` (fires at 80% of the compaction point), `hooks.PreCompact` (backs up the transcript to `~\.claude\compaction-backups\`) |
 | `cursor\handoff-at-80.py` | `%USERPROFILE%\.cursor\hooks\` | `~\.cursor\hooks.json`: `preCompact` + `stop` (`py -3`, timeout 10, stop `loop_limit` 1). Armed by the flag file `~\.cursor\hooks\state\handoff-at-80\armed` (delete it to disarm) |
-| `..\skills\agent-handoff-pack\` | linked into `%USERPROFILE%\.claude\skills\` and `.cursor\skills\` by `link-skills.ps1` (`install.ps1 -LinkSkills`) | the skill both hooks trigger (quick mode) |
+| `..\skills\agent-handoff-pack\` | linked into `%USERPROFILE%\.claude\skills\` (Cursor reads it too) by `link-skills.ps1` (`install.ps1 -LinkSkills`) | the skill both hooks trigger (quick mode) |
 
 - `link-skills.ps1` retires the old `handoff-sync-continue` copy: a same-name folder or link in either skills folder is moved to `~\.skills-backup\<stamp>\retired\` (never deleted).
 - `install.ps1` copies the hooks and merges the entries (no duplicates; an entry for the same script elsewhere is
