@@ -20,7 +20,7 @@ Grok Bot: please set up this PC with my workstation setup. Follow these steps in
 6. Run install.ps1 for real (same parameters as the dry run). Add -AcceptConflicts only if I accepted the remaining conflicts in step 2. It copies no toolkit files (the toolkit runs from the clone's workstation\ folder); it writes %LOCALAPPDATA%\Workstation\workstation.json (the Projects root), creates the Workers Start, Workers Stop and Workstation Status shortcuts in the package's shortcuts\ folder, installs the 80% handoff hooks and makes sure Cursor starts at sign-in. Show me the summary, the prerequisite results and any warnings.
    At the end, install.ps1 runs Workstation Status (-NoPause) and prints its FAIL / WARN counts. FAIL or WARN lines are expected at this point; the steps below clear them. Exit code 0 is expected. Exit code 1 (error) or 2 (preflight conflict) is not: show me what went wrong.
 
-7. Admin command (manual, by me): give me the ONE admin command to paste (it is printed at the end of install.ps1; it runs install-admin.ps1). I run it in PowerShell opened with "Run as admin" under my own account. Wait for my "done". Then check that the task Claude-Memory-To-Cursor-Sync exists and the first memory sync worked.
+7. Admin command (manual, by me): give me the ONE admin command to paste (it is printed at the end of install.ps1; it runs install-admin.ps1). I run it in PowerShell opened with "Run as admin" under my own account. Wait for my "done". Then check that the task Workstation-Watcher exists (there is no memory sync task any more; Cursor reads memory read-only).
 
 8. Memory migration: do MIGRATION.md steps b to e. Show me the plan and wait for my OK before merging anything. Give me the transcript-only findings for review.
 

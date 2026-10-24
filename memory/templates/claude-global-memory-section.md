@@ -22,10 +22,9 @@ loads automatically. Rules:
 - New project folders need nothing: they use the same store automatically.
 - Project-specific rules and settings stay in that project's own files. Cursor keeps its own memory.
 - When you pick a project back up, check
-  `{{PROJECTS_ROOT}}\_claude\Cursor Copy of Claude Memory\cursor-notes\INDEX.md`
+  `{{PROJECTS_ROOT}}\_claude\Cursor Notes\INDEX.md`
   for that project and read the matching notes as extra context from Cursor.
   They are Cursor's notes, not your memories. Never copy them into your memory store,
   and check them against the repo before you rely on them.
-  Do not read `claude-memory\` or `claude-chat-summaries\` there; they repeat what you already have.
-  Never write in that folder.
+  Never write in that folder (it is Cursor's).
 <!-- /shared-memory:v1 -->

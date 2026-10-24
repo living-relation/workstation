@@ -469,32 +469,10 @@ function Show-Automations {
     Write-Host ''
     Write-Host 'Automations (read-only)' -ForegroundColor Cyan
 
-    # 1. Claude-Memory-To-Cursor-Sync task: age + script from its action
-    $t = Test-AutomationTask 'Claude-Memory-To-Cursor-Sync' 'memory sync'
-    if ($t.Status -eq 'ok') {
-        if ($t.Info -and $t.Info.LastRunTime -and $t.Info.LastRunTime.Year -gt 2000) {
-            $age = (Get-Date) - $t.Info.LastRunTime
-            if ($age.TotalMinutes -gt 45) { Write-Warn "memory sync last ran $(Format-Age $age) ago (expected every 15 min)" }
-        }
-        foreach ($a in @($t.Task.Actions)) {
-            $script = Get-PathFromCommand "$($a.Arguments)" 'ps1|vbs|cmd|bat'
-            if (-not $script) { $script = Get-PathFromCommand "$($a.Execute)" 'ps1|vbs|cmd|bat' }
-            if (-not $script) { Write-Warn "memory sync action has no script path: $($a.Execute) $($a.Arguments)"; continue }
-            if ($a.WorkingDirectory -and -not [IO.Path]::IsPathRooted($script)) { $script = Join-Path (Expand-UserPath $a.WorkingDirectory) $script }
-            if (Test-Path -LiteralPath $script) {
-                Write-Ok "memory sync script present: $script"
-                # A .vbs launcher usually names the real .ps1; check that too (read-only scan).
-                if ($script -match '\.vbs$') {
-                    $txt = Get-Content -LiteralPath $script -Raw -ErrorAction SilentlyContinue
-                    foreach ($m in [regex]::Matches("$txt", '([A-Za-z0-9_.\-\\:/ ]+\.ps1)')) {
-                        $p = $m.Groups[1].Value.Trim()
-                        if (-not [IO.Path]::IsPathRooted($p)) { $p = Join-Path (Split-Path -Parent $script) (Split-Path -Leaf $p) }
-                        if (Test-Path -LiteralPath $p) { Write-Ok "  launches $p" } else { Write-Warn "  launcher names $p, which does not exist" }
-                    }
-                }
-            } else { Write-Bad "memory sync script missing: $script" }
-        }
-    }
+    # 1. Retired: Claude-Memory-To-Cursor-Sync (Cursor now reads Claude memory read-only; no copy, no task)
+    if (Get-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -ErrorAction SilentlyContinue) {
+        Write-Warn "retired task Claude-Memory-To-Cursor-Sync is still registered; disable it in an admin PowerShell: Disable-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync'"
+    } else { Write-Ok 'no retired memory sync task' }
 
     # 2. Claude hooks and memory folders (settings.json parsed read-only)
     $claudeDir = Join-Path $HOME '.claude'
