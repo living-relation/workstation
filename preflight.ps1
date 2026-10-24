@@ -65,6 +65,7 @@ $ProjectKey = $ProjectsRoot -replace '[^A-Za-z0-9]', '-'
 $ClaudeDir  = Join-Path $ProjectsRoot '_claude'
 $Store      = Join-Path $ClaudeDir 'Claude Projects\Working Memory\memory'
 $CursorNotes = Join-Path $ClaudeDir 'Cursor Notes'   # Cursor's own notes; Cursor reads $Store read-only
+$OldCursorCopy = Join-Path $ClaudeDir 'Cursor Copy of Claude Memory'   # retired frozen mirror (older installs); never a store to merge
 # The toolkit runs straight from this package (the workstation repo clone); nothing is copied under <Projects>.
 $BridgeDir  = Join-Path $PkgRoot $TK.PackageFolder
 # Shortcut folder inside this package (the repo clone); install.ps1 resolves it the same way.
@@ -251,6 +252,10 @@ if ($null -ne $tasks) {
       foreach ($w in $want) { if ($actX.Contains($w.ToLower())) { $hit = $true } }
       if ($hit) { Add-Finding 'ALREADY-INSTALLED' 'tasks' $label "state $($t.State); runs $act" }
       else { Add-Finding 'WARN' 'tasks' $label "runs '$act', not this install's script ($($want -join ' or ')). install-admin.ps1 re-registers it under the same name." }
+    } elseif ($name -eq 'Claude-Memory-To-Cursor-Sync' -and "$($t.State)" -eq 'Disabled') {
+      Add-Finding 'OK' 'tasks' $label "retired memory sync task, disabled (fine; nothing to do). Optional cleanup in an admin PowerShell: Unregister-ScheduledTask -TaskName '$name' -Confirm:`$false"
+    } elseif ($name -eq 'Claude-Memory-To-Cursor-Sync') {
+      Add-Finding 'CONFLICT' 'tasks' $label "retired memory sync task is still ENABLED (state $($t.State)). Disable it in an admin PowerShell: Disable-ScheduledTask -TaskName '$name' (or remove it: Unregister-ScheduledTask -TaskName '$name' -Confirm:`$false)"
     } elseif ($name -match $RetiredNameRx -or $act -match $RetiredRx) {
       Add-Finding 'CONFLICT' 'tasks' $label "retired item, should be gone (runs '$act'). Remove it in an admin PowerShell: Unregister-ScheduledTask -TaskName '$name' -Confirm:`$false"
     } elseif ($act -match $OurScriptRx) {
@@ -607,9 +612,12 @@ if ($st.Ok -and $st.Obj.PSObject.Properties['autoMemoryDirectory'] -and $st.Obj.
 if (Test-Path -LiteralPath $ClaudeDir) {
   foreach ($mf in @(Get-ChildItem -LiteralPath $ClaudeDir -Recurse -File -Force -Depth 5 -Filter 'MEMORY.md' -ErrorAction SilentlyContinue)) {
     $d = $mf.DirectoryName
-    if ((Test-Under $d $Store) -or (Test-Under $d $CursorNotes)) { continue }
+    if ((Test-Under $d $Store) -or (Test-Under $d $CursorNotes) -or (Test-Under $d $OldCursorCopy)) { continue }
     $roots[$d.ToLower()] = $d
   }
+}
+if (Test-Path -LiteralPath $OldCursorCopy) {
+  Add-Finding 'OK' 'memory' $OldCursorCopy 'retired Cursor copy of Claude memory (frozen mirror, not a store; do NOT merge it into memory). Safe to archive to <Projects>\_archive when convenient.'
 }
 if ($roots.Count -gt 1) { Add-Finding 'WARN' 'memory' 'memory stores' ("more than one Claude memory store: " + ($roots.Values -join ' | ') + '. Merge into the shared store with MIGRATION.md.') }
 else { Add-Finding 'OK' 'memory' 'memory stores' $(if ($roots.Count) { "one store: $($roots.Values -join '')" } else { 'none yet' }) }

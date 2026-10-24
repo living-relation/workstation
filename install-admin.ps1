@@ -65,8 +65,11 @@ if (-not (Test-Path -LiteralPath $ClaudeDir -PathType Container)) {
 $failed = $false
 
 # Retired: the old memory sync task. Reported only; this script never removes it.
-if (Get-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -ErrorAction SilentlyContinue) {
-  Write-Host "Retired task Claude-Memory-To-Cursor-Sync is still registered. Cursor now reads memory read-only, so disable it: Disable-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync'" -ForegroundColor Yellow
+$oldSync = Get-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -ErrorAction SilentlyContinue
+if ($oldSync -and "$($oldSync.State)" -eq 'Disabled') {
+  Write-Host "Retired task Claude-Memory-To-Cursor-Sync is disabled (fine; nothing to do). Optional cleanup: Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false"
+} elseif ($oldSync) {
+  Write-Host "Retired task Claude-Memory-To-Cursor-Sync is still ENABLED (blocks preflight). Disable it: Disable-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' (or remove it: Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false)" -ForegroundColor Yellow
 }
 
 # 1. Workstation-Watcher (every 15 minutes, toast on problems).

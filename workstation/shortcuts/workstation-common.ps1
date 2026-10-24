@@ -470,8 +470,11 @@ function Show-Automations {
     Write-Host 'Automations (read-only)' -ForegroundColor Cyan
 
     # 1. Retired: Claude-Memory-To-Cursor-Sync (Cursor now reads Claude memory read-only; no copy, no task)
-    if (Get-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -ErrorAction SilentlyContinue) {
-        Write-Warn "retired task Claude-Memory-To-Cursor-Sync is still registered; disable it in an admin PowerShell: Disable-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync'"
+    $oldSync = Get-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -ErrorAction SilentlyContinue
+    if ($oldSync -and "$($oldSync.State)" -eq 'Disabled') {
+        Write-Ok "retired memory sync task is disabled (fine). Optional cleanup: Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false"
+    } elseif ($oldSync) {
+        Write-Warn "retired task Claude-Memory-To-Cursor-Sync is still ENABLED (blocks preflight); in an admin PowerShell: Disable-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' (or Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false)"
     } else { Write-Ok 'no retired memory sync task' }
 
     # 2. Claude hooks and memory folders (settings.json parsed read-only)
