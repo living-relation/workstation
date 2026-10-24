@@ -59,7 +59,7 @@
   (test mode: under -UserHome).
 
 .PARAMETER LinkSkills
-  Opt in to linking this repo's skills\ into ~\.claude\skills and ~\.cursor\skills (link-skills.ps1, junctions). Off by
+  Opt in to linking this repo's skills\ into ~\.claude\skills (link-skills.ps1, junctions; Cursor reads it too). Off by
   default. Re-running it also removes links it made whose skill was renamed or removed (the link only).
 
 .PARAMETER ReportDir
@@ -854,17 +854,20 @@ if ($cs.Count -ge 1) {
   }
 }
 
-# 9b. Skills (opt-in, -LinkSkills): link (junction) this repo's skills\ into ~\.claude\skills and ~\.cursor\skills.
+# 9b. Skills (opt-in, -LinkSkills): link (junction) this repo's skills\ into ~\.claude\skills only (Cursor reads it too);
+#     old links from this repo in ~\.cursor\skills are removed (link only) so skills are not listed twice.
 #     link-skills.ps1 backs up a same-name folder first and removes only its own links whose skill is gone (link only).
 #     Other repos link their own skills from their own setup.
-$skillTargets = @((Join-Path $DotClaude 'skills'), (Join-Path $DotCursor 'skills'))
+$skillTargets = @((Join-Path $DotClaude 'skills'))
 if (-not $LinkSkills) { Note 'OK' 'skills: not linked (opt in with -LinkSkills)' }
 else { try {
-  foreach ($r in @(& (Join-Path $PSScriptRoot 'link-skills.ps1') -From (Join-Path $PSScriptRoot 'skills') -Targets $skillTargets -BackupRoot (Join-Path $UserHome '.skills-backup') -WhatIf:$WhatIf)) {
+  foreach ($r in @(& (Join-Path $PSScriptRoot 'link-skills.ps1') -From (Join-Path $PSScriptRoot 'skills') -Targets $skillTargets -Unlink @((Join-Path $DotCursor 'skills')) -BackupRoot (Join-Path $UserHome '.skills-backup') -WhatIf:$WhatIf)) {
     if ($r.Action -eq 'ok') { Note 'OK' "skill link already in place: $($r.Path)" }
     elseif ($r.Action -eq 'would-link') { Note 'WOULD' "link skill $($r.Path) -> $($r.Target)" }
     elseif ($r.Action -eq 'would-prune') { Note 'WOULD' "remove dead skill link $($r.Path) -> $($r.Target)" }
     elseif ($r.Action -eq 'pruned') { Note 'DONE' "removed dead skill link $($r.Path) -> $($r.Target)" }
+    elseif ($r.Action -eq 'would-unlink') { Note 'WOULD' "remove duplicate skill link $($r.Path) -> $($r.Target)" }
+    elseif ($r.Action -eq 'unlinked') { Note 'DONE' "removed duplicate skill link $($r.Path) -> $($r.Target)" }
     elseif ($r.Action -eq 'would-retire') { Note 'WOULD' "move retired skill $($r.Path) to $($r.Target)" }
     elseif ($r.Action -eq 'retired') { Note 'DONE' "moved retired skill $($r.Path) to $($r.Target)" }
     else { Note 'DONE' "skill $($r.Path) -> $($r.Target) ($($r.Action))"; Add-ManifestJson @{ kind = 'skill-link'; path = $r.Path; target = $r.Target; backup = $r.Backup } }
