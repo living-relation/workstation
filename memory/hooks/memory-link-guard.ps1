@@ -5,6 +5,8 @@
 #   store = storePath from the optional ~\.claude\hooks\memory-link-guard.config.json, else the
 #           junction's current target, else ~\Projects\_claude\Claude Projects\Working Memory\memory.
 #   Projects root = the first folder above the store that contains _claude.
+# Worktrees (a .git file pointing into <repo>\.git\worktrees\) use the main repo's project folder;
+# no folder is ever made per worktree.
 # Also keeps ~\.claude\working-memory (a junction to the store, the same path on every PC; Cowork / Chat
 # pointer lines use it): recreated only when missing, never changed when it is a real folder or another link.
 $ErrorActionPreference = 'SilentlyContinue'
@@ -108,7 +110,23 @@ try {
     # git root wins if it is inside the project folder
     $d = $full
     while ($d -and $d.Length -ge $top.Length) {
-      if (Test-Path -LiteralPath (Join-Path $d '.git')) { $proj = $d; break }
+      $g = Join-Path $d '.git'
+      if (Test-Path -LiteralPath $g) {
+        $proj = $d
+        # A git worktree has a .git FILE ("gitdir: <main repo>\.git\worktrees\<name>").
+        # Use the main repo, so worktree sessions share the parent's memory folder
+        # (matches Claude Code: all worktrees of a repo share one auto memory directory).
+        if (Test-Path -LiteralPath $g -PathType Leaf) {
+          $gd = ((Get-Content -LiteralPath $g -TotalCount 1) -replace '^gitdir:\s*', '').Trim()
+          if ($gd) {
+            if (-not [IO.Path]::IsPathRooted($gd)) { $gd = Join-Path $d $gd }
+            $gd = [IO.Path]::GetFullPath(($gd -replace '/', '\'))
+            $k = $gd.ToLower().IndexOf('\.git\worktrees\')
+            if ($k -gt 0) { $proj = $gd.Substring(0, $k) }
+          }
+        }
+        break
+      }
       $d = Split-Path $d -Parent
     }
     $name = Split-Path $proj -Leaf
