@@ -7,15 +7,31 @@
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  <header>
-    <h1>Projects</h1>
-    <p id="stamp">Loading…</p>
+  <header id="topbar">
+    <div class="tb-row">
+      <div class="tb-title">Projects<small>Workstation dashboard</small></div>
+      <div class="tb-spacer"></div>
+      <div class="tb-meta" id="stamp">Loading…</div>
+      <button type="button" class="btn-refresh" id="refresh">Refresh</button>
+    </div>
+    <nav class="tb-nav" id="nav"></nav>
   </header>
-  <div id="toggles"></div>
-  <div id="alerts"></div>
-  <div id="charts"></div>
-  <div id="shortcuts"></div>
-  <div id="board"></div>
+  <main id="app">
+    <div id="tiles" class="tiles"></div>
+    <section class="section" id="ws-section">
+      <div class="section-hd">
+        <div class="topic-icon" style="background:var(--ink)">W</div>
+        <h2>Workstation</h2>
+        <span class="sub">Toggles, health and shortcuts on this PC</span>
+      </div>
+      <div class="section-bd">
+        <div id="alerts"></div>
+        <div id="toggles"></div>
+        <div id="shortcuts"></div>
+      </div>
+    </section>
+    <div id="board"></div>
+  </main>
   <dialog id="checkout">
     <div class="light-bar">
       <strong id="checkout-title"></strong>
