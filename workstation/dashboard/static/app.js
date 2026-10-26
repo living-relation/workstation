@@ -20,11 +20,46 @@ async function load() {
 }
 
 function render(board) {
+  const projects = board.projects || [];
   $("stamp").textContent = board.generatedAt ? `Updated ${board.generatedAt}` : "";
+  renderNav(projects);
+  renderTiles(projects);
   renderAlerts(board.alerts || []);
-  renderCharts(board.projects || []);
   renderShortcuts(board.shortcuts || []);
-  renderBoard(board.projects || []);
+  renderBoard(projects);
+}
+
+const slug = (name) => "p-" + String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+const COLORS = ["#0b61cd", "#4d7c0f", "#b45309", "#7c3aed", "#be123c", "#0f766e", "#475569", "#c2410c"];
+function colorFor(name) {
+  let h = 0;
+  for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return COLORS[h % COLORS.length];
+}
+function health(project) {
+  if ((project.ciFailures || []).length || (project.blockers || []).length) return "bad";
+  if (project.dirty || (project.warnings || []).length) return "warn";
+  return "";
+}
+
+function renderNav(projects) {
+  $("nav").innerHTML = projects.map((p) => {
+    const n = (p.tasks || []).length;
+    return `<a href="#${slug(p.name)}"><span class="dot ${health(p)}"></span><span class="nm">${esc(p.name)}</span>${n ? `<span class="cnt">${n}</span>` : ""}</a>`;
+  }).join("");
+}
+
+function renderTiles(projects) {
+  const sum = (f) => projects.reduce((a, p) => a + f(p), 0);
+  const tiles = [
+    ["Projects", projects.length, "var(--ink)"],
+    ["Open PRs", sum((p) => p.openPrs || (p.prs || []).length), "var(--next)"],
+    ["CI failures", sum((p) => (p.ciFailures || []).length), "var(--err)"],
+    ["Open tasks", sum((p) => (p.tasks || []).length), "var(--accent)"],
+    ["Blockers", sum((p) => (p.blockers || []).length), "var(--warn)"],
+    ["Dirty trees", projects.filter((p) => p.dirty).length, "var(--ok)"],
+  ];
+  $("tiles").innerHTML = tiles.map(([l, n, c]) => `<div class="tile" style="--c:${c}"><span class="n">${n}</span><span class="l">${esc(l)}</span></div>`).join("");
 }
 
 function renderAlerts(alerts) {
@@ -32,26 +67,6 @@ function renderAlerts(alerts) {
     const body = alert.url ? `<a href="${esc(alert.url)}">${esc(alert.text)}</a>` : esc(alert.text);
     return `<div class="alert ${esc(alert.level || "")}">${body}</div>`;
   }).join("");
-}
-
-function chart(title, pairs) {
-  const rows = pairs.filter((pair) => pair[1] > 0).sort((a, b) => b[1] - a[1]);
-  if (rows.length < 2) return "";
-  const max = Math.max(...rows.map((pair) => pair[1]));
-  const bars = rows.map(([name, count]) =>
-    `<div class="bar"><span class="clip">${esc(name)}</span><span class="track"><span class="fill" style="width:${Math.round(count / max * 100)}%"></span></span><span>${count}</span></div>`
-  ).join("");
-  return `<div class="chart"><h2>${esc(title)}</h2>${bars}</div>`;
-}
-
-function renderCharts(projects) {
-  const html = [
-    chart("Open PRs", projects.map((item) => [item.name, item.openPrs || 0])),
-    chart("CI failures", projects.map((item) => [item.name, (item.ciFailures || []).length])),
-    chart("Open tasks", projects.map((item) => [item.name, (item.tasks || []).length])),
-    chart("Blockers", projects.map((item) => [item.name, (item.blockers || []).length])),
-  ].filter(Boolean).join("");
-  $("charts").innerHTML = html ? `<div class="chart-row">${html}</div>` : "";
 }
 
 function renderShortcuts(links) {
@@ -78,29 +93,20 @@ function lastDone(project) {
   return "";
 }
 
-function ciCell(project) {
+function ciChip(project) {
   const failed = (project.ciFailures || [])[0];
-  if (failed && failed.url) return `<a class="bad" href="${esc(failed.url)}">failed</a>`;
+  if (failed && failed.url) return `<a class="chip bad" href="${esc(failed.url)}">CI failed</a>`;
   const prs = project.prs || [];
   const pending = prs.find((pr) => pr.ci === "pending" && pr.url);
-  if (pending) return `<a class="warn" href="${esc(pending.url)}">pending</a>`;
+  if (pending) return `<a class="chip warn" href="${esc(pending.url)}">CI pending</a>`;
   const passing = prs.find((pr) => pr.ci === "passing" && pr.url);
-  if (passing) return `<a class="ok" href="${esc(passing.url)}">passing</a>`;
-  if (prs[0] && prs[0].url) return `<a href="${esc(prs[0].url)}">no checks</a>`;
-  return `<span class="muted">—</span>`;
-}
-
-function prCell(project) {
-  const prs = project.prs || [];
-  if (!prs.length) return `<span class="muted">0</span>`;
-  return prs.slice(0, 4).map((pr) =>
-    `<a href="${esc(pr.url)}">#${esc(pr.number)}</a>`
-  ).join(" ");
+  if (passing) return `<a class="chip ok" href="${esc(passing.url)}">CI passing</a>`;
+  return "";
 }
 
 function listBlock(title, items) {
   if (!items || !items.length) return "";
-  return `<h3>${esc(title)}</h3><ul>${items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>`;
+  return `<div class="sub-h">${esc(title)}</div><ul>${items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>`;
 }
 
 function mdHtml(text) {
@@ -130,43 +136,58 @@ function gallery(project) {
     const src = previewSrc(project.name, item);
     return `<button type="button" class="thumb" data-preview="${index}"><img alt="${esc(item.title || "")}" src="${src}"></button>`;
   }).join("");
-  return `<h3>Previews</h3><div class="gallery">${cards}</div>`;
+  return `<div class="sub-h">Previews</div><div class="gallery">${cards}</div>`;
+}
+
+function projectCard(project) {
+  const tasks = (project.tasks || []).length;
+  const blocked = (project.blockers || []).length;
+  const prs = project.prs || [];
+  const failing = new Set((project.ciFailures || []).map((f) => f.url));
+  const done = lastDone(project);
+  const open = openNames.has(project.name) ? " open" : "";
+  const tree = project.git ? `<span class="chip ${project.dirty ? "warn" : "ok"}">${project.dirty ? "dirty" : "clean"}</span>` : "";
+  const prLinks = prs.slice(0, 4).map((pr) => `<a class="pill sm" href="${esc(pr.url)}">#${esc(pr.number)}</a>`).join("");
+  const stats = [
+    `<div class="stat${tasks ? " hot" : ""}"><b>${tasks}</b><span>tasks</span></div>`,
+    `<div class="stat${blocked ? " bad" : ""}"><b>${blocked}</b><span>blockers</span></div>`,
+    `<div class="stat"><b>${prs.length}</b><span>open PRs</span></div>`,
+  ].join("");
+  const hasDetail = tasks || blocked || prs.length || (project.warnings || []).length || (project.prompts || []).length || (project.previews || []).length;
+  const detail = [
+    prs.length ? `<div class="sub-h">Pull requests</div>${prs.map((pr) => `<a class="pr${pr.ci === "failing" || failing.has(pr.url) ? " failing" : ""}" href="${esc(pr.url)}"><span class="num">#${esc(pr.number)}</span><span>${esc(pr.title || "")}</span>${pr.ci ? `<span class="chip">${esc(pr.ci)}</span>` : ""}</a>`).join("")}` : "",
+    listBlock("Tasks", project.tasks),
+    listBlock("Blockers", project.blockers),
+    listBlock("Warnings", project.warnings),
+    listBlock("Waiting", project.prompts),
+    gallery(project),
+  ].join("");
+  return `<section class="section${open}" id="${slug(project.name)}" data-project="${esc(project.name)}">
+    <div class="section-hd">
+      <div class="topic-icon" style="background:${colorFor(project.name)}">${esc(String(project.name).charAt(0).toUpperCase())}</div>
+      <h2>${esc(project.name)}</h2>
+      <span class="sub">${project.branch ? `<span class="chip branch">${esc(project.branch)}</span>` : ""}${tree}${ciChip(project)}</span>
+      <div class="hd-links">${prLinks}</div>
+    </div>
+    <div class="section-bd">
+      <div class="stats">${stats}</div>
+      ${done ? `<p class="last"><b>Last done</b>${esc(clip(done, 160))}</p>` : ""}
+      ${hasDetail ? `<button type="button" class="pill sm toggle-detail">${open ? "Hide details" : "Show details"}</button>` : ""}
+      <div class="detail" data-for="${esc(project.name)}">${detail}</div>
+    </div>
+  </section>`;
 }
 
 function renderBoard(projects) {
-  const head = `<div class="head"><span>Project</span><span>Branch</span><span>Tree</span><span>CI</span><span>PRs</span><span>Last completed</span><span class="num">Tasks</span><span class="num">Blocked</span></div>`;
-  const body = projects.map((project) => {
-    const tasks = (project.tasks || []).length;
-    const blocked = (project.blockers || []).length;
-    const done = lastDone(project);
-    const open = openNames.has(project.name) ? " open" : "";
-    const detail = [
-      (project.prs || []).length ? `<div class="prs"><h3>Pull requests</h3>${(project.prs || []).map((pr) => `<a href="${esc(pr.url)}">#${esc(pr.number)} ${esc(pr.title || "")}</a>`).join("")}</div>` : "",
-      listBlock("Tasks", project.tasks),
-      listBlock("Blockers", project.blockers),
-      listBlock("Warnings", project.warnings),
-      listBlock("Waiting", project.prompts),
-      gallery(project),
-    ].join("");
-    return `<div class="row${open}" data-project="${esc(project.name)}">
-      <span class="name">${esc(project.name)}</span>
-      <span class="clip branch">${esc(project.branch || "—")}</span>
-      <span class="${project.dirty ? "warn" : "ok"}">${project.git ? (project.dirty ? "dirty" : "clean") : "—"}</span>
-      <span>${ciCell(project)}</span>
-      <span class="prs">${prCell(project)}</span>
-      <span class="clip last" title="${esc(done)}">${done ? esc(clip(done, 90)) : ""}</span>
-      <span class="num">${tasks || ""}</span>
-      <span class="num">${blocked || ""}</span>
-    </div>
-    <div class="detail" data-for="${esc(project.name)}">${detail}</div>`;
-  }).join("");
-  $("board").innerHTML = `<div class="table">${head}${body}</div>`;
-  $("board").querySelectorAll(".row").forEach((row) => {
-    row.addEventListener("click", (event) => {
-      if (event.target.closest("a")) return;
-      row.classList.toggle("open");
-      if (row.classList.contains("open")) openNames.add(row.dataset.project);
-      else openNames.delete(row.dataset.project);
+  $("board").innerHTML = projects.map(projectCard).join("");
+  $("board").querySelectorAll(".toggle-detail").forEach((button) => {
+    button.addEventListener("click", () => {
+      const card = button.closest(".section");
+      card.classList.toggle("open");
+      const isOpen = card.classList.contains("open");
+      button.textContent = isOpen ? "Hide details" : "Show details";
+      if (isOpen) openNames.add(card.dataset.project);
+      else openNames.delete(card.dataset.project);
     });
   });
   $("board").querySelectorAll("img").forEach((img) => {
@@ -233,6 +254,7 @@ async function tick() {
   }
 }
 
+$("refresh").addEventListener("click", () => { tick(); loadToggles(); });
 tick();
 setInterval(tick, 15000);
 
@@ -284,7 +306,7 @@ function renderToggles(rows) {
       ${row.hasHealth ? `<button type="button" data-health="${esc(row.id)}" ${row.on && !row.busy ? "" : "disabled"}>Health</button>` : ""}
     </div>`;
   });
-  cells.push(`<div class="toggle"><button type="button" id="proc-check">Process check</button></div>`);
+  cells.push(`<div class="toggle plain"><button type="button" id="proc-check">Process check</button></div>`);
   $("toggles").innerHTML = cells.join("");
   for (const box of $("toggles").querySelectorAll("input[data-toggle]")) {
     box.addEventListener("change", async () => {

@@ -23,9 +23,11 @@ public internet. The script never turns on Tailscale Funnel and never binds
 A token for non-localhost requests is created in
 `%LOCALAPPDATA%\Workstation\dashboard\`. Nothing in that folder is committed.
 
-The board is one row per project: branch, clean or dirty, CI, open pull
+The page uses a light card layout: a dark top bar with a Refresh button and one jump link per
+project, summary tiles, a Workstation card (toggles, Health, Process check, shortcuts), then one
+card per project. Each project card shows branch, clean or dirty, CI, open pull
 requests, last completed item, and task and blocker counts. Task text stays
-collapsed until the row is opened. Previews are a PDF first page, rendered
+collapsed until Show details is pressed. Previews are a PDF first page, rendered
 markdown, or a large png/jpg/webp. Icons and files that do not decode are
 skipped. A thumbnail opens large and opens the file on this PC.
 
