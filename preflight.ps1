@@ -93,8 +93,8 @@ $toolkitLeaves = @(Get-ChildItem -LiteralPath $pkgToolkit -Recurse -File -Filter
 $legacyLeaves = @($TK.LegacyScripts | Where-Object { $toolkitLeaves -notcontains $_ })
 $OurLeaves = @('memory-link-guard.ps1', 'context-guard.ps1', 'handoff-at-80.py') + $toolkitLeaves + $legacyLeaves | Select-Object -Unique
 $OurScriptRx  = '(?i)(^|[\\/"\s])(' + (($OurLeaves | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
-$RetiredRx    = '(?i)sync-claude-memory-to-cursor|_claude\\run-hidden\.vbs|watch-pull|cursor-worker|run-worker\.ps1|LatchBridgeLogon|latch\\logon-|ClaudeCode-?RemoteControl'
-$RetiredNameRx = '(?i)Claude-Memory-To-Cursor-Sync|watch-?pull|cursor-?worker|LatchBridgeLogon|ClaudeCode-?RemoteControl'
+$RetiredRx    = '(?i)sync-claude-memory-to-cursor|_claude\\run-hidden\.vbs|watch-pull|cursor-worker|run-worker\.ps1|ClaudeCode-?RemoteControl|watcher\.py'
+$RetiredNameRx = '(?i)Claude-Memory-To-Cursor-Sync|watch-?pull|cursor-?worker|ClaudeCode-?RemoteControl|Workstation-Watcher'
 $SimilarNameRx = '(?i)memory.?sync|sync.?memory|sync-?pull|sync-?push|handoff|context-?guard|remote-?control'
 $CursorExeRx  = '(?i)(^|[\\/"\s])cursor\.exe\b'
 

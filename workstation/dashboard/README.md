@@ -36,7 +36,8 @@ skipped. A thumbnail opens large and opens the file on this PC.
 The top row has on/off switches (Remote, plus any from your local
 `%LOCALAPPDATA%\Workstation\toggles.json`), a Health button per switch and a
 Process check button. See `workstation\toggles\README.md` to add or remove one.
-The Dashboard shortcut opens the page and closes by itself; it stays open only when
+The Dashboard shortcut first pulls the workstation clone (fast-forward only; skipped with a warning when it
+is not on main or has local changes) and restarts the server, so the page always runs the latest code. It opens the page and closes by itself; it stays open only when
 there is a warning to read (for example, the tailnet firewall rule needs admin).
 
 Test a branch without touching the running dashboard: set `DASHBOARD_PORT=8799`

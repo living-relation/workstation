@@ -588,9 +588,9 @@ function Show-Automations {
 
     # 4. Retired items must stay gone
     $back = @()
-    foreach ($n in @('LatchBridgeLogon', 'CursorWorker')) { if (Get-RunValue $n) { $back += "HKCU Run $n" } }
+    foreach ($n in @('CursorWorker')) { if (Get-RunValue $n) { $back += "HKCU Run $n" } }
     $denied = @()
-    foreach ($n in @('Cursor-Worker', 'Cursor-Worker-Health', 'ClaudeCode-RemoteControl')) {
+    foreach ($n in @('Cursor-Worker', 'Cursor-Worker-Health', 'ClaudeCode-RemoteControl', 'Workstation-Watcher')) {
         $r = Get-TaskSafe $n
         if ($r.Status -eq 'ok') { $back += "task $n" } elseif ($r.Status -in @('denied', 'error')) { $denied += $n }
     }
@@ -600,6 +600,6 @@ function Show-Automations {
         if ($lf -and (Test-Path -LiteralPath $lp)) { Write-Warn "old toolkit copy still there: $lp (scripts now run from $BridgeRoot). Stop its workers, then archive it." }
     }
     if ($back) { Write-Warn "retired items are BACK: $($back -join ', ')" }
-    else { Write-Ok 'retired items absent (Run LatchBridgeLogon/CursorWorker; tasks Cursor-Worker, Cursor-Worker-Health, ClaudeCode-RemoteControl)' }
+    else { Write-Ok 'retired items absent (Run CursorWorker; tasks Cursor-Worker, Cursor-Worker-Health, ClaudeCode-RemoteControl, Workstation-Watcher)' }
     if ($denied) { Write-Warn "can't read without admin: task $($denied -join ', ')" }
 }

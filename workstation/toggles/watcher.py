@@ -1,6 +1,7 @@
 """Background watcher: health checks for the toggles that are on, plus the process check.
 
-Run by the scheduled task Workstation-Watcher (see register-watcher-task.ps1), every 15 minutes.
+Off by default. The Watcher On shortcut (watcher.ps1 -Action on) starts it hidden with --loop 15,
+so it checks every 15 minutes until Watcher Off (or sign-out) stops it. No scheduled task.
 Shows a Windows toast when something is wrong. The same problem set is not repeated within
 REPEAT_HOURS, so it does not nag. Results go to %LOCALAPPDATA%\\Workstation\\dashboard\\watcher.json.
 """
@@ -70,5 +71,19 @@ def main(argv: list[str]) -> int:
     return 1 if result["problems"] else 0
 
 
+def loop(argv: list[str]) -> int:
+    i = argv.index("--loop")
+    minutes = float(argv[i + 1]) if i + 1 < len(argv) else 15.0
+    rest = argv[:i] + argv[i + 2:]
+    while True:
+        try:
+            main(rest)
+        except Exception:  # keep watching; the next round retries
+            pass
+        time.sleep(max(60.0, minutes * 60))
+
+
 if __name__ == "__main__":
+    if "--loop" in sys.argv[1:]:
+        sys.exit(loop(sys.argv[1:]))
     sys.exit(main(sys.argv[1:]))

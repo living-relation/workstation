@@ -17,7 +17,7 @@ Works the same in Grok, Claude Code and Cursor, on any project folder. State fil
 ---
 
 ## When to run
-0. **From session-start:** only when its drift check crosses a threshold (T1, T3, T6, T7, session-start step 8) **and the user says yes**. Never every session. Alone: when the user asks.
+0. **From session-start:** only when its drift check crosses a threshold (T1-T8, session-start step 8) **and the user says yes**. Never every session. Alone: when the user asks.
 1. **Normally after the first task** of the day is done. Cleanup should never block real work.
 2. **Run it first only if** the mess hides the true state (you can't tell what's current), **or** the repo has a rule saying cleanup comes first.
 3. **Freeze rule?** If the repo or user says the repo is frozen, wait until the freeze ends or the user says "go". Don't even create the branch. If the freeze is a "no new docs/rules" freeze, ask whether a cleanup that only merges and deletes counts as allowed, and record the answer.
