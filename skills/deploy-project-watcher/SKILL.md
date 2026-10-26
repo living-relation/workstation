@@ -1,6 +1,6 @@
 ---
 name: deploy-project-watcher
-description: Add a project to the owner's shared session watcher (phone alerts when a Claude session needs him, stalls, or a PR finishes). Use when the owner says "add a watcher to <project>", "watch this project", "deploy the watcher", or "update all watchers". Creates the project's untracked _watch folder, registers it with the shared engine in <projects>\_tools, makes the two shortcuts, and gives the ntfy topic with setup steps.
+description: Add a project to the owner's shared session watcher (phone alerts when a Claude session needs him, stalls, or a PR finishes). Use when the owner says "add a watcher to PROJECT", "watch this project", "deploy the watcher", or "update all watchers". Creates the project's untracked _watch folder, registers it with the shared engine in the projects\_tools folder, makes the two shortcuts, and gives the ntfy topic with setup steps.
 ---
 
 # Deploy the project watcher
