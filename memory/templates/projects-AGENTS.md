@@ -15,7 +15,7 @@ Projects/
                      workstation/ folder is the Workstation toolkit, run straight from the clone)
   _archive/          obsolete projects only, in dated subfolders (do not treat as active)
   _scratch/          throwaway experiments; OK to clean
-  _claude/           shared Claude memory, Cursor Notes (Cursor's own notes)
+  _claude/           shared Claude memory
   _refs/             optional: reference material, specs, vendor docs, third-party clones
 ```
 
@@ -50,9 +50,9 @@ If this root also has `.cursor\rules\projects-structure.mdc`, keep the same rule
 
 `{{PROJECTS_ROOT}}\_claude\Claude Projects\Working Memory\memory\` is the **ONE** memory store shared by Claude Code and Cowork.
 
-Claude Code reaches it through the junction `{{USERPROFILE}}\.claude\projects\{{CLAUDE_PROJECT_KEY}}\memory\`. Never create another memory store. **Read before you ask:** before starting work or asking the maintainer anything, read in order (1) the repo's agent guide, (2) its binding rules / decisions file if it has one, (3) `%USERPROFILE%\.claude\working-memory\<project>\INDEX.md` (WSL: `/mnt/c/Users/<user>/.claude/working-memory/<project>/INDEX.md`), (4) the newest handoff note if one exists; if a rule or note already answers a question, act on it and cite it. Every entry an agent writes there is signed. Cursor reads the store read-only and writes its own notes only in `_claude\Cursor Notes\`.
+Claude Code reaches it through the junction `{{USERPROFILE}}\.claude\projects\{{CLAUDE_PROJECT_KEY}}\memory\`. Never create another memory store. **Read before you ask:** before starting work or asking the maintainer anything, read in order (1) the repo's agent guide, (2) its binding rules / decisions file if it has one, (3) `%USERPROFILE%\.claude\working-memory\<project>\INDEX.md` (WSL: `/mnt/c/Users/<user>/.claude/working-memory/<project>/INDEX.md`), (4) the newest handoff note if one exists; if a rule or note already answers a question, act on it and cite it. Every entry an agent writes there is signed. Cursor edits the live store, signs every entry, and updates the matching `MEMORY.md` / project `INDEX.md`. Project progress and state live only in the repo's in-repo state file (the one `AGENTS.md` names, e.g. `STATE.md`). Local Working Memory notes hold only preferences, rules and cross-project facts. Each fact is written once; never duplicate it.
 
-Inside the store, `MEMORY.md` is the no-project index (general notes, one line per project, one pointer to Cursor's notes). Each project has a subfolder with an `INDEX.md`, named after its `active\` folder (`_archive\<project>\` for archived ones, `_unassigned\` for chats with no project yet; move a note to its project folder when the chat gets one). Follow a pointer one step only, never a pointer inside a file reached through a pointer. Each agent writes only in its own area and signs every entry (`-- Claude Code, YYYY-MM-DD`, `-- Cowork, ...`, `-- Cursor, ...`). Each `active\<project>\` has a one-line pointer to its memory folder: in a git repo, put the pointer in `CLAUDE.local.md` (excluded via `.git/info/exclude`), never in tracked files; memory is never committed. Outside git, it goes in the project's `CLAUDE.md`.
+Inside the store, `MEMORY.md` is the no-project index (general notes, one line per project). Each project has a subfolder with an `INDEX.md`, named after its `active\` folder (`_archive\<project>\` for archived ones, `_unassigned\` for chats with no project yet; move a note to its project folder when the chat gets one). Follow a pointer one step only, never a pointer inside a file reached through a pointer. Each agent signs every entry (`-- Claude Code, YYYY-MM-DD`, `-- Cowork, ...`, `-- Cursor, ...`). Each `active\<project>\` has a one-line pointer to its memory folder: in a git repo, put the pointer in `CLAUDE.local.md` (excluded via `.git/info/exclude`), never in tracked files; memory is never committed. Outside git, it goes in the project's `CLAUDE.md`.
 
 ## Workstation toolkit (`{{TOOLKIT_PATH}}\`)
 

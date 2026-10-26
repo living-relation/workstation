@@ -469,7 +469,7 @@ function Show-Automations {
     Write-Host ''
     Write-Host 'Automations (read-only)' -ForegroundColor Cyan
 
-    # 1. Retired: Claude-Memory-To-Cursor-Sync (Cursor now reads Claude memory read-only; no copy, no task)
+    # 1. Retired: Claude-Memory-To-Cursor-Sync (Cursor edits the live store; no copy, no task)
     $oldSync = Get-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -ErrorAction SilentlyContinue
     if ($oldSync -and "$($oldSync.State)" -eq 'Disabled') {
         Write-Ok "retired memory sync task is disabled (fine). Optional cleanup: Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false"
