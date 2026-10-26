@@ -88,3 +88,32 @@ class SettingsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RunPsTests(unittest.TestCase):
+    """Toggle commands start background programs that inherit handles; run_ps must not wait on pipes."""
+
+    def test_no_pipes_no_stdin_noninteractive(self):
+        import subprocess
+        from unittest import mock
+
+        seen = {}
+
+        def fake_run(args, **kw):
+            seen["args"], seen["kw"] = args, kw
+            kw["stdout"].write(b"started\n")
+            return subprocess.CompletedProcess(args, 0)
+
+        with mock.patch.object(toggles.subprocess, "run", side_effect=fake_run):
+            code, text = toggles.run_ps("& 'x.ps1' -Action start")
+        self.assertEqual((code, text), (0, "started"))
+        self.assertIn("-NonInteractive", seen["args"])
+        self.assertIs(seen["kw"]["stdin"], subprocess.DEVNULL)
+        self.assertNotIn("capture_output", seen["kw"])
+        self.assertNotEqual(seen["kw"]["stdout"], subprocess.PIPE)
+
+    def test_toggle_scripts_never_prompt(self):
+        text = (toggles.HERE / "remote.ps1").read_text(encoding="utf-8")
+        for name in ("start-dc-remote.ps1", "stop-dc-remote.ps1", "workers-start.ps1", "workers-stop.ps1"):
+            line = next(ln for ln in text.splitlines() if name in ln and ln.strip().startswith("&"))
+            self.assertIn("-NoPause", line, name)
