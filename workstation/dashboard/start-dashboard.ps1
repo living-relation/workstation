@@ -165,7 +165,7 @@ if (-not $linkDir -or -not (Test-Path -LiteralPath $linkDir)) {
     $linkDir = Join-Path (Split-Path -Parent (Split-Path -Parent $here)) 'shortcuts'
 }
 if (Test-Path -LiteralPath $linkDir) {
-    New-DashLink (Join-Path $linkDir 'Dashboard.lnk') (Join-Path $here 'start-dashboard.ps1')
+    New-DashLink (Join-Path $linkDir 'Dashboard.lnk') (Join-Path (Split-Path -Parent $here) 'shortcuts\dashboard.ps1')
 }
 
 Push-Location -LiteralPath $here

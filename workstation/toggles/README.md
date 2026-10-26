@@ -57,16 +57,16 @@ Desktop Commander Remote (max 1 copy) is expected by default, so a second copy i
 ## Shortcuts and CLI
 
 `toggle.ps1 -Id <id> -Action on|off|status|health`, `toggle.ps1 -Action process-check`.
-The installer adds **Remote On**, **Remote Off** and **Process Check** shortcuts; the existing
+The installer adds **Remote On**, **Remote Off**, **Process Check**, **Watcher On** and **Watcher Off** shortcuts; the existing
 Workers and Desktop Commander shortcuts keep working and run the same scripts.
 
 ## Watcher
 
-`install-admin.ps1` registers the task **Workstation-Watcher** (`register-watcher-task.ps1`): every 15
-minutes while you are signed in it runs `watcher.py` hidden, health-checks the toggles that are on,
+Off by default and manual only (no scheduled task). The **Watcher On** shortcut (`watcher.ps1 -Action on`)
+starts `watcher.py --loop 15` hidden: every 15 minutes it health-checks the toggles that are on,
 runs the process check and shows a Windows toast when something is wrong. The same problems are not
 repeated for 4 hours. Last result: `%LOCALAPPDATA%\Workstation\dashboard\watcher.json`.
-Stop it: `register-watcher-task.ps1 -Remove`, or disable the task in Task Scheduler. `uninstall.ps1` removes it.
+Stop it with the **Watcher Off** shortcut (`watcher.ps1 -Action off`); sign-out stops it too. Watcher Off also removes the old Workstation-Watcher task an older install may have left.
 
 ## Access
 

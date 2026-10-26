@@ -1,17 +1,16 @@
 <#
 .SYNOPSIS
-  Admin part of the setup: registers the watcher task and the firewall rule. Run AFTER install.ps1.
+  Admin part of the setup: adds the dashboard firewall rule. Run AFTER install.ps1.
 
 .DESCRIPTION
   Open PowerShell with "Run as admin", go to the workstation repo clone (normally <Projects>\active\workstation), then:
     powershell -NoProfile -ExecutionPolicy Bypass -File .\install-admin.ps1
   (No memory sync task any more: Cursor edits the live memory store. Older installs may still have
   task Claude-Memory-To-Cursor-Sync; preflight flags it as retired.)
-  1. Registers task Workstation-Watcher (workstation\toggles\register-watcher-task.ps1): every 15 minutes it
-     health-checks the dashboard toggles that are on, runs the process check and shows a toast on problems.
-  2. Adds the firewall rule that lets the tailnet reach the dashboard port (8791) on the Tailscale adapter only.
-  The task is registered for the account this admin window runs as, so that must be the same
-  account that uses Claude / Cursor (checked below).
+  The watcher is not a scheduled task any more: it is off by default and runs only from the Watcher On
+  shortcut (Watcher Off stops it).
+  1. Adds the firewall rule that lets the tailnet reach the dashboard port (8791) on the Tailscale adapter only.
+  This admin window must run as the same account that uses Claude / Cursor (checked below).
 
 .PARAMETER ProjectsRoot
   Projects root folder. Default: %USERPROFILE%\Projects
@@ -72,13 +71,13 @@ if ($oldSync -and "$($oldSync.State)" -eq 'Disabled') {
   Write-Host "Retired task Claude-Memory-To-Cursor-Sync is still ENABLED (blocks preflight). Disable it: Disable-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' (or remove it: Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false)" -ForegroundColor Yellow
 }
 
-# 1. Workstation-Watcher (every 15 minutes, toast on problems).
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PkgRoot "$($TK.PackageFolder)\toggles\register-watcher-task.ps1")
-if ($LASTEXITCODE -ne 0) { $failed = $true; Write-Host 'Workstation-Watcher was NOT registered (see the message above).' -ForegroundColor Red }
-elseif (Get-ScheduledTask -TaskName 'Workstation-Watcher' -ErrorAction SilentlyContinue) { Write-Host 'Verified: task Workstation-Watcher is registered.' -ForegroundColor Green }
-else { $failed = $true; Write-Host 'Task Workstation-Watcher not found after registering.' -ForegroundColor Red }
+# Retired: the old Workstation-Watcher task (the watcher is now the manual Watcher On / Off shortcuts).
+if (Get-ScheduledTask -TaskName 'Workstation-Watcher' -ErrorAction SilentlyContinue) {
+  Unregister-ScheduledTask -TaskName 'Workstation-Watcher' -Confirm:$false
+  Write-Host 'Removed the retired task Workstation-Watcher (use the Watcher On shortcut instead).' -ForegroundColor Green
+}
 
-# 2. Dashboard tailnet firewall rule (Tailscale adapter only; never the public internet).
+# 1. Dashboard tailnet firewall rule (Tailscale adapter only; never the public internet).
 $tsAlias = (Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'Tailscale' -or $_.InterfaceDescription -match 'Tailscale' } | Select-Object -First 1).Name
 if (-not $tsAlias) { Write-Host 'No Tailscale adapter: dashboard firewall rule skipped.' }
 elseif (Get-NetFirewallRule -DisplayName 'Workstation dashboard tailnet' -ErrorAction SilentlyContinue) { Write-Host 'Dashboard firewall rule already there.' }

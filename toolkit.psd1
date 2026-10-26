@@ -37,6 +37,9 @@
     @{ Name = 'Remote On';      Script = 'toggles\toggle.ps1'; Args = '-Id remote -Action on';  Icon = 137 }
     @{ Name = 'Remote Off';     Script = 'toggles\toggle.ps1'; Args = '-Id remote -Action off'; Icon = 131 }
     @{ Name = 'Process Check';  Script = 'toggles\toggle.ps1'; Args = '-Action process-check';  Icon = 23 }
+    # Watcher: off by default, manual only (no scheduled task).
+    @{ Name = 'Watcher On';     Script = 'toggles\watcher.ps1'; Args = '-Action on';  Icon = 137 }
+    @{ Name = 'Watcher Off';    Script = 'toggles\watcher.ps1'; Args = '-Action off'; Icon = 131 }
   )
 
   # Sign-in links that ShortcutsInstaller puts in the user's Startup folder (install.ps1 passes -StartupDir).
