@@ -10,7 +10,7 @@ $scDir = Join-Path $toolkit 'shortcuts'
 
 switch ($Action) {
     'start' {
-        & (Join-Path $dcDir 'start-dc-remote.ps1')
+        & (Join-Path $dcDir 'start-dc-remote.ps1') -NoPause
         & (Join-Path $scDir 'workers-start.ps1') -NoPause
         exit 0
     }

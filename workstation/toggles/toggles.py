@@ -21,6 +21,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -97,25 +98,37 @@ def expand(command: str) -> str:
 
 
 def run_ps(command: str, timeout: int = 60, limit: int = 4000) -> tuple[int, str]:
+    """Run a PowerShell command line and return (exit code, output).
+
+    Output goes to temp files, not pipes: toggle commands start long-running background programs
+    (npx desktop-commander, claude --bg) with Start-Process -Redirect*, which makes Windows hand them
+    every inheritable handle, including our pipe ends. With pipes we would wait for EOF until the
+    timeout even though PowerShell had already exited. stdin is closed and -NonInteractive is set so
+    a stray Read-Host / ReadKey fails fast instead of waiting for a key nobody can see.
+    """
     if not command.strip():
         return 1, "no command configured"
-    args = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", expand(command)]
+    args = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", expand(command)]
     try:
-        done = subprocess.run(
-            args,
-            cwd=str(TOOLKIT),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            creationflags=CREATE_NO_WINDOW if os.name == "nt" else 0,
-        )
+        with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+            done = subprocess.run(
+                args,
+                cwd=str(TOOLKIT),
+                stdin=subprocess.DEVNULL,
+                stdout=out,
+                stderr=err,
+                timeout=timeout,
+                creationflags=CREATE_NO_WINDOW if os.name == "nt" else 0,
+            )
+            parts = []
+            for f in (out, err):
+                f.seek(0)
+                parts.append(f.read().decode("utf-8", errors="replace").strip())
     except subprocess.TimeoutExpired:
         return 124, f"timed out after {timeout} s"
     except OSError as exc:
         return 1, str(exc)
-    text = "\n".join(part for part in (done.stdout.strip(), done.stderr.strip()) if part)
+    text = "\n".join(part for part in parts if part)
     return done.returncode, text[-limit:] if limit else text
 
 
