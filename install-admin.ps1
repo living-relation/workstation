@@ -5,7 +5,7 @@
 .DESCRIPTION
   Open PowerShell with "Run as admin", go to the workstation repo clone (normally <Projects>\active\workstation), then:
     powershell -NoProfile -ExecutionPolicy Bypass -File .\install-admin.ps1
-  (No memory sync task any more: Cursor reads the memory store read-only. Older installs may still have
+  (No memory sync task any more: Cursor edits the live memory store. Older installs may still have
   task Claude-Memory-To-Cursor-Sync; preflight flags it as retired.)
   1. Registers task Workstation-Watcher (workstation\toggles\register-watcher-task.ps1): every 15 minutes it
      health-checks the dashboard toggles that are on, runs the process check and shows a toast on problems.

@@ -21,7 +21,7 @@ $own = @(
   @{ Dir = (Join-Path $StateDir 'cursor-worker'); What = 'Cursor worker state and logs' },
   @{ Dir = (Join-Path $StateDir 'dashboard'); What = 'local dashboard runtime files (logs, token, cache; never commit them)' },
   @{ Dir = (Join-Path $StateDir 'backups'); What = 'backups the installer made before replacing links (add-only)' },
-  @{ Dir = (Join-Path $ProjectsRoot '_claude'); What = 'Cursor Notes folder and the install manifest. The memory files inside are your own data; the repo only manages the scripts and links' }
+  @{ Dir = (Join-Path $ProjectsRoot '_claude'); What = 'shared Claude memory, the install manifest, and the legacy Cursor Notes folder if it is still there. The memory files inside are your own data; the repo only manages the scripts and links' }
   # Nothing is written inside the clone itself (that would dirty it); the repo's own README covers its folders.
 )
 foreach ($o in $own) {

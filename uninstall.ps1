@@ -477,7 +477,7 @@ Write-Host "  Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\Curren
 Write-Host '  Its old log in %USERPROFILE%\.grokbot\latch\ is harmless and can be deleted by hand.'
 
 Write-Host ''
-Write-Host 'Kept on purpose: memory store, Cursor Notes (and any old Cursor copy), every note, the Projects layout folders, all projects, the workstation repo clone (the toolkit runs from it), and any toolkit / _claude script that was there before install.'
+Write-Host 'Kept on purpose: memory store, the legacy Cursor Notes folder if it is still there (and any old Cursor copy), every note, the Projects layout folders, all projects, the workstation repo clone (the toolkit runs from it), and any toolkit / _claude script that was there before install.'
 if ($WhatIf) { Write-Host 'Dry run only. Nothing was changed.' -ForegroundColor Cyan }
 if (@($Summary | Where-Object Status -eq 'ERROR').Count) { exit 1 }
 exit 0
