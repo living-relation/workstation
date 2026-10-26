@@ -1,0 +1,29 @@
+# automation.yml: every script, workflow, hook and scheduled job in the repo, one entry each.
+# Intentional auto-writers are allowed: declare their exact outputs, trigger and on/off switch.
+generated_patterns: ["**/*.checks.json", "**/*_report.json", "**/*.pdf", "**/*.html", "**/*.xlsx"]
+ignore: ["tests/**"]            # files the check never flags
+handmade: ["docs/procedures/**"] # hand-made PDF/HTML/XLSX, never flagged as undeclared output
+automations:
+  - id: dashboard
+    script: .github/workflows/dashboard.yml
+    helpers: [tools/build_dashboard.py]
+    trigger: push-main          # manual | pr-check | push-main | cron:<expr> | called-by:<id>
+    reads: ["docs/**/*.md", "data/*.csv"]
+    writes: [docs/dashboard.html]
+    committed: yes              # yes | gitignored | artifact
+    auto_commit: true           # allowed when declared
+    enabled: false              # on/off switch: false = paused (the workflow checks this flag and exits)
+    bypass: "deploy key pushes to protected main"   # list any protection bypass here
+    run_cmd: python tools/build_dashboard.py
+    check_cmd: python tools/build_dashboard.py --check
+    owner: user
+  - id: drawings
+    script: tools/build_drawings.py
+    trigger: manual
+    reads: ["models/**", tools/build_drawings.py]
+    writes: ["drawings/*.pdf"]
+    committed: yes
+    auto_commit: false
+    enabled: true
+    run_cmd: python tools/build_drawings.py --all
+    check_cmd: python tools/build_drawings.py --check

@@ -7,6 +7,8 @@ description: Sweep a repo or project one document at a time to find stale, super
 
 A document-by-document staleness sweep with a running handoff. Works on any repo or project folder.
 
+**Scope vs repo-cleanup:** repo-cleanup consolidates agent / state / plan / handoff / decision files into one doc per type. This skill sweeps the other prose docs (README, guides, specs, rules docs) for staleness against them. Same judgment rule: a newer explicit decision beats an older one only on the same subject and context; dated user decisions outrank agent notes; what the code/config does outranks what docs say.
+
 ## Settle first (ask only if you cannot infer it)
 
 1. **Start file** - the doc the user first asked about (or the first prose doc in the tree). The sweep ends when you are back at it.
@@ -40,7 +42,11 @@ Update it after every step, before replying. Keep each item short: what is stale
 ## Rules
 
 - Evidence over suspicion: every "stale" claim names the newer file, commit or gate that contradicts it. If you cannot find one, write "unverified".
+- `STALE-DOC-SWEEP-HANDOFF.md` is a working file: delete it in the PR that applies the fixes (git keeps it).
 - A dated log or decision record is not stale just for being old; flag it only if it reads as current with no superseded banner.
 - If a later step shows an earlier verdict was wrong, correct the earlier item in the handoff and say so.
 - Work inside the repo, never on a parent store folder. Do not commit or push unless asked; if asked to push to a protected default branch, use a branch.
 - Report depth honestly: a scripted check plus targeted reads is not a full read of every line.
+
+## Run alone vs. from session-start
+Run by hand, this skill does only its own job and never loads another skill. If it finds something worth fixing, it may **suggest** one ("want me to run repo-cleanup?"). Only `session-start` offers the full chain, and it asks the user before each step.

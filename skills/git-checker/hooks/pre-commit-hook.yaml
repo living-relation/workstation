@@ -1,0 +1,14 @@
+# Add under `repos:` in .pre-commit-config.yaml (repos without CI); copy the script to hooks/state-check.sh (and registry-check.py beside it if the repo has automation.yml).
+# Mode from .state-check-mode: comment = warns, block = refuses the commit.
+# Activate: pre-commit install --hook-type commit-msg (plain `pre-commit install` never runs this stage).
+# Uninstall: pre-commit uninstall --hook-type commit-msg BEFORE deleting this entry, or every commit fails on the missing config.
+# Skip one commit with [no-state] in its message (commit-msg stage); never --no-verify.
+- repo: local
+  hooks:
+    - id: state-check
+      name: state-check
+      entry: bash -c 'grep -q "\[no-state\]" "$1" 2>/dev/null || bash hooks/state-check.sh HEAD --staged "$1"' --
+      language: system
+      pass_filenames: true
+      verbose: true
+      stages: [commit-msg]
