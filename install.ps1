@@ -114,7 +114,6 @@ $ProjectKey  = $ProjectsRoot -replace '[^A-Za-z0-9]', '-'      # Claude Code's f
 $ClaudeDir   = Join-Path $ProjectsRoot '_claude'
 $WorkingMem  = Join-Path $ClaudeDir 'Claude Projects\Working Memory'
 $Store       = Join-Path $WorkingMem 'memory'
-$CursorNotes = Join-Path $ClaudeDir 'Cursor Notes'   # Cursor's own notes; Cursor reads $Store read-only
 $DotClaude   = Join-Path $UserHome '.claude'
 $HooksDir    = Join-Path $DotClaude 'hooks'
 $LinkPath    = Join-Path $DotClaude ("projects\$ProjectKey\memory")
@@ -455,8 +454,8 @@ if (Test-Path -LiteralPath $ProjectsRoot) {
   if ($extra.Count -gt 0) { Note 'INFO' ("$($extra.Count) other item(s) in the Projects root (not moved). See REORGANIZE.md: " + (($extra | Select-Object -First 8 | ForEach-Object Name) -join ', ')) }
 }
 
-# 2. No memory sync: Cursor reads the store below read-only and keeps its own notes in <Projects>\_claude\Cursor Notes.
-#    (Older installs had a Claude-Memory-To-Cursor-Sync task and copy; preflight flags them as retired.)
+# 2. No memory sync: Cursor edits the live store below. No Cursor Notes folder, no copy, no task.
+#    (Older installs had a Claude-Memory-To-Cursor-Sync task, a Cursor copy, and Cursor Notes; preflight flags the task/copy as retired.)
 
 # 3. Memory store (empty starter files only if missing)
 Ensure-Dir $Store 'memory store'
@@ -465,10 +464,6 @@ Ensure-Dir (Join-Path $Store '_archive') 'memory _archive'
 New-FileIfMissing (Join-Path $Store 'MEMORY.md') 'MEMORY.md'
 New-FileIfMissing (Join-Path $Store '_unassigned\INDEX.md') 'unassigned-INDEX.md'
 Add-MemoryBlock (Join-Path $WorkingMem 'CLAUDE.md') 'working-memory-CLAUDE.md' -CreateIfMissing
-
-# 4. Cursor's own notes folder (one folder, one INDEX.md). Cursor never writes in the store.
-Ensure-Dir $CursorNotes 'Cursor Notes'
-New-FileIfMissing (Join-Path $CursorNotes 'INDEX.md') 'cursor-notes-INDEX.md'
 
 # Safety check (read only): autoMemoryDirectory must be the junction path, not the store itself. The current
 # guard leaves that case alone, but older guard versions treated the store as a stray folder and deleted it.
@@ -554,7 +549,7 @@ if ($CursorHookOk) { Copy-HomeFile (Join-Path $HandoffPkg 'cursor\handoff-at-80.
 else { Note 'WARN' "py -3 (Python 3.7+) not available: Cursor 80% handoff hook skipped ($CursorHookDest, $CursorHooksJson unchanged). Install Python 3, then re-run install.ps1." }
 # The skill the hooks trigger is agent-handoff-pack (skills\), linked by -LinkSkills (section 9b).
 
-# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart guard hook + handoff hooks/statusLine), keep everything else
+# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart/PreToolUse guard hook + handoff hooks/statusLine), keep everything else
 $settings = $null; $settingsOk = $true; $settingsExisted = Test-Path -LiteralPath $SettingsPath
 if ($AutoMemAtStore) {
   $settingsOk = $false
@@ -606,6 +601,17 @@ if ($settingsOk) {
     else { $settings.hooks | Add-Member -NotePropertyName SessionStart -NotePropertyValue @($newEntry) }
     $changes += 'hooks.SessionStart += memory-link-guard.ps1'
     Add-ManifestJson @{ kind = 'guard-hook'; target = 'claude'; command = $GuardCommand }
+  }
+
+  # PreToolUse: same script warns (never blocks) when a Write/Edit to the store looks like project progress.
+  if (-not $DeferHook) {
+    if (-not $settings.PSObject.Properties['hooks'] -or -not $settings.hooks) {
+      if ($settings.PSObject.Properties['hooks']) { $settings.hooks = New-Object psobject } else { $settings | Add-Member -NotePropertyName hooks -NotePropertyValue (New-Object psobject) }
+    }
+    $pendingG = New-Object System.Collections.Generic.List[object]
+    $writeEntry = [pscustomobject]@{ matcher = 'Write|Edit'; hooks = @([pscustomobject]@{ type = 'command'; command = $GuardCommand; timeout = 20 }) }
+    Merge-HookCommand $settings.hooks 'PreToolUse' 'memory-link-guard.ps1' $GuardCommand $writeEntry 'claude' $pendingG ([ref]$changes) -Nested
+    foreach ($p in $pendingG) { Add-ManifestJson $p }
   }
 
   # 80% handoff: Stop + PreCompact hooks and the statusLine (context-guard.ps1)

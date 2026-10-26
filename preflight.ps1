@@ -64,7 +64,7 @@ $CommonStartup = [Environment]::GetFolderPath('CommonStartup')
 $ProjectKey = $ProjectsRoot -replace '[^A-Za-z0-9]', '-'
 $ClaudeDir  = Join-Path $ProjectsRoot '_claude'
 $Store      = Join-Path $ClaudeDir 'Claude Projects\Working Memory\memory'
-$CursorNotes = Join-Path $ClaudeDir 'Cursor Notes'   # Cursor's own notes; Cursor reads $Store read-only
+$CursorNotes = Join-Path $ClaudeDir 'Cursor Notes'   # legacy folder (retired); Cursor now edits $Store
 $OldCursorCopy = Join-Path $ClaudeDir 'Cursor Copy of Claude Memory'   # retired frozen mirror (older installs); never a store to merge
 # The toolkit runs straight from this package (the workstation repo clone); nothing is copied under <Projects>.
 $BridgeDir  = Join-Path $PkgRoot $TK.PackageFolder
@@ -369,7 +369,7 @@ function Test-ClaudeSettings([string]$Path, [bool]$IsUser) {
   if (-not $j.Ok) { Add-Finding 'CONFLICT' 'claude' $Path "does not parse as JSON ($($j.Err)); install.ps1 cannot merge into it. Fix it first."; return }
   $s = $j.Obj
   $hooks = @(Get-ClaudeHooks $s)
-  $wantEvents = @{ 'context-guard.ps1' = @('Stop', 'PreCompact'); 'memory-link-guard.ps1' = @('SessionStart') }
+  $wantEvents = @{ 'context-guard.ps1' = @('Stop', 'PreCompact'); 'memory-link-guard.ps1' = @('SessionStart', 'PreToolUse') }
   foreach ($leaf in $wantEvents.Keys) {
     $mine = @($hooks | Where-Object { $_.Command -match [regex]::Escape($leaf) })
     foreach ($ev in @($mine | ForEach-Object Event | Sort-Object -Unique)) {
@@ -388,7 +388,7 @@ function Test-ClaudeSettings([string]$Path, [bool]$IsUser) {
   }
   foreach ($h in $hooks) {
     if ($h.Command -match 'context-guard\.ps1|memory-link-guard\.ps1') { continue }
-    if (@('Stop', 'PreCompact', 'SessionStart', 'SubagentStop', 'SessionEnd') -contains $h.Event -and $h.Command -match $SimilarHookRx) {
+    if (@('Stop', 'PreCompact', 'SessionStart', 'PreToolUse', 'SubagentStop', 'SessionEnd') -contains $h.Event -and $h.Command -match $SimilarHookRx) {
       Add-Finding 'WARN' 'claude' "$Path > hooks.$($h.Event)" "other hook with a similar purpose (handoff / backup / memory); check it does not double up: $($h.Command)"
     }
   }
@@ -493,13 +493,13 @@ function Get-RefKind([string]$Ref) {
   if ((Split-Path $p -Leaf) -match '^(?i)(CLAUDE|AGENTS)(\.local)?\.md$|\.mdc$') { return 'rules' }
   return 'other'
 }
-# One scan result for a set of files: memory refs, rule refs, write instructions.
+# One scan result for a set of files: memory refs and rule refs.
 function Get-MemoryScan([object[]]$Files) {
-  $mem = New-Object System.Collections.Generic.List[string]; $rules = New-Object System.Collections.Generic.List[string]; $writes = New-Object System.Collections.Generic.List[string]
+  $mem = New-Object System.Collections.Generic.List[string]; $rules = New-Object System.Collections.Generic.List[string]
   foreach ($f in $Files) {
     if ($f.Length -gt 512KB -or @('.md', '.mdc', '.txt') -notcontains $f.Extension.ToLower()) { continue }
     $text = $null; try { $text = [IO.File]::ReadAllText($f.FullName) } catch { continue }
-    # This package's own marked rule section is fine (read-only memory, notes in Cursor Notes); scan only the rest.
+    # This package's own marked rule section is fine (Cursor edits the live store); scan only the rest.
     $text = [regex]::Replace($text, $memSectionRx, '')
     $short = $f.Name
     foreach ($m in [regex]::Matches($text, $pathRx)) {
@@ -512,21 +512,13 @@ function Get-MemoryScan([object[]]$Files) {
       # Relative mentions only (absolute paths were counted above); a "never / do not" line is a prohibition, not a use.
       if ($ln -match '(?i)Working Memory\W{0,4}memory[/\\]|memory[/\\]MEMORY\.md|\bMEMORY\.md\b' -and $ln -notmatch '(?i)Cursor Notes' -and
           $ln -notmatch '(?i)\b(never|do not|don''t)\b' -and -not [regex]::IsMatch($ln, $pathRx)) { $mem.Add("$short line $($i+1): " + $ln.Trim()) }
-      if ($ln -match '(?i)\b(write|save|add|append|create|store|put)\b.{0,80}(memory[/\\]|MEMORY\.md|INDEX\.md|memory folder|working memory)' -and
-          $ln -notmatch '(?i)\b(do not|don''t|never|not)\b.{0,20}\b(write|save|add|append|create|store|put)\b' -and $ln -notmatch '(?i)Cursor Notes') { $writes.Add("$short line $($i+1)") }
     }
   }
-  return [pscustomobject]@{ Mem = @($mem | Select-Object -Unique); Rules = @($rules | Select-Object -Unique); Writes = @($writes | Select-Object -Unique) }
+  return [pscustomobject]@{ Mem = @($mem | Select-Object -Unique); Rules = @($rules | Select-Object -Unique) }
 }
 function Report-Scan([string]$Item, $Scan) {
-  if ($Scan.Mem.Count -and $Scan.Writes.Count) {
-    $d = "references Claude memory files directly: " + ($Scan.Mem -join ' | ')
-    if ($Scan.Rules.Count) { $d += ". Also rule files: " + ($Scan.Rules -join ' | ') }
-    $d += ". Tells the agent to write to memory: YES (" + ($Scan.Writes -join ', ') + ")"
-    $d += ". Cursor may read Claude memory read-only in '$Store' and should write only to '$CursorNotes'."
-    Add-Finding 'WARN' 'cursor-skills' $Item $d
-  } elseif ($Scan.Mem.Count) {
-    Add-Finding 'OK' 'cursor-skills' $Item ("reads Claude memory (read-only is fine): " + ($Scan.Mem -join ' | '))
+  if ($Scan.Mem.Count) {
+    Add-Finding 'OK' 'cursor-skills' $Item ("references Claude memory (Cursor edits the live store): " + ($Scan.Mem -join ' | '))
   } elseif ($Scan.Rules.Count) {
     Add-Finding 'OK' 'cursor-skills' $Item ("references only rule files (no memory files): " + ($Scan.Rules -join ' | '))
   }

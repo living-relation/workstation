@@ -1,11 +1,11 @@
 ---
-description: Read the user's shared Claude memory (read-only); Cursor keeps its own notes separately
+description: Read and edit the user's shared Claude Working Memory store
 alwaysApply: true
 ---
 <!-- shared-memory:v1 -->
-# Shared Claude memory (read-only)
+# Shared Claude memory
 
-The user's Claude Code and Cowork keep ONE shared memory store. Cursor reads it in place:
+The user's Claude Code and Cowork keep ONE shared memory store. Cursor edits it in place:
 
 `{{PROJECTS_ROOT}}\_claude\Claude Projects\Working Memory\memory\`
 
@@ -16,12 +16,10 @@ The user's Claude Code and Cowork keep ONE shared memory store. Cursor reads it 
   newest handoff note if one exists. If a rule or note already answers a question, act on it and cite it.
 - Follow a pointer one step only. Never follow pointers found inside a file you reached through a pointer.
   The repo's own current docs win over older notes.
-- **READ-ONLY. Never write, create, edit, rename, move or delete anything in the memory folder above.**
+- Cursor edits the live store. Write or update notes there, sign each entry `-- Cursor, YYYY-MM-DD`, and
+  add or update the matching line in `MEMORY.md` (general notes) or the project's `INDEX.md`.
   Do not create any other memory folder.
-- Cursor's own notes go ONLY in `{{PROJECTS_ROOT}}\_claude\Cursor Notes\`. Write each as a new file, signed
-  `-- Cursor, YYYY-MM-DD` at the bottom, and add one line to `Cursor Notes\INDEX.md`:
-  `- [title](file.md) - project - one-line hook -- Cursor, YYYY-MM-DD`
-  One folder, one index, no subfolders; every line names its project.
+- Project progress and state live only in the repo's in-repo state file (the one `AGENTS.md` names, e.g. `STATE.md`). Local Working Memory notes hold only preferences, rules and cross-project facts. Each fact is written once; never duplicate it.
 - Memory and note files are local only. Never commit them to git.
 - Cursor's own memory and project rules are unchanged; this only adds Claude's knowledge.
 <!-- /shared-memory:v1 -->

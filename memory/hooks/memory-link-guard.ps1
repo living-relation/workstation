@@ -1,5 +1,7 @@
 # Keeps Claude Code's memory folder pointed at the one shared store.
 # Silent when everything is fine. Never deletes notes.
+# Also warns (never blocks, moves or deletes) when a write to the store looks like
+# project progress; that belongs in the repo's in-repo state file.
 # Portable: no hardcoded profile, user or machine names. Paths are worked out at run time:
 #   link  = autoMemoryDirectory from ~\.claude\settings.json (~ expanded); this is the junction.
 #   store = storePath from the optional ~\.claude\hooks\memory-link-guard.config.json, else the
@@ -14,9 +16,39 @@ $userHome = $env:USERPROFILE
 if (-not $userHome) { $userHome = $HOME }
 function Expand-UserPath([string]$p) {
   if (-not $p) { return $null }
-  $p = ([Environment]::ExpandEnvironmentVariables($p.Trim()) -replace '/', '\') -replace '^\\\?\?\\', ''
-  if ($p -eq '~') { $p = $userHome } elseif ($p.StartsWith('~\')) { $p = Join-Path $userHome $p.Substring(2) }
-  return $p.TrimEnd('\')
+  $sep = [IO.Path]::DirectorySeparatorChar
+  $p = ([Environment]::ExpandEnvironmentVariables($p.Trim()) -replace '[\\/]', $sep) -replace '^\\\?\?\\', ''
+  if ($p -eq '~') { $p = $userHome } elseif ($p.StartsWith("~$sep")) { $p = Join-Path $userHome $p.Substring(2) }
+  return $p.TrimEnd('\', '/')
+}
+# One stdin read: SessionStart (cwd) and PreToolUse Write/Edit (file_path + content).
+$hookIn = $null
+if ([Console]::IsInputRedirected) {
+  $rawIn = [Console]::In.ReadToEnd()
+  if ($rawIn) { try { $hookIn = $rawIn | ConvertFrom-Json } catch { } }
+}
+function Get-PathKey([string]$p) {
+  if (-not $p) { return '' }
+  $p = Expand-UserPath $p
+  try { $p = [IO.Path]::GetFullPath(($p -replace '[\\/]', [IO.Path]::DirectorySeparatorChar)) } catch { }
+  return $p.TrimEnd('\', '/').ToLowerInvariant()
+}
+function Test-UnderStore([string]$Path, [string]$Root) {
+  if (-not $Path -or -not $Root) { return $false }
+  $a = Get-PathKey $Path; $b = Get-PathKey $Root
+  if (-not $a -or -not $b) { return $false }
+  return ($a -eq $b) -or $a.StartsWith($b + [IO.Path]::DirectorySeparatorChar) -or $a.StartsWith($b + '\') -or $a.StartsWith($b + '/')
+}
+# status/progress/next-steps/PR/branch/TODO language, or a project_* note with that content.
+function Test-ProgressNote([string]$NotePath, [string]$Text) {
+  $leaf = Split-Path $NotePath -Leaf
+  if ($leaf -match '(?i)^(INDEX|MEMORY|CLAUDE)\.md$') { return $false }
+  $stem = [IO.Path]::GetFileNameWithoutExtension($leaf)
+  $lang = '(?i)(\b(project[- ]?)?(status|progress)\b|\bnext[- ]steps?\b|\bTODOs?\b|\bpull request\b|\bPR\s*#\d+\b|\bopen PRs?\b|\bcurrent branch\b|\bon branch\b|\bfeature branch\b)'
+  $nameHit = $stem -match '(?i)(status|progress|next[-_ ]?steps?|todos?)'
+  $bodyHit = $Text -and [regex]::IsMatch($Text, $lang)
+  $projectStar = $stem -match '(?i)^project[_-]'
+  return [bool]($nameHit -or $bodyHit -or ($projectStar -and $bodyHit))
 }
 
 # Link: the folder Claude Code reads for auto memory.
@@ -46,6 +78,26 @@ if (-not $projRoot) { $projRoot = Join-Path $userHome 'Projects' }
 if (-not $link) { $link = Join-Path $userHome ('.claude\projects\' + ($projRoot -replace '[^A-Za-z0-9]', '-') + '\memory') }
 
 if (-not (Test-Path -LiteralPath $home_)) { Write-Output "MEMORY WARNING: shared memory folder is missing: $home_. Tell the user before saving any memory."; exit 0 }
+
+# Warn only when a write to the store looks like project progress. Never block, move or delete.
+try {
+  $ti = $null
+  if ($hookIn -and $hookIn.PSObject.Properties['tool_input']) { $ti = $hookIn.tool_input }
+  $notePath = $null
+  if ($ti) {
+    if ($ti.PSObject.Properties['file_path'] -and $ti.file_path) { $notePath = [string]$ti.file_path }
+    elseif ($ti.PSObject.Properties['path'] -and $ti.path) { $notePath = [string]$ti.path }
+  }
+  if ($notePath -and (Test-UnderStore $notePath $home_)) {
+    $noteText = ''
+    if ($ti.PSObject.Properties['content'] -and $ti.content) { $noteText = [string]$ti.content }
+    elseif ($ti.PSObject.Properties['new_string'] -and $ti.new_string) { $noteText = [string]$ti.new_string }
+    elseif (Test-Path -LiteralPath $notePath -PathType Leaf) { try { $noteText = [IO.File]::ReadAllText($notePath) } catch { } }
+    if (Test-ProgressNote $notePath $noteText) {
+      Write-Output "MEMORY WARNING: '$notePath' looks like project progress/state. Put that in the repo's in-repo state file instead (the one AGENTS.md names, e.g. STATE.md). Local Working Memory holds only preferences, rules and cross-project facts; each fact is written once. This is a warning only; the note was not blocked, moved or deleted."
+    }
+  }
+} catch { }
 # If autoMemoryDirectory points straight at the store, there is no junction to manage. Never move the store onto itself.
 $sameAsStore = ([IO.Path]::GetFullPath($link).TrimEnd('\').ToLower() -eq [IO.Path]::GetFullPath($home_).TrimEnd('\').ToLower())
 $item = Get-Item -LiteralPath $link -Force
@@ -96,10 +148,7 @@ try {
 # store has <slug>\INDEX.md plus a line in MEMORY.md. Only for projects under <Projects>\active.
 try {
   $cwd = $null
-  if ([Console]::IsInputRedirected) {
-    $raw = [Console]::In.ReadToEnd()
-    if ($raw) { try { $cwd = ($raw | ConvertFrom-Json).cwd } catch { } }
-  }
+  if ($hookIn -and $hookIn.PSObject.Properties['cwd'] -and $hookIn.cwd) { $cwd = [string]$hookIn.cwd }
   if (-not $cwd) { $cwd = (Get-Location).ProviderPath }
   $active = Join-Path $projRoot 'active'
   $full = [IO.Path]::GetFullPath($cwd).TrimEnd('\')

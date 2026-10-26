@@ -18,16 +18,12 @@ This file holds general (no-project) notes and one line per project.
   When a chat gets a project, move its note into that project's folder and move its index line too.
 - A pointer is followed ONE step only. Pointers found inside a file reached through a pointer
   are never followed.
-- Each agent writes only in its own area and signs every entry
+- Each agent signs every entry
   (`-- Claude Code, YYYY-MM-DD`, `-- Cowork, YYYY-MM-DD`, `-- Cursor, YYYY-MM-DD`).
 
 ## Projects
 
 - [Unassigned](_unassigned/INDEX.md) - notes from chats with no project yet.
-
-## Cursor's notes
-
-- Cursor's notes (read-only for Claude; extra context, not memory): `{{PROJECTS_ROOT}}\_claude\Cursor Notes\INDEX.md`
 
 ## General notes
 

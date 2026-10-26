@@ -1,4 +1,4 @@
-# workstation (private)
+# workstation (public)
 
 Sets up a Windows + WSL workstation for agent-assisted work: installer and preflight, helper
 scripts (workers, status), memory/handoff tooling, agent instruction templates, the shared
