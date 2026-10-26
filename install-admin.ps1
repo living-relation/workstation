@@ -13,7 +13,8 @@
   This admin window must run as the same account that uses Claude / Cursor (checked below).
 
 .PARAMETER ProjectsRoot
-  Projects root folder. Default: %USERPROFILE%\Projects
+  Projects root folder. Default: the one in install.ps1's runtime config, else %USERPROFILE%\Projects,
+  else C:\projects (the first that has a _claude folder).
 
 .PARAMETER Force
   Continue even when this admin window runs as a different account than the signed-in user.
@@ -52,7 +53,15 @@ if ($console -and ($console -ine $me)) {
   }
 }
 
-if (-not $ProjectsRoot) { $ProjectsRoot = Join-Path $env:USERPROFILE 'Projects' }
+if (-not $ProjectsRoot) {
+  # Same root install.ps1 used: its runtime config first, then %USERPROFILE%\Projects, then C:\projects.
+  $cfg = Join-Path (Join-Path $env:LOCALAPPDATA $(if ($TK.StateFolder) { $TK.StateFolder } else { 'Workstation' })) $(if ($TK.ConfigFile) { $TK.ConfigFile } else { 'workstation.json' })
+  try { if (Test-Path -LiteralPath $cfg) { $ProjectsRoot = [string](Get-Content -LiteralPath $cfg -Raw | ConvertFrom-Json).projectsRoot } } catch { }
+  if (-not $ProjectsRoot -or -not (Test-Path -LiteralPath (Join-Path $ProjectsRoot '_claude') -PathType Container)) {
+    $ProjectsRoot = Join-Path $env:USERPROFILE 'Projects'
+    if (-not (Test-Path -LiteralPath (Join-Path $ProjectsRoot '_claude') -PathType Container) -and (Test-Path -LiteralPath 'C:\projects\_claude' -PathType Container)) { $ProjectsRoot = 'C:\projects' }
+  }
+}
 $ProjectsRoot = [IO.Path]::GetFullPath($ProjectsRoot).TrimEnd('\')
 $ClaudeDir = Join-Path $ProjectsRoot '_claude'
 Write-Host "Projects root: $ProjectsRoot"
