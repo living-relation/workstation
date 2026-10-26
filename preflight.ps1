@@ -53,10 +53,12 @@ if ($testMode) {
   $DesktopDir = Join-Path $UserHome 'Desktop'
   if (-not $StartupFolder) { $StartupFolder = Join-Path $UserHome 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup' }
 } else {
-  $LocalAppData = $env:LOCALAPPDATA
-  $RoamingAppData = $env:APPDATA
-  $DesktopDir = [Environment]::GetFolderPath('Desktop')
+  # Fall back to the standard folders when a variable is missing (some pwsh 7 hosts / remote sessions).
+  $LocalAppData = $env:LOCALAPPDATA; if (-not $LocalAppData) { $LocalAppData = Join-Path $UserHome 'AppData\Local' }
+  $RoamingAppData = $env:APPDATA; if (-not $RoamingAppData) { $RoamingAppData = Join-Path $UserHome 'AppData\Roaming' }
+  $DesktopDir = [Environment]::GetFolderPath('Desktop'); if (-not $DesktopDir) { $DesktopDir = Join-Path $UserHome 'Desktop' }
   if (-not $StartupFolder) { $StartupFolder = [Environment]::GetFolderPath('Startup') }
+  if (-not $StartupFolder) { $StartupFolder = Join-Path $RoamingAppData 'Microsoft\Windows\Start Menu\Programs\Startup' }
 }
 $StartupFolder = [IO.Path]::GetFullPath($StartupFolder).TrimEnd('\')
 $CommonStartup = [Environment]::GetFolderPath('CommonStartup')
@@ -569,7 +571,7 @@ if (-not $wm) { Add-Finding 'OK' 'memory' $WmLink 'not there yet; install.ps1 cr
 elseif ($wm.LinkType) {
   $t = Get-LinkTarget $wm
   if ($t -ieq $Store) { Add-Finding 'ALREADY-INSTALLED' 'memory' $WmLink "$($wm.LinkType) to the store" }
-  elseif (-not (Test-Path -LiteralPath $t)) { Add-Finding 'CONFLICT' 'memory' $WmLink "BROKEN $($wm.LinkType): target $t does not exist. Remove the link (the link only) and re-run." }
+  elseif (-not $t -or -not (Test-Path -LiteralPath $t)) { Add-Finding 'CONFLICT' 'memory' $WmLink "BROKEN $($wm.LinkType): target $t does not exist. Remove the link (the link only) and re-run." }
   else { Add-Finding 'CONFLICT' 'memory' $WmLink "$($wm.LinkType) to $t, not the store $Store. Pointer lines would read the wrong notes; fix by hand (MIGRATION.md) first." }
 } else { Add-Finding 'CONFLICT' 'memory' $WmLink 'is a real folder or file, not a junction to the store. Merge it (MIGRATION.md) and move it aside first.' }
 $roots = @{}
@@ -582,7 +584,7 @@ foreach ($pd in @(Get-ChildItem -LiteralPath $projDir -Directory -Force -ErrorAc
   $isMain = ($m -ieq $LinkPath)
   if ($mi.LinkType) {
     $t = Get-LinkTarget $mi
-    if (-not (Test-Path -LiteralPath $t)) { Add-Finding 'WARN' 'memory' $m "BROKEN $($mi.LinkType): target $t does not exist" ; continue }
+    if (-not $t -or -not (Test-Path -LiteralPath $t)) { Add-Finding 'WARN' 'memory' $m "BROKEN $($mi.LinkType): target $t does not exist" ; continue }
     if ($t -ieq $Store) { if ($isMain) { Add-Finding 'ALREADY-INSTALLED' 'memory' $m "$($mi.LinkType) to the store" }; continue }
     $n = @(Get-ChildItem -LiteralPath $t -Recurse -File -Force -ErrorAction SilentlyContinue).Count
     if ($n) { $roots[$t.ToLower()] = $t }
@@ -627,15 +629,18 @@ foreach ($root in @($ProjectsRoot, (Join-Path $ProjectsRoot 'active'), $UserHome
   if (-not $root -or -not (Test-Path -LiteralPath $root)) { continue }
   foreach ($mk in $markers) {
     foreach ($pat in @("*\$mk", "*\*\$mk", "*\*\*\$mk")) {
-      foreach ($f in @(Get-ChildItem -Path (Join-Path $root $pat) -File -Force -ErrorAction SilentlyContinue)) {
+      foreach ($f in @(Get-ChildItem -Path (Join-Path $root $pat) -File -Force -ErrorAction SilentlyContinue | Where-Object { $_ -is [IO.FileInfo] })) {
+        # pwsh 7 can return a DirectoryInfo here despite -File (seen: a folder named ' ' holding a folder called sync-pull.ps1); it has no DirectoryName.
         # toolkit root = the folder that holds the marker's relative path (or, for a bare legacy name, its shortcuts\ parent)
         $dir = $f.DirectoryName
         $depth = @($mk -split '\\').Count - 1
-        for ($i = 0; $i -lt $depth; $i++) { $dir = Split-Path $dir -Parent }
+        for ($i = 0; $i -lt $depth -and $dir; $i++) { $dir = Split-Path $dir -Parent }
+        if (-not $dir) { continue }
         if ($mk -notmatch '\\' -and (Split-Path $dir -Leaf) -ieq 'shortcuts') { $dir = Split-Path $dir -Parent }
         if ((Test-Under $dir $BridgeDir) -or (Test-Under $dir $PkgRoot) -or @($LegacyDirs | Where-Object { Test-Under $dir $_ }).Count -or $dir -match '(?i)\\(_scratch|_archive|node_modules)(\\|$)') { continue }
         # A workstation package / repo clone (toolkit.psd1 next to its toolkit folder) is source, not an installed copy.
-        if (Test-Path -LiteralPath (Join-Path (Split-Path $dir -Parent) 'toolkit.psd1')) { continue }
+        $dirUp = Split-Path $dir -Parent
+        if ($dirUp -and (Test-Path -LiteralPath (Join-Path $dirUp 'toolkit.psd1'))) { continue }
         $others += $dir
       }
     }

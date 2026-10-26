@@ -43,7 +43,8 @@
     installing agent from SETUP-PROMPT.txt. Setup is finished only when Workstation Status shows 0 FAIL, 0 WARN.
 
 .PARAMETER ProjectsRoot
-  Projects root folder. Default: %USERPROFILE%\Projects
+  Projects root folder. Default: the projectsRoot saved by the last install, else %USERPROFILE%\Projects,
+  else C:\projects (the first that has _claude; same as install-admin.ps1).
 
 .PARAMETER WhatIf
   Dry run. Shows what would change and changes nothing.
@@ -99,15 +100,25 @@ if (-not $realHome) { $realHome = $HOME }
 $testMode = [bool]$UserHome
 if (-not $UserHome) { $UserHome = $realHome }
 $UserHome = [IO.Path]::GetFullPath($UserHome).TrimEnd('\')
-if (-not $ProjectsRoot) { $ProjectsRoot = Join-Path $UserHome 'Projects' }
+if (-not $ProjectsRoot -and $testMode) { $ProjectsRoot = Join-Path $UserHome 'Projects' }
+if (-not $ProjectsRoot) {
+  # Same detection as install-admin.ps1: this script's saved runtime config first, then
+  # %USERPROFILE%\Projects, then C:\projects; the first one that has _claude wins.
+  $cfg = Join-Path (Join-Path $env:LOCALAPPDATA $(if ($TK.StateFolder) { $TK.StateFolder } else { 'Workstation' })) $(if ($TK.ConfigFile) { $TK.ConfigFile } else { 'workstation.json' })
+  try { if (Test-Path -LiteralPath $cfg) { $ProjectsRoot = [string](Get-Content -LiteralPath $cfg -Raw | ConvertFrom-Json).projectsRoot } } catch { }
+  if (-not $ProjectsRoot -or -not (Test-Path -LiteralPath (Join-Path $ProjectsRoot '_claude') -PathType Container)) {
+    $ProjectsRoot = Join-Path $UserHome 'Projects'
+    if (-not (Test-Path -LiteralPath (Join-Path $ProjectsRoot '_claude') -PathType Container) -and (Test-Path -LiteralPath 'C:\projects\_claude' -PathType Container)) { $ProjectsRoot = 'C:\projects' }
+  }
+}
 $ProjectsRoot = [IO.Path]::GetFullPath($ProjectsRoot).TrimEnd('\')
 
 if ($testMode) {
   $LocalAppData = Join-Path $UserHome 'AppData\Local'
   $RoamingAppData = Join-Path $UserHome 'AppData\Roaming'
 } else {
-  $LocalAppData = $env:LOCALAPPDATA
-  $RoamingAppData = $env:APPDATA
+  $LocalAppData = $env:LOCALAPPDATA; if (-not $LocalAppData) { $LocalAppData = Join-Path $UserHome 'AppData\Local' }
+  $RoamingAppData = $env:APPDATA; if (-not $RoamingAppData) { $RoamingAppData = Join-Path $UserHome 'AppData\Roaming' }
 }
 
 $ProjectKey  = $ProjectsRoot -replace '[^A-Za-z0-9]', '-'      # Claude Code's folder name for the Projects root
@@ -433,7 +444,12 @@ $pfArgs = @{ ProjectsRoot = $ProjectsRoot; StartupFolder = $StartupFolder; PassT
 if ($testMode) { $pfArgs.UserHome = $UserHome }
 if ($ReportDir) { $pfArgs.ReportDir = $ReportDir }
 try { $Preflight = @(& $pfScript @pfArgs) | Where-Object { $_ -and $_.PSObject.Properties['Findings'] } | Select-Object -Last 1 }
-catch { Note 'ERROR' "preflight failed: $($_.Exception.Message)"; exit 1 }
+catch {
+  $ii = $_.InvocationInfo
+  $where = if ($ii -and $ii.ScriptName) { " at $(Split-Path $ii.ScriptName -Leaf) line $($ii.ScriptLineNumber): $($ii.Line.Trim())" } else { '' }
+  Note 'ERROR' "preflight failed: $($_.Exception.Message)$where"
+  exit 1
+}
 if (-not $Preflight) { Note 'ERROR' 'preflight returned no result'; exit 1 }
 Write-Host ''
 if ($Preflight.Conflicts -gt 0) {
