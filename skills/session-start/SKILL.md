@@ -19,8 +19,8 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 ---
 
 ## Hard rules
-- **Steps 1-8 are read-only.** No edits, commits, pulls, pushes, deletes or lock releases. The only file written there is the state note, and only if allowed. Anything that changes the repo happens only in step 9, after the user says yes, through **safe-repo-preflight**: branch + PR, never force-push, never skip hooks, every deletion waits for the user's yes.
-- **Nothing is automatic.** Only the read-only checks run on their own. Every action step in step 9 is one clear question to the user, quoting the finding that triggered it; run it only on his yes. A no or a dismissed question is final for this session.
+- **Steps 1-7 are read-only.** No edits, commits, pulls, pushes, deletes or lock releases. The only file written there is the state note, and only if allowed. Anything that changes the repo happens only in step 8, after the user says yes, through **safe-repo-preflight**: branch + PR, never force-push, never skip hooks, every deletion waits for the user's yes.
+- **Nothing is automatic.** Only the read-only checks run on their own. Every action step in step 8 is one clear question to the user, quoting the finding that triggered it; run it only on his yes. A no or a dismissed question is final for this session.
 - **Only this skill offers the chain.** Every other skill run alone does only its own job and may just suggest the next one.
 - **Never read or print secrets** (`.env*` values, tokens, keys).
 - **The repo beats memory.** If Claude/Cursor memory disagrees with the repo, trust the repo and flag the stale memory.
@@ -53,7 +53,7 @@ Check each sign. Any one = **"last session stopped early"**.
 Session files: Claude Code keeps them under `~/.claude/projects/<project>/*.jsonl`. Read only the last few lines of each.
 
 ### 3. Health check: run git-checker, then GitHub
-Run the **git-checker** skill on this project (read-only; `git fetch --prune` only), with its optional Generated-outputs and Deployed-copies checks if the repo lists them. Keep its verdict and any `STALE-OUTPUT` lines for step 9. Then (read-only):
+Run the **git-checker** skill on this project (read-only; `git fetch --prune` only), with its optional Generated-outputs and Deployed-copies checks if the repo lists them. Keep its verdict and any `STALE-OUTPUT` lines for step 8. Then (read-only):
 ```bash
 gh pr list --author @me --state open      # open PRs
 git worktree list                         # extra checkouts
@@ -68,15 +68,10 @@ If a task card, plan or log says "will write a report/handoff/note at the end", 
 ### 5. List facts that live outside the repo
 Decisions or plans that exist only in a chat, memory, email or another machine. List each as **"outside the repo: …"** with where it lives. Don't copy it in here; cleanup does that.
 
-### 6. Measure orientation cost
-1. Add up the characters of every file you had to read to get oriented.
-2. Tokens ≈ characters ÷ 4.
-3. If over the cap (default **30k tokens**, or the cap `AGENTS.md` sets), warn: **"Orienting costs ~Nk tokens (cap 30k). Cleanup recommended."**
-
-### 7. If the last session stopped early
+### 6. If the last session stopped early
 Ask the user: "Last session stopped early (<sign>). Run **agent-handoff-pack** to rebuild where it stopped?" On yes, run the skill (read-only sweep) to rebuild where things stopped. Include leftover plans in `~/.claude/plans/`, locks, outputs newer than the log, open PRs and branches. The old session doesn't need to do anything. Never release a lock or finish someone's step without the user's yes.
 
-### 8. Write one short state note
+### 7. Write one short state note
 Put it in the repo's state file if one exists and writing it is allowed; otherwise just show it in chat. Keep it under ~20 lines:
 
 ```markdown
@@ -85,19 +80,17 @@ Put it in the repo's state file if one exists and writing it is allowed; otherwi
 **Where work is:** branch <x>, PR #N (open), worktrees: <list>
 **Open:** <top 3 items, each with a date>
 **Flags:** promised-not-written: … | outside the repo: … | stale memory: …
-**Orientation cost:** ~Nk tokens
 **Health:** git-checker <verdict> · outputs: FRESH|STALE-OUTPUT <list> · hook: installed|missing
 **Last cleanup:** <date> @ <commit>      <- written by repo-cleanup; drift check compares against it
-Cleanup needed, see CLEANUP-PLAN.md      <- only if a threshold in step 9 is crossed
+Cleanup needed, see CLEANUP-PLAN.md      <- only if a threshold in step 8 is crossed
 ```
 
-### 9. The chain (checks run; every action is asked first)
-**a. Cheap drift check, every session (read-only, seconds).** Read `**Last cleanup:** <date> @ <commit>` from the state file found in step 4 (`STATE.md`, or whatever `AGENTS.md` names, e.g. `docs/OPEN-ITEMS.md`). If that commit equals `HEAD` and git-checker found nothing new, **skip to 9e**. Otherwise check these thresholds; any one crossed = drift:
+### 8. The chain (checks run; every action is asked first)
+**a. Cheap drift check, every session (read-only, seconds).** Read `**Last cleanup:** <date> @ <commit>` from the state file found in step 4 (`STATE.md`, or whatever `AGENTS.md` names, e.g. `docs/OPEN-ITEMS.md`). If that commit equals `HEAD` and git-checker found nothing new, **skip to 8e**. Otherwise check these thresholds; any one crossed = drift:
 
 | # | Threshold | How to check |
 |---|---|---|
 | T1 | More than one file of the same type (state, decisions, plan, handoff) beyond the one the repo's rules name | case-insensitive file names (`state*`, `decisions*`, `*plan*`, `handoff*`, `open-items*`); the one named file per type is not a duplicate; part specs and CAD pages that only contain "plan" in the name count only if they hold status or decisions |
-| T2 | Orientation cost over 30k tokens (all files read to get oriented, not a line limit) | step 6 |
 | T3 | Any non-main branch or worktree (merged, unmerged or prunable) not marked keep at the last cleanup | git-checker notes, `git branch -a`, `git worktree list`, `**Kept branches:**` in the state file |
 | T4 | Any `STALE-OUTPUT`, `ORPHAN-SCRIPT`, `UNDECLARED-OUTPUT` or `DUPLICATE-OUTPUT`, or scripts/workflows but no `automation.yml` | git-checker Generated outputs / registry check |
 | T5 | Docs changed since last cleanup commit | `git diff --name-only <last-cleanup>..HEAD -- '*.md' docs/` non-empty |
@@ -108,7 +101,7 @@ Cleanup needed, see CLEANUP-PLAN.md      <- only if a threshold in step 9 is cro
 No `Last cleanup` line at all = treat as drift (first run).
 
 Report the findings first, then ask one question per step below, in order, each quoting its trigger. Skip steps with no trigger.
-**b. Full cleanup (T1, T2, T3, T6, T7).** Add "Cleanup needed, see CLEANUP-PLAN.md" to the note. Ask: "Drift found: <threshold + evidence>. Run **repo-cleanup**?"
+**b. Full cleanup (T1, T3, T6, T7).** Add "Cleanup needed, see CLEANUP-PLAN.md" to the note. Ask: "Drift found: <threshold + evidence>. Run **repo-cleanup**?"
 **c. Docs sweep (T5).** Ask: "Docs changed since last cleanup: <files>. Run **iterative-cleaning** (report-only)?"
 **d. Fixes (T4 or approved cleanup results).** Ask: "Fix <item> on a branch + PR via **safe-repo-preflight**?" No force-push; each deletion is its own yes.
 **d2. Automation registry (T4).** If there's no `automation.yml`, ask: "This repo has <N> scripts/workflows and no automation registry. Run repo-cleanup's automation inventory to draft one (read-only until you approve)?" Installing `registry-check.py` with the hook is part of the hook question below.
@@ -116,7 +109,7 @@ Report the findings first, then ask one question per step below, in order, each 
 **e2. Progress in local memory (T8).** Warn only: "Local memory holds project progress: <note + line>. It belongs in <repo state file>. Move it there and delete the local copy?" Never move or delete without a yes; each note is its own yes.
 **f. Stopped early?** If this session runs out of room mid-chain, ask to run **agent-handoff-pack** (or say so in the last reply if no room to ask).
 
-### 10. Tell the user, then start the real work
+### 9. Tell the user, then start the real work
 Show the note. Then follow the user's instructions for the actual task.
 
 ---

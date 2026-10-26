@@ -2,12 +2,11 @@
 name: repo-cleanup
 description: >-
   Use when a repo's agent, state, plan, handoff or decision files have sprawled
-  (session-start flagged "Cleanup needed", orienting costs too many tokens, or
-  there are duplicate decisions/state files): the agent extracts every fact
-  with its source and date, clusters and resolves them in context, asks the
-  user only true conflicts and important unconfirmed facts, writes one doc per
-  type, deletes the superseded docs, and lands it as one PR with every fact
-  accounted for.
+  (session-start flagged "Cleanup needed", or there are duplicate
+  decisions/state files): the agent extracts every fact with its source and
+  date, clusters and resolves them in context, asks the user only true
+  conflicts and important unconfirmed facts, writes one doc per type, deletes
+  the superseded docs, and lands it as one PR with every fact accounted for.
 ---
 # Repo cleanup
 
@@ -18,7 +17,7 @@ Works the same in Grok, Claude Code and Cursor, on any project folder. State fil
 ---
 
 ## When to run
-0. **From session-start:** only when its drift check crosses a threshold (T1-T7, session-start step 9) **and the user says yes**. Never every session. Alone: when the user asks.
+0. **From session-start:** only when its drift check crosses a threshold (T1, T3, T6, T7, session-start step 8) **and the user says yes**. Never every session. Alone: when the user asks.
 1. **Normally after the first task** of the day is done. Cleanup should never block real work.
 2. **Run it first only if** the mess hides the true state (you can't tell what's current), **or** the repo has a rule saying cleanup comes first.
 3. **Freeze rule?** If the repo or user says the repo is frozen, wait until the freeze ends or the user says "go". Don't even create the branch. If the freeze is a "no new docs/rules" freeze, ask whether a cleanup that only merges and deletes counts as allowed, and record the answer.
@@ -97,7 +96,7 @@ Exactly **one doc per type** (keep the repo's existing names if it has them):
 - **Rules / agent doc:** root `AGENTS.md`, short (under ~150 lines), concrete commands, no status or history. `CLAUDE.md` = `@AGENTS.md`. Per-module agent files only where the repo intends them, thin, no rule repeated. Plain `.md` in `.cursor/rules/` is ignored by Cursor; convert to `.mdc` or fold in.
 - **`DECISIONS.md`:** one dated line per decision with its source.
 - **`STATE.md`** (or the tracker the repo's rules name, e.g. `docs/OPEN-ITEMS.md`; never add a second one):** current goal on top, status, open items (each dated), `**Last cleanup:**` line.
-Plan to **delete** every source doc whose facts are fully moved. Task cards that stay get a `Status:` line. No handoffs in throwaway folders.
+Plan to **delete** every source doc whose facts are fully moved. Put the docs to delete into **groups** of similar docs (e.g. old handoffs, superseded plans, merged decision notes) and ask **one yes per group**, listing each doc in the group with a one-line reason; never one yes for the whole plan, and not one question per doc. A no on a group means ask about its docs one by one. Task cards that stay get a `Status:` line. No handoffs in throwaway folders.
 
 ### 8. Account for every fact (before asking for the yes)
 Each ledger row ends as exactly one of: **kept** (where), **superseded** (winner ID), **dropped-stale** (reason), **asked** (answer or skipped). Zero rows unaccounted. Counts go in the PR body.
