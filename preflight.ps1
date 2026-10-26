@@ -629,7 +629,8 @@ foreach ($root in @($ProjectsRoot, (Join-Path $ProjectsRoot 'active'), $UserHome
   if (-not $root -or -not (Test-Path -LiteralPath $root)) { continue }
   foreach ($mk in $markers) {
     foreach ($pat in @("*\$mk", "*\*\$mk", "*\*\*\$mk")) {
-      foreach ($f in @(Get-ChildItem -Path (Join-Path $root $pat) -File -Force -ErrorAction SilentlyContinue)) {
+      foreach ($f in @(Get-ChildItem -Path (Join-Path $root $pat) -File -Force -ErrorAction SilentlyContinue | Where-Object { $_ -is [IO.FileInfo] })) {
+        # pwsh 7 can return a DirectoryInfo here despite -File (seen: a folder named ' ' holding a folder called sync-pull.ps1); it has no DirectoryName.
         # toolkit root = the folder that holds the marker's relative path (or, for a bare legacy name, its shortcuts\ parent)
         $dir = $f.DirectoryName
         $depth = @($mk -split '\\').Count - 1
