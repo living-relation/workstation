@@ -3,7 +3,7 @@
 **In scope:** installer and preflight, `workstation.lock.yaml`, `patches/`, the non-CAD skills
 (`skills/`: safe-repo-preflight, backup-dryrun-apply, agent-handoff-pack, primary-source-spec-check,
 wizard, iterative-cleaning, harness-design, deploy-project-watcher,
-session-start, repo-cleanup, concise),
+session-start, repo-cleanup, git-checker, concise),
 `automations/` (routine texts, docs only), agent rules and instruction templates,
 workstation helper scripts.
 
