@@ -1,6 +1,8 @@
 const $ = (id) => document.getElementById(id);
 const openNames = new Set();
-const openItems = new Set(); // "<project>|<line>" of expanded tracker rows, kept across the 15 s re-render
+const openItems = new Set(); // "<project>|<fp>" of expanded tracker rows, kept across the 15 s re-render
+const drafts = new Map(); // "<project>|<fp>" -> half-typed answer, kept across the re-render
+let canWriteActions = false; // from the snapshot: write actions are on only where local settings allow
 let light = null;
 
 function esc(value) {
@@ -22,6 +24,7 @@ async function load() {
 
 function render(board) {
   const projects = board.projects || [];
+  canWriteActions = board.canWriteActions === true;
   $("stamp").textContent = board.generatedAt ? `Updated ${board.generatedAt}` : "";
   renderNav(projects);
   renderTiles(projects);
@@ -110,21 +113,59 @@ function ciChip(project) {
   return "";
 }
 
-// A row with more to show is a native <details>: tap expands the full text and the GitHub link.
-function listItem(project, item) {
+// Answer box on a "Waiting" row: Yes / No / typed text -> confirm -> PR in that project's repo.
+function answerBox(project, item) {
+  if (!item || !item.fp) return "";
+  if (item.answerPr) return `<p class="answer-done">Answered: <a href="${esc(item.answerPr)}" target="_blank" rel="noopener">${esc(item.answerPr.replace(/^.*\/pull\//, "PR #"))}</a></p>`;
+  if (!canWriteActions) return `<p class="answer-off">Answering is off on this PC.</p>`;
+  const key = `${project}|${item.fp}`;
+  return `<div class="answer" data-project="${esc(project)}" data-fp="${esc(item.fp)}">
+    <button type="button" class="pill sm" data-answer="Yes">Yes</button>
+    <button type="button" class="pill sm" data-answer="No">No</button>
+    <input type="text" class="answer-text" maxlength="500" placeholder="Or type an answer" value="${esc(drafts.get(key) || "")}">
+    <button type="button" class="pill sm send-answer">Send</button>
+    <span class="answer-msg"></span>
+  </div>`;
+}
+
+// A row with more to show is a native <details>: tap expands the full text, the GitHub link and,
+// on Waiting rows, the answer box.
+function listItem(project, item, answerable) {
   const text = itemText(item);
   const full = (item && item.textFull) || text;
   const url = item && item.githubUrl;
-  if (full === text && !url) return `<li>${esc(text)}</li>`;
-  const key = `${project}|${item.line}`;
+  const answer = answerable ? answerBox(project, item) : "";
+  if (full === text && !url && !answer) return `<li>${esc(text)}</li>`;
+  const key = `${project}|${item.fp || item.line}`;
   const more = full !== text ? `<p class="item-full">${esc(full)}</p>` : "";
   const link = url ? `<a class="pill sm" href="${esc(url)}" target="_blank" rel="noopener">Open on GitHub${item.line && url.includes("#L") ? ` (line ${esc(item.line)})` : ""}</a>` : "";
-  return `<li class="item"><details data-key="${esc(key)}"${openItems.has(key) ? " open" : ""}><summary>${esc(text)}</summary>${more}${link}</details></li>`;
+  return `<li class="item"><details data-key="${esc(key)}"${openItems.has(key) ? " open" : ""}><summary>${esc(text)}</summary>${more}${link}${answer}</details></li>`;
 }
 
-function listBlock(title, items, project) {
+function listBlock(title, items, project, answerable) {
   if (!items || !items.length) return "";
-  return `<div class="sub-h">${esc(title)}</div><ul>${items.map((item) => listItem(project, item)).join("")}</ul>`;
+  return `<div class="sub-h">${esc(title)}</div><ul>${items.map((item) => listItem(project, item, answerable)).join("")}</ul>`;
+}
+
+async function sendAnswer(box, answer) {
+  const text = String(answer || "").replace(/\s+/g, " ").trim();
+  const msg = box.querySelector(".answer-msg");
+  if (!text) { msg.textContent = "Type an answer first."; return; }
+  if (!window.confirm(`Open a PR in ${box.dataset.project} that records your answer:\n\n"${text}"\n\nNothing is merged.`)) return;
+  box.querySelectorAll("button, input").forEach((el) => { el.disabled = true; });
+  msg.textContent = "Opening PR…";
+  try {
+    const result = await post("/api/item-answer", { project: box.dataset.project, fp: box.dataset.fp, answer: text });
+    if (result.ok) {
+      drafts.delete(`${box.dataset.project}|${box.dataset.fp}`);
+      msg.innerHTML = `PR opened: <a href="${esc(result.prUrl)}" target="_blank" rel="noopener">${esc(result.prUrl)}</a>`;
+      return;
+    }
+    msg.textContent = result.error || "Could not open the PR.";
+  } catch (error) {
+    msg.textContent = `Could not open the PR: ${error.message}`;
+  }
+  box.querySelectorAll("button, input").forEach((el) => { el.disabled = false; });
 }
 
 function mdHtml(text) {
@@ -177,7 +218,7 @@ function projectCard(project) {
     listBlock("Tasks", project.tasks, project.name),
     listBlock("Blockers", project.blockers, project.name),
     listBlock("Warnings", project.warnings, project.name),
-    listBlock("Waiting", project.prompts, project.name),
+    listBlock("Waiting", project.prompts, project.name, true),
     gallery(project),
   ].join("");
   return `<section class="section${open}" id="${slug(project.name)}" data-project="${esc(project.name)}">
@@ -207,6 +248,13 @@ function renderBoard(projects) {
       if (isOpen) openNames.add(card.dataset.project);
       else openNames.delete(card.dataset.project);
     });
+  });
+  $("board").querySelectorAll(".answer").forEach((box) => {
+    const key = `${box.dataset.project}|${box.dataset.fp}`;
+    const input = box.querySelector(".answer-text");
+    input.addEventListener("input", () => { if (input.value) drafts.set(key, input.value); else drafts.delete(key); });
+    box.querySelectorAll("[data-answer]").forEach((button) => button.addEventListener("click", () => sendAnswer(box, button.dataset.answer)));
+    box.querySelector(".send-answer").addEventListener("click", () => sendAnswer(box, input.value));
   });
   $("board").querySelectorAll("details[data-key]").forEach((row) => {
     row.addEventListener("toggle", () => {
@@ -271,6 +319,10 @@ $("light").addEventListener("click", (event) => {
 });
 
 async function tick() {
+  // Don't redraw under someone typing an answer or waiting on a send (it would wipe the box).
+  const active = document.activeElement;
+  if (active && active.closest && active.closest(".answer")) return;
+  if (document.querySelector(".answer button:disabled")) return;
   try {
     await load();
   } catch (error) {
@@ -287,7 +339,8 @@ setInterval(tick, 15000);
 async function post(url, body) {
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    // The dashboard header is the CSRF check on write actions (a cross-site form can't send it).
+    headers: { "Content-Type": "application/json", "X-Workstation-Dashboard": "1" },
     body: JSON.stringify(body || {}),
   });
   return response.json();

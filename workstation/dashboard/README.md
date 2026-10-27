@@ -41,7 +41,27 @@ expand it: it shows the row's full text (the list shows the first 300 characters
 **Open on GitHub** link to the project's open-items file on `main`. The link jumps to the row's
 line only when that project's checkout is on `main` with nothing unpushed; otherwise the local
 line may not match `main`, so it opens the file's top. An expanded row stays open through the
-15-second refresh. Previews are a PDF first page, rendered
+15-second refresh.
+
+**Answer a waiting question on the card.** An expanded Waiting row has Yes, No and a text box.
+After you confirm, the dashboard opens a PR in that project's repo and shows its link on the card;
+it never merges. It clones the project's GitHub `main` into a throwaway folder under
+`%LOCALAPPDATA%\Workstation\dashboard\work\` (never your checkout under `active\`), gives the clone
+the same commit hooks your checkout uses, appends `**<name> <date>:** <answer>` to that one row of
+the open-items file (the last table cell, or the end of a bullet), commits, pushes a
+`dashboard/answer-*` branch, opens the PR and deletes the clone. The row is found on `main` by its
+text, so moved lines are fine; if the row's words changed, nothing is written and the page says to
+refresh. Moving the answer into a decisions file is left to that repo's own agent and rules.
+Answers sent from the page are listed in `answers.json` in the same local folder.
+
+Write actions are **off** unless this PC has `%LOCALAPPDATA%\Workstation\dashboard\settings.json`
+with `{"writeActions": true, "ownerName": "<your name>"}`. That file is local only and never
+committed; a PC without it shows "Answering is off on this PC." Every write request needs the
+login (localhost, or the phone cookie/token), the `X-Workstation-Dashboard: 1` header the page
+sends, and, when the browser sends an Origin, the same host. The older buttons (toggles, Health,
+send) don't check that header yet; that's a later change.
+
+Previews are a PDF first page, rendered
 markdown, or a large png/jpg/webp. Icons and files that do not decode are
 skipped. A thumbnail opens large and opens the file on this PC.
 

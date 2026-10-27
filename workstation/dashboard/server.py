@@ -16,6 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
 
+import actions
 import collect
 import send
 
@@ -51,6 +52,21 @@ def snapshot(lite: bool) -> dict:
     with _LOCK:
         _CACHE[key] = (time.time(), data)
     return data
+
+
+def with_actions(data: dict) -> dict:
+    """Add the write-action switch and any answer PRs opened from this page (local state, read each call)."""
+    answers = actions.load_answers()
+    for project in data.get("projects") or []:
+        for bucket in ("tasks", "blockers", "warnings", "prompts"):
+            for item in project.get(bucket) or []:
+                hit = answers.get(f"{project.get('name')}|{item.get('fp')}") if isinstance(item, dict) else None
+                if hit:
+                    item["answerPr"] = hit.get("prUrl")
+    return {**data, "canWriteActions": actions.can_write()}
+
+
+CSRF_HEADER = "X-Workstation-Dashboard"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -147,6 +163,20 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _csrf_ok(self) -> bool:
+        """Write actions need our custom header (a plain cross-site form can't send it) and, when the
+        browser sends an Origin, it must be this same host."""
+        if self.headers.get(CSRF_HEADER) != "1":
+            return False
+        origin = self.headers.get("Origin")
+        if origin:
+            hosts = {
+                (self.headers.get(name) or "").split(",")[0].strip().lower() for name in ("Host", "X-Forwarded-Host")
+            } - {""}
+            if urlparse(origin).netloc.lower() not in hosts:
+                return False
+        return True
+
     def _read_json(self) -> dict | None:
         length = int(self.headers.get("Content-Length") or "0")
         if length <= 0 or length > 32_000:
@@ -201,7 +231,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/snapshot":
             lite = "1" in (parse_qs(parsed.query).get("lite") or [])
-            self._json(200, snapshot(lite=lite))
+            self._json(200, with_actions(snapshot(lite=lite)))
             return
         if path == "/media":
             query = parse_qs(parsed.query)
@@ -245,6 +275,22 @@ class Handler(BaseHTTPRequestHandler):
         body = self._read_json()
         if body is None:
             self._json(400, {"error": "expected a small JSON body"})
+            return
+        if path == "/api/item-answer":
+            if not self._csrf_ok():
+                self._json(403, {"ok": False, "error": "missing dashboard header or wrong origin"})
+                return
+            if not actions.can_write():
+                self._json(403, {"ok": False, "error": "write actions are off on this PC"})
+                return
+            try:
+                result = actions.record_answer(
+                    str(body.get("project") or ""), str(body.get("fp") or ""), str(body.get("answer") or "")
+                )
+            except actions.ActionError as exc:
+                self._json(409, {"ok": False, "error": str(exc)})
+                return
+            self._json(200, {"ok": True, **result})
             return
         if path == "/api/open-file":
             if not self._local_browser():

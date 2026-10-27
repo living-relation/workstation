@@ -1354,16 +1354,22 @@ def shortcut_path(name: str) -> Path | None:
     return candidate
 
 
-def project_file(project_name: str, rel: str) -> Path | None:
-    if not project_name or not rel or rel.startswith(("/", "\\")) or ".." in Path(rel).parts:
+def project_dir(project_name: str) -> Path | None:
+    """A direct child folder of active\\ by name, or None (no paths, no escapes)."""
+    if not project_name or any(ch in project_name for ch in "/\\:") or project_name in {".", ".."}:
         return None
     active = Path(load_roots()["active"]).resolve()
     project = (active / project_name).resolve()
-    try:
-        project.relative_to(active)
-    except ValueError:
+    if project.parent != active or not project.is_dir():
         return None
-    if not project.is_dir():
+    return project
+
+
+def project_file(project_name: str, rel: str) -> Path | None:
+    if not project_name or not rel or rel.startswith(("/", "\\")) or ".." in Path(rel).parts:
+        return None
+    project = project_dir(project_name)
+    if project is None:
         return None
     candidate = (project / rel).resolve()
     if not is_allowed_file(project, candidate):

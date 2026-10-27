@@ -88,6 +88,10 @@ button[disabled] { opacity: .45; cursor: not-allowed; transform: none; }
 .detail li.item summary { cursor: pointer; }
 .detail li.item summary::marker { color: var(--accent); }
 .detail li.item details[open] { background: var(--soft); border-radius: 12px; padding: 6px 10px 10px; margin: 4px 0; border: 1px solid rgb(23 23 23 / .06); }
+.answer { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.answer-text { flex: 1 1 160px; min-width: 0; border: 1px solid rgb(23 23 23 / .2); border-radius: 60px; padding: 5px 12px; font: inherit; font-size: 14px; }
+.answer-msg { flex-basis: 100%; font-size: 13px; color: #555; overflow-wrap: anywhere; }
+.answer-off, .answer-done { margin: 8px 0 0; font-size: 13px; color: #555; }
 .item-full { margin: 6px 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .pr { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-radius: 12px; background: var(--soft); margin-bottom: 6px; border: 1px solid rgb(23 23 23 / .06); font-size: 14px; }
 .pr.failing { background: var(--err-bg); border-color: rgb(190 18 60 / .25); }
