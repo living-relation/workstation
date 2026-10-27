@@ -1,11 +1,21 @@
 # automation.yml: every script, hook and job in this repo, grouped by tool (format: skills/git-checker).
 # Check it (read-only): python skills/git-checker/hooks/registry-check.py
-# Nothing here commits on its own: no CI workflows, no auto-commit. Only gen-inventory writes a tracked file.
+# Nothing here commits on its own. One CI workflow (state-check) only posts a PR comment. Only gen-inventory writes a tracked file.
 # trigger: manual | git-hook:<name> | agent-hook:<event> | called-by:<id>. "(inferred)" = read from the code, not run.
 generated_patterns: ["**/*.checks.json", "**/*_report.json", "**/*.pdf", "**/*.html", "**/*.xlsx"]
 ignore: ["**/tests/**", "**/test_*.py"]
 handmade: ["workstation/dashboard/static/*.html"]
 automations:
+  - id: state-check
+    script: .github/workflows/state-check.yml
+    helpers: [.github/state-check.sh, .github/registry-check.py]
+    trigger: pr-check
+    reads: [PR diff and body, .state-check-mode, automation.yml]
+    writes: [PR comment only]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: bash .github/state-check.sh origin/main HEAD
   - id: hook-pre-commit
     script: .githooks/pre-commit
     helpers: [scripts/guard-staged.sh, scripts/run-gitleaks.sh]
