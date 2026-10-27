@@ -9,4 +9,5 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
   Desktop Commander sign-in link -> WARN; `Dashboard.lnk` counted as ours). Remove this line when it merges.
 
 **Kept branches:** none
+**Hook:** state-check, comment mode (warn only), 2026-10-27
 **Last cleanup:** 2026-10-27 @ (filled after merge)
