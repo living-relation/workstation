@@ -137,13 +137,28 @@ def _cell(row: list[str], index: int | None) -> str:
     return row[index].strip()
 
 
+FULL_LIMIT = 4000  # cap on an item's full text so one huge row can't bloat the snapshot
+
+
+def _item(text: str, line: int, limit: int, ident: str = "") -> dict:
+    """One tracker row: a clipped preview, the full text, its 1-based line, and its table ID if any."""
+    full = _clip(text, FULL_LIMIT)
+    item = {"text": _clip(full, limit), "textFull": full, "line": line}
+    if ident:
+        item["id"] = ident
+    return item
+
+
 def parse_tracker(text: str) -> dict:
-    """Pull tasks, blockers, warnings, prompts, and completed rows from a tracker."""
-    tasks: list[str] = []
-    blockers: list[str] = []
-    completed: list[str] = []
-    warnings: list[str] = []
-    prompts: list[str] = []
+    """Pull tasks, blockers, warnings, prompts, and completed rows from a tracker.
+
+    Each item is a dict: text (preview), textFull, line (1-based in the file), id (table rows only).
+    """
+    tasks: list[dict] = []
+    blockers: list[dict] = []
+    completed: list[dict] = []
+    warnings: list[dict] = []
+    prompts: list[dict] = []
     section = "body"
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     index = 0
@@ -173,15 +188,16 @@ def parse_tracker(text: str) -> dict:
         ):
             header = _split_row(raw)
             index += 2
-            rows: list[list[str]] = []
+            rows: list[tuple[int, list[str]]] = []
             while index < len(lines) and lines[index].strip().startswith("|"):
-                rows.append(_split_row(lines[index]))
+                rows.append((index + 1, _split_row(lines[index])))
                 index += 1
             _consume_table(header, rows, section, tasks, blockers, completed, warnings, prompts)
             continue
+        line_no = index + 1
         box = re.match(r"^\s*[-*]\s+\[([ xX])\]\s+(.*)$", raw)
         if box:
-            item = _clip(box.group(2), 300)
+            item = _item(box.group(2), line_no, 300)
             done = box.group(1).lower() == "x" or section == "done"
             _bucket(item, done, section, tasks, blockers, completed, warnings, prompts)
             index += 1
@@ -189,13 +205,13 @@ def parse_tracker(text: str) -> dict:
         bullet = re.match(r"^\s*[-*]\s+(.*)$", raw)
         number = re.match(r"^\s*\d+\.\s+(.*)$", raw)
         if section == "done" and bullet:
-            completed.append(_clip(bullet.group(1), 300))
+            completed.append(_item(bullet.group(1), line_no, 300))
         elif section == "block" and (bullet or number):
-            blockers.append(_clip((bullet or number).group(1), 300))
+            blockers.append(_item((bullet or number).group(1), line_no, 300))
         elif section == "warn" and bullet:
-            warnings.append(_clip(bullet.group(1), 300))
+            warnings.append(_item(bullet.group(1), line_no, 300))
         elif section == "prompt" and bullet:
-            prompts.append(_clip(bullet.group(1), 300))
+            prompts.append(_item(bullet.group(1), line_no, 300))
         index += 1
     return {
         "tasks": _uniq(tasks)[:12],
@@ -207,16 +223,16 @@ def parse_tracker(text: str) -> dict:
 
 
 def _bucket(
-    item: str,
+    item: dict,
     done: bool,
     section: str,
-    tasks: list[str],
-    blockers: list[str],
-    completed: list[str],
-    warnings: list[str],
-    prompts: list[str],
+    tasks: list[dict],
+    blockers: list[dict],
+    completed: list[dict],
+    warnings: list[dict],
+    prompts: list[dict],
 ) -> None:
-    if not item or section == "parked":
+    if not item["text"] or section == "parked":
         return
     if done:
         completed.append(item)
@@ -232,13 +248,13 @@ def _bucket(
 
 def _consume_table(
     header: list[str],
-    rows: list[list[str]],
+    rows: list[tuple[int, list[str]]],
     section: str,
-    tasks: list[str],
-    blockers: list[str],
-    completed: list[str],
-    warnings: list[str],
-    prompts: list[str],
+    tasks: list[dict],
+    blockers: list[dict],
+    completed: list[dict],
+    warnings: list[dict],
+    prompts: list[dict],
 ) -> None:
     status_i = _col(header, "status")
     question_i = _col(header, "question")
@@ -248,38 +264,54 @@ def _consume_table(
         names = {h.strip().lower() for h in header}
         if "open" in names or "bucket" in names:
             return
-    for row in rows:
+    for line_no, row in rows:
         ident = _cell(row, id_i)
-        item = _cell(row, item_i if item_i is not None else 0)
-        if ident and item and ident.lower() not in item.lower():
-            item = f"{ident}: {item}"
-        item = _clip(item, 300)
+        text = _cell(row, item_i if item_i is not None else 0)
+        if ident and text and ident.lower() not in text.lower():
+            text = f"{ident}: {text}"
         if question_i is not None and status_i is None:
-            question = _clip(_cell(row, question_i), 240)
-            text = f"{item} — {question}" if item and question else (question or item)
-            if text:
-                prompts.append(text)
+            question = _cell(row, question_i)
+            if text and question:
+                # Preview keeps the old split (300 for the item, 240 for the question); full text keeps both whole.
+                item = _item(f"{text} — {question}", line_no, FULL_LIMIT, ident)
+                item["text"] = f"{_clip(text, 300)} — {_clip(question, 240)}"
+            else:
+                item = _item(question or text, line_no, 300 if text else 240, ident)
+            if item["text"]:
+                prompts.append(item)
             continue
+        item = _item(text, line_no, 300, ident)
         status = _cell(row, status_i).lower()
         done = section == "done" or bool(re.search(r"\b(done|closed|merged|landed)\b", status))
         if re.search(r"\b(blocked|blocking|on hold)\b", status) or re.search(r"\bblock\b", status):
             blockers.append(item)
-        elif "warn" in status or (section == "warn" and item):
+        elif "warn" in status or (section == "warn" and item["text"]):
             warnings.append(item)
         else:
             _bucket(item, done, section, tasks, blockers, completed, warnings, prompts)
 
 
-def _uniq(items: list[str]) -> list[str]:
+def _uniq(items: list[dict]) -> list[dict]:
     seen: set[str] = set()
-    out: list[str] = []
+    out: list[dict] = []
     for item in items:
-        key = item.strip()
+        key = item["text"].strip()
         if not key or key in seen:
             continue
         seen.add(key)
-        out.append(key)
+        out.append(item)
     return out
+
+
+def tracker_github_url(slug: str | None, rel: str, line: int | None, branch: str | None, ahead: int | None) -> str | None:
+    """Link to a tracker row on GitHub main. The #L anchor is added only when the local checkout is
+    main with nothing unpushed; otherwise the local line number may not match main's copy."""
+    if not slug or not rel:
+        return None
+    url = f"https://github.com/{slug}/blob/main/{rel}"
+    if line and branch == "main" and not ahead:
+        url += f"#L{line}"
+    return url
 
 
 def _git(path: Path, *args: str, timeout: float = 12) -> tuple[int, str]:
@@ -757,6 +789,12 @@ def collect_project(entry: Path, lite: bool) -> dict:
         "warnings": [],
         "prompts": [],
     }
+    branch, ahead = git_info.get("branch"), git_info.get("ahead")
+    for bucket in ("tasks", "blockers", "completed", "warnings", "prompts"):
+        for item in tracker[bucket]:
+            url = tracker_github_url(slug, tracker_rel, item.get("line"), branch, ahead)
+            if url:
+                item["githubUrl"] = url
     return {
         "name": entry.name,
         "kind": "dir" if entry.is_dir() else "file",
