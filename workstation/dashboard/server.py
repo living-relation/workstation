@@ -55,15 +55,24 @@ def snapshot(lite: bool) -> dict:
 
 
 def with_actions(data: dict) -> dict:
-    """Add the write-action switch and any answer PRs opened from this page (local state, read each call)."""
-    answers = actions.load_answers()
+    """Add the write-action switch, sessions started from this page (local state, read each call) and,
+    once that session has opened it, the PR whose body names the item."""
+    sessions = actions.load_sessions()
     for project in data.get("projects") or []:
+        pr_for = {fp: pr.get("url") for pr in project.get("prs") or [] for fp in pr.get("items") or []}
         for bucket in ("tasks", "blockers", "warnings", "prompts"):
             for item in project.get(bucket) or []:
-                hit = answers.get(f"{project.get('name')}|{item.get('fp')}") if isinstance(item, dict) else None
+                if not isinstance(item, dict):
+                    continue
+                hit = sessions.get(f"{project.get('name')}|{item.get('fp')}")
                 if hit:
-                    item["answerPr"] = hit.get("prUrl")
+                    item["session"] = {k: hit.get(k) for k in ("kind", "name", "startedAt")}
+                if item.get("fp") in pr_for:
+                    item["sessionPr"] = pr_for[item["fp"]]
     return {**data, "canWriteActions": actions.can_write()}
+
+
+ACTIONS = {"/api/item-answer": ("answer", "answer"), "/api/item-hand-off": ("hand-off", "note")}
 
 
 CSRF_HEADER = "X-Workstation-Dashboard"
@@ -276,16 +285,17 @@ class Handler(BaseHTTPRequestHandler):
         if body is None:
             self._json(400, {"error": "expected a small JSON body"})
             return
-        if path == "/api/item-answer":
+        if path in ACTIONS:
             if not self._csrf_ok():
                 self._json(403, {"ok": False, "error": "missing dashboard header or wrong origin"})
                 return
             if not actions.can_write():
                 self._json(403, {"ok": False, "error": "write actions are off on this PC"})
                 return
+            kind, field = ACTIONS[path]
             try:
-                result = actions.record_answer(
-                    str(body.get("project") or ""), str(body.get("fp") or ""), str(body.get("answer") or "")
+                result = actions.launch(
+                    kind, str(body.get("project") or ""), str(body.get("fp") or ""), str(body.get(field) or "")
                 )
             except actions.ActionError as exc:
                 self._json(409, {"ok": False, "error": str(exc)})

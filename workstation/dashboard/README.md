@@ -43,20 +43,23 @@ line only when that project's checkout is on `main` with nothing unpushed; other
 line may not match `main`, so it opens the file's top. An expanded row stays open through the
 15-second refresh.
 
-**Answer a waiting question on the card.** An expanded Waiting row has Yes, No and a text box.
-After you confirm, the dashboard opens a PR in that project's repo and shows its link on the card;
-it never merges. It clones the project's GitHub `main` into a throwaway folder under
-`%LOCALAPPDATA%\Workstation\dashboard\work\` (never your checkout under `active\`), gives the clone
-the same commit hooks your checkout uses, appends `**<name> <date>:** <answer>` to that one row of
-the open-items file (the last table cell, or the end of a bullet), commits, pushes a
-`dashboard/answer-*` branch, opens the PR and deletes the clone. The row is found on `main` by its
-text, so moved lines are fine; if the row's words changed, nothing is written and the page says to
-refresh. Moving the answer into a decisions file is left to that repo's own agent and rules.
-Answers sent from the page are listed in `answers.json` in the same local folder.
+**Hand a row to Claude, or answer a waiting question.** The dashboard never edits a repo itself.
+An expanded row has **Hand to Claude** (with an optional note); a Waiting row has **Yes**, **No** and
+a text box instead. After you confirm, the page starts a new background Claude Code session
+(`claude --bg --name dashboard-<action>-<project> "<task>"`) in that project's folder under
+`active\`. The task holds the row's full text (re-read from the file, not taken from the page),
+your note or answer, and these orders: read the repo's agent guide and rules first and follow them,
+work on a branch, run the checks, open one PR, never merge, and put `Dashboard item: <id>` in the
+PR body. The card then shows "Claude started ..." and, once that PR is open, its link. The session
+does the real work (for an answer: record it where that repo's rules say and update what it
+affects). Output of the launch goes to `launch\` files in the dashboard's local folder (stdin
+closed, no pipes), and the sessions started are listed in `sessions.json` there. Find a session
+with `claude agents`; open it with `claude attach <id>`. Sessions start with your Claude Code
+defaults, including its permission mode.
 
-Write actions are **off** unless this PC has `%LOCALAPPDATA%\Workstation\dashboard\settings.json`
+Actions are **off** unless this PC has `%LOCALAPPDATA%\Workstation\dashboard\settings.json`
 with `{"writeActions": true, "ownerName": "<your name>"}`. That file is local only and never
-committed; a PC without it shows "Answering is off on this PC." Every write request needs the
+committed; a PC without it shows "Actions are off on this PC." Every action request needs the
 login (localhost, or the phone cookie/token), the `X-Workstation-Dashboard: 1` header the page
 sends, and, when the browser sends an Origin, the same host. The older buttons (toggles, Health,
 send) don't check that header yet; that's a later change.

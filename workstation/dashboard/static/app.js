@@ -113,28 +113,42 @@ function ciChip(project) {
   return "";
 }
 
-// Answer box on a "Waiting" row: Yes / No / typed text -> confirm -> PR in that project's repo.
-function answerBox(project, item) {
+// The dashboard never edits a repo: each action starts a Claude session in that project, which
+// makes the changes and opens the PR. The card shows "Claude started" and, once it exists, the PR.
+const KIND_LABEL = { answer: "record your answer", "hand-off": "do this task" };
+
+function sessionLine(item) {
+  if (!item) return "";
+  const pr = item.sessionPr ? ` <a href="${esc(item.sessionPr)}" target="_blank" rel="noopener">${esc(item.sessionPr.replace(/^.*\/pull\//, "PR #"))}</a>` : "";
+  if (!item.session) return pr ? `<p class="answer-done">PR:${pr}</p>` : "";
+  const when = String(item.session.startedAt || "").replace("T", " ").slice(0, 16);
+  return `<p class="answer-done">Claude started to ${esc(KIND_LABEL[item.session.kind] || "work on this")} (${esc(when)} UTC).${pr || " No PR yet."}</p>`;
+}
+
+// Action box: Waiting rows get Yes / No / typed answer; every row gets Hand to Claude with an optional note.
+function actionBox(project, item, answerable) {
   if (!item || !item.fp) return "";
-  if (item.answerPr) return `<p class="answer-done">Answered: <a href="${esc(item.answerPr)}" target="_blank" rel="noopener">${esc(item.answerPr.replace(/^.*\/pull\//, "PR #"))}</a></p>`;
-  if (!canWriteActions) return `<p class="answer-off">Answering is off on this PC.</p>`;
+  const status = sessionLine(item);
+  if (!canWriteActions) return `${status}<p class="answer-off">Actions are off on this PC.</p>`;
+  const kind = answerable ? "answer" : "hand-off";
   const key = `${project}|${item.fp}`;
-  return `<div class="answer" data-project="${esc(project)}" data-fp="${esc(item.fp)}">
-    <button type="button" class="pill sm" data-answer="Yes">Yes</button>
-    <button type="button" class="pill sm" data-answer="No">No</button>
-    <input type="text" class="answer-text" maxlength="500" placeholder="Or type an answer" value="${esc(drafts.get(key) || "")}">
-    <button type="button" class="pill sm send-answer">Send</button>
+  const answers = answerable
+    ? `<button type="button" class="pill sm" data-quick="Yes">Yes</button><button type="button" class="pill sm" data-quick="No">No</button>`
+    : "";
+  return `${status}<div class="answer" data-project="${esc(project)}" data-fp="${esc(item.fp)}" data-kind="${kind}">
+    ${answers}
+    <input type="text" class="answer-text" maxlength="500" placeholder="${answerable ? "Or type an answer" : "Note for Claude (optional)"}" value="${esc(drafts.get(key) || "")}">
+    <button type="button" class="pill sm send-answer">${answerable ? "Send answer" : "Hand to Claude"}</button>
     <span class="answer-msg"></span>
   </div>`;
 }
 
-// A row with more to show is a native <details>: tap expands the full text, the GitHub link and,
-// on Waiting rows, the answer box.
+// A row with more to show is a native <details>: tap expands the full text, the GitHub link and the actions.
 function listItem(project, item, answerable) {
   const text = itemText(item);
   const full = (item && item.textFull) || text;
   const url = item && item.githubUrl;
-  const answer = answerable ? answerBox(project, item) : "";
+  const answer = actionBox(project, item, answerable);
   if (full === text && !url && !answer) return `<li>${esc(text)}</li>`;
   const key = `${project}|${item.fp || item.line}`;
   const more = full !== text ? `<p class="item-full">${esc(full)}</p>` : "";
@@ -147,23 +161,31 @@ function listBlock(title, items, project, answerable) {
   return `<div class="sub-h">${esc(title)}</div><ul>${items.map((item) => listItem(project, item, answerable)).join("")}</ul>`;
 }
 
-async function sendAnswer(box, answer) {
-  const text = String(answer || "").replace(/\s+/g, " ").trim();
+async function sendAction(box, value) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
   const msg = box.querySelector(".answer-msg");
-  if (!text) { msg.textContent = "Type an answer first."; return; }
-  if (!window.confirm(`Open a PR in ${box.dataset.project} that records your answer:\n\n"${text}"\n\nNothing is merged.`)) return;
+  const answer = box.dataset.kind === "answer";
+  if (answer && !text) { msg.textContent = "Type an answer first."; return; }
+  const what = answer ? `record your answer:\n\n"${text}"` : `do this task${text ? ` (your note: "${text}")` : ""}`;
+  if (!window.confirm(`Start Claude in ${box.dataset.project} to ${what}\n\nIt follows that repo's rules and opens a PR. Nothing is merged.`)) return;
   box.querySelectorAll("button, input").forEach((el) => { el.disabled = true; });
-  msg.textContent = "Opening PR…";
+  msg.textContent = "Starting Claude…";
   try {
-    const result = await post("/api/item-answer", { project: box.dataset.project, fp: box.dataset.fp, answer: text });
+    const url = answer ? "/api/item-answer" : "/api/item-hand-off";
+    const result = await post(url, { project: box.dataset.project, fp: box.dataset.fp, [answer ? "answer" : "note"]: text });
     if (result.ok) {
       drafts.delete(`${box.dataset.project}|${box.dataset.fp}`);
-      msg.innerHTML = `PR opened: <a href="${esc(result.prUrl)}" target="_blank" rel="noopener">${esc(result.prUrl)}</a>`;
+      msg.textContent = `Claude started (${result.name}). Its PR shows here once it opens one.`;
+      setTimeout(() => {  // redraw so the card shows the session line (tick skips while buttons are disabled)
+        box.querySelectorAll("button, input").forEach((el) => { el.disabled = false; });
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        tick();
+      }, 2500);
       return;
     }
-    msg.textContent = result.error || "Could not open the PR.";
+    msg.textContent = result.error || "Could not start Claude.";
   } catch (error) {
-    msg.textContent = `Could not open the PR: ${error.message}`;
+    msg.textContent = `Could not start Claude: ${error.message}`;
   }
   box.querySelectorAll("button, input").forEach((el) => { el.disabled = false; });
 }
@@ -253,8 +275,8 @@ function renderBoard(projects) {
     const key = `${box.dataset.project}|${box.dataset.fp}`;
     const input = box.querySelector(".answer-text");
     input.addEventListener("input", () => { if (input.value) drafts.set(key, input.value); else drafts.delete(key); });
-    box.querySelectorAll("[data-answer]").forEach((button) => button.addEventListener("click", () => sendAnswer(box, button.dataset.answer)));
-    box.querySelector(".send-answer").addEventListener("click", () => sendAnswer(box, input.value));
+    box.querySelectorAll("[data-quick]").forEach((button) => button.addEventListener("click", () => sendAction(box, button.dataset.quick)));
+    box.querySelector(".send-answer").addEventListener("click", () => sendAction(box, input.value));
   });
   $("board").querySelectorAll("details[data-key]").forEach((row) => {
     row.addEventListener("toggle", () => {

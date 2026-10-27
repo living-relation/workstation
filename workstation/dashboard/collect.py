@@ -310,6 +310,14 @@ def _uniq(items: list[dict]) -> list[dict]:
     return out
 
 
+DASHBOARD_ITEM = "Dashboard item:"  # a session started from the page puts "Dashboard item: <fp>" in its PR body
+
+
+def dashboard_items(body: str) -> list[str]:
+    """Item fingerprints a PR body names with the dashboard mark (the body itself is never sent to the page)."""
+    return re.findall(re.escape(DASHBOARD_ITEM) + r"\s*`?([0-9a-f]{12})", body or "")
+
+
 def tracker_github_url(slug: str | None, rel: str, line: int | None, branch: str | None, ahead: int | None) -> str | None:
     """Link to a tracker row on GitHub main. The #L anchor is added only when the local checkout is
     main with nothing unpushed; otherwise the local line number may not match main's copy."""
@@ -388,7 +396,7 @@ def _gh_json(slug: str, state: str, limit: int) -> list[dict]:
             "--limit",
             str(limit),
             "--json",
-            "number,title,url,updatedAt,mergedAt,statusCheckRollup",
+            "number,title,url,updatedAt,mergedAt,statusCheckRollup,body",
         ],
         timeout=25,
     )
@@ -769,6 +777,7 @@ def collect_project(entry: Path, lite: bool) -> dict:
                 "title": _clip(str(row.get("title") or ""), 160),
                 "url": row.get("url"),
                 "ci": state,
+                "items": dashboard_items(str(row.get("body") or "")),
             }
             prs.append(item)
             if state == "failure":
