@@ -18,7 +18,16 @@ Local: `http://127.0.0.1:8791/`
 Away from home, the start script also listens on this PC's Tailscale address
 and turns on Tailscale Serve when the tailnet allows it. Neither path is the
 public internet. The script never turns on Tailscale Funnel and never binds
-0.0.0.0. Localhost does not need the token. The tailnet address does.
+0.0.0.0. Localhost does not need the token.
+
+**Phone (tailnet):** use the HTTPS MagicDNS link only
+(`https://<pc>.ts.net/?token=...`). Opening that link sets an HttpOnly `dash`
+cookie (`Secure; SameSite=Lax` on HTTPS) and redirects to `/` without the token, so
+static files and API calls keep working. Plain `http://100.x:8791` is not the
+supported phone bookmark (a `Secure` cookie would not stick on HTTP; the cookie
+omits `Secure` only if somehow opened over plain HTTP). The start script writes
+`%LOCALAPPDATA%\Workstation\dashboard\phone.url` as a Windows Internet
+Shortcut, `phone-link.txt`, and (if `segno` or `qrcode` is installed) `phone-qr.png`.
 
 A token for non-localhost requests is created in
 `%LOCALAPPDATA%\Workstation\dashboard\`. Nothing in that folder is committed.

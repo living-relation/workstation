@@ -14,7 +14,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import collect
 import send
@@ -92,6 +92,44 @@ class Handler(BaseHTTPRequestHandler):
             return True
         return False
 
+    def _https_request(self) -> bool:
+        # Tailscale Serve terminates TLS and sets X-Forwarded-Proto.
+        proto = (self.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip().lower()
+        return proto == "https"
+
+    def _cookie_header(self, token: str) -> str:
+        # Prefer HTTPS (Serve). Secure is set only then so the cookie is not
+        # offered on plain http://100.x. Phone bookmarks should use the HTTPS link.
+        parts = [f"dash={token}", "Path=/", "HttpOnly", "SameSite=Lax"]
+        if self._https_request():
+            parts.append("Secure")
+        return "; ".join(parts)
+
+    def _redirect_strip_token(self, token: str) -> bool:
+        """If ?token= matches, set session cookie and redirect without the token."""
+        if self._local_browser():
+            return False
+        parsed = urlparse(self.path)
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        supplied = (query.get("token") or [""])[0]
+        if not supplied or supplied != token:
+            return False
+        query.pop("token", None)
+        new_query = urlencode(
+            [(key, value) for key, values in query.items() for value in values],
+            doseq=False,
+        )
+        location = parsed.path or "/"
+        if new_query:
+            location = f"{location}?{new_query}"
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Set-Cookie", self._cookie_header(token))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return True
+
     def _json(self, code: int, payload: dict) -> None:
         body = json.dumps(payload).encode("utf-8")
         self.send_response(code)
@@ -132,6 +170,9 @@ class Handler(BaseHTTPRequestHandler):
         return None
 
     def do_GET(self) -> None:  # noqa: N802
+        expected = read_token()
+        if expected and self._redirect_strip_token(expected):
+            return
         if not self._authorized():
             self._json(401, {"error": "token required"})
             return
