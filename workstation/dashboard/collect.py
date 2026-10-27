@@ -265,6 +265,8 @@ def _consume_table(
     question_i = _col(header, "question")
     item_i = _col(header, "item", "topic", "task")
     id_i = _col(header, "#", "id")
+    if section == "parked":
+        return  # parked rows stay off the board, whatever their Status cell says ("Blocked (known limit)")
     if status_i is None and question_i is None:
         names = {h.strip().lower() for h in header}
         if "open" in names or "bucket" in names:
