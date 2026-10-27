@@ -28,10 +28,15 @@ if (-not (Test-Path -LiteralPath $install)) {
 Write-Host ''
 Write-Host "Installing $repo ..." -ForegroundColor Cyan
 Write-Host ''
+# Child process: install.ps1 ends with `exit`, so an in-process `& $install` would
+# skip the pause / exit-code line and can leave $LASTEXITCODE as the earlier git call.
+# Same pattern as install.cmd and as install.ps1 when it runs other scripts that exit.
+$psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+if (-not (Test-Path -LiteralPath $psExe)) { $psExe = 'powershell.exe' }
 if ($null -eq $PassThru -or $PassThru.Count -eq 0) {
-    & $install
+    & $psExe -NoProfile -ExecutionPolicy Bypass -File $install
 } else {
-    & $install @PassThru
+    & $psExe -NoProfile -ExecutionPolicy Bypass -File $install @PassThru
 }
 $code = $LASTEXITCODE
 Write-Host ''
