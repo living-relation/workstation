@@ -140,10 +140,15 @@ def _cell(row: list[str], index: int | None) -> str:
 FULL_LIMIT = 4000  # cap on an item's full text so one huge row can't bloat the snapshot
 
 
+def item_fingerprint(full_text: str) -> str:
+    """Stable ID for a row: survives the row moving to another line, changes when its words change."""
+    return hashlib.sha1(full_text.encode("utf-8")).hexdigest()[:12]
+
+
 def _item(text: str, line: int, limit: int, ident: str = "") -> dict:
-    """One tracker row: a clipped preview, the full text, its 1-based line, and its table ID if any."""
+    """One tracker row: a clipped preview, the full text, its 1-based line, a fingerprint, and its table ID if any."""
     full = _clip(text, FULL_LIMIT)
-    item = {"text": _clip(full, limit), "textFull": full, "line": line}
+    item = {"text": _clip(full, limit), "textFull": full, "line": line, "fp": item_fingerprint(full)}
     if ident:
         item["id"] = ident
     return item
