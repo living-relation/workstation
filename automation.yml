@@ -1,0 +1,160 @@
+# automation.yml: every script, hook and job in this repo, grouped by tool (format: skills/git-checker).
+# Check it (read-only): python skills/git-checker/hooks/registry-check.py
+# Nothing here commits on its own. One CI workflow (state-check) only posts a PR comment. Only gen-inventory writes a tracked file.
+# trigger: manual | git-hook:<name> | agent-hook:<event> | called-by:<id>. "(inferred)" = read from the code, not run.
+generated_patterns: ["**/*.checks.json", "**/*_report.json", "**/*.pdf", "**/*.html", "**/*.xlsx"]
+ignore: ["**/tests/**", "**/test_*.py"]
+handmade: ["workstation/dashboard/static/*.html"]
+automations:
+  - id: state-check
+    script: .github/workflows/state-check.yml
+    helpers: [.github/state-check.sh, .github/registry-check.py]
+    trigger: pr-check
+    reads: [PR diff and body, .state-check-mode, automation.yml]
+    writes: [PR comment only]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: bash .github/state-check.sh origin/main HEAD
+  - id: hook-pre-commit
+    script: .githooks/pre-commit
+    helpers: [scripts/guard-staged.sh, scripts/run-gitleaks.sh]
+    trigger: git-hook:pre-commit
+    reads: [staged changes, .gitleaks-version, .gitleaks.toml, .tools/gitleaks]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: sh .githooks/pre-commit
+  - id: hook-pre-merge-commit
+    script: .githooks/pre-merge-commit
+    helpers: [scripts/guard-staged.sh, scripts/run-gitleaks.sh]
+    trigger: git-hook:pre-merge-commit
+    reads: [staged changes, .gitleaks-version, .gitleaks.toml, .tools/gitleaks]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+  - id: setup
+    script: [setup.ps1, setup.sh]
+    helpers: [scripts/fetch-gitleaks.sh]
+    trigger: manual
+    reads: [.gitleaks-version, pyproject.toml, uv.lock, local.toml.example]
+    writes: [.tools/**, .venv/**, local.toml, git config core.hooksPath]
+    committed: gitignored
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1
+  - id: gen-inventory
+    script: scripts/gen-inventory.py
+    trigger: manual
+    reads: [workstation.lock.yaml]
+    writes: [INVENTORY.md]
+    committed: yes
+    auto_commit: false
+    enabled: true
+    run_cmd: .venv/bin/python scripts/gen-inventory.py
+  - id: install
+    script: install.ps1
+    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/shortcuts/install-shortcuts.ps1]
+    trigger: manual
+    reads: [toolkit.psd1, memory/templates/**, instructions/**, handoff/**, memory/hooks/**, skills/**]
+    writes: [outside the repo (inferred) - LOCALAPPDATA Workstation folder, user .claude settings and hooks, Projects _claude store, shortcuts/*.lnk]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -WhatIf
+  - id: install-admin
+    script: install-admin.ps1
+    trigger: manual
+    reads: [LOCALAPPDATA Workstation config (inferred)]
+    writes: [Windows scheduled tasks (inferred)]
+    committed: no
+    auto_commit: false
+    enabled: true
+  - id: uninstall
+    script: uninstall.ps1
+    trigger: manual
+    reads: [Projects _claude automation-installed-files.txt]
+    writes: [removes only what install.ps1 recorded]
+    committed: no
+    auto_commit: false
+    enabled: true
+  - id: memory-link-guard
+    script: memory/hooks/memory-link-guard.ps1
+    helpers: [memory/hooks/tests/test-memory-link-guard-progress.ps1, memory/hooks/tests/test-memory-link-guard-worktree.ps1]
+    trigger: agent-hook:SessionStart+PreToolUse (installed copy, by install)
+    reads: [user .claude settings, memory junction]
+    writes: [memory junction and project memory folders (outside the repo)]
+    committed: no
+    auto_commit: false
+    enabled: true
+  - id: handoff-hooks
+    script: [handoff/claude/context-guard.ps1, handoff/cursor/handoff-at-80.py]
+    trigger: agent-hook:statusLine+Stop+PreCompact (installed copies, by install)
+    reads: [agent session context usage]
+    writes: [handoff backups outside the repo (inferred)]
+    committed: no
+    auto_commit: false
+    enabled: true
+  - id: workstation-shortcuts
+    script: [workstation/shortcuts/workers-start.ps1, workstation/shortcuts/workers-stop.ps1, workstation/shortcuts/workstation-status.ps1, workstation/shortcuts/dashboard.ps1, workstation/shortcuts/pull.ps1, pull.cmd]
+    helpers: [workstation/shortcuts/workstation-common.ps1, workstation/paths.ps1, workstation/repo-status.ps1, workstation/repo-branch.ps1]
+    trigger: manual
+    reads: [LOCALAPPDATA Workstation workstation.json, project repos (read-only status)]
+    writes: [LOCALAPPDATA Workstation stop flag and logs; pull.cmd/pull.ps1 fast-forward this clone only]
+    committed: no
+    auto_commit: false
+    enabled: true
+  - id: cursor-worker
+    script: workstation/cursor-worker/run-worker.ps1
+    helpers: [workstation/cursor-worker/config.ps1, workstation/cursor-worker/health-check.ps1, workstation/cursor-worker/repair-sqlite.ps1]
+    trigger: called-by:workstation-shortcuts
+    reads: [Cursor agent CLI]
+    writes: [LOCALAPPDATA Workstation cursor-worker logs, state and sqlite cache]
+    committed: no
+    auto_commit: false
+    enabled: true
+  - id: dashboard
+    script: workstation/dashboard/start-dashboard.ps1
+    helpers: [workstation/dashboard/server.py, workstation/dashboard/collect.py, workstation/dashboard/send.py, workstation/dashboard/make_phone_qr.py, workstation/dashboard/test_parse.py, workstation/dashboard/test_phone_cookie.py, workstation/dashboard/test_toggle_api.py]
+    trigger: called-by:workstation-shortcuts
+    reads: [Projects active folder, running Claude/Cursor processes]
+    writes: [local web page only; runtime files under LOCALAPPDATA Workstation (inferred)]
+    committed: no
+    auto_commit: false
+    enabled: true
+  - id: toggles
+    script: workstation/toggles/toggle.ps1
+    helpers: [workstation/toggles/toggles.py, workstation/toggles/check-http.ps1, workstation/toggles/python.ps1, workstation/toggles/remote.ps1, workstation/toggles/stop-port.ps1, workstation/toggles/watcher.ps1, workstation/toggles/watcher.py, workstation/toggles/test_toggles.py]
+    trigger: called-by:dashboard
+    reads: [toggle state, local ports and processes]
+    writes: [starts/stops local services; state under LOCALAPPDATA Workstation (inferred)]
+    committed: no
+    auto_commit: false
+    enabled: true
+  - id: dc-remote
+    script: [workstation/desktop-commander-remote/start-dc-remote.ps1, workstation/desktop-commander-remote/stop-dc-remote.ps1]
+    trigger: called-by:toggles
+    reads: [pinned Desktop Commander version]
+    writes: [LOCALAPPDATA Workstation desktop-commander-remote logs]
+    committed: no
+    auto_commit: false
+    enabled: true
+  - id: tracker
+    script: workstation/tracker/tracker.ps1
+    helpers: [workstation/tracker/tracker-common.ps1, workstation/tracker/tracker-window.ps1]
+    trigger: manual
+    reads: [agent task state (inferred)]
+    writes: [on-screen window only (inferred)]
+    committed: no
+    auto_commit: false
+    enabled: true
+  - id: skill-tools
+    script: [skills/git-checker/git-checker.ps1, skills/git-checker/git-checker.sh, skills/git-checker/hooks/registry-check.py, skills/git-checker/hooks/state-check.sh, skills/iterative-cleaning/refcheck.py]
+    trigger: manual
+    reads: [the repo they are run in (read-only)]
+    writes: [report to the console; registry-check --set edits automation.yml]
+    committed: no
+    auto_commit: false
+    enabled: true
