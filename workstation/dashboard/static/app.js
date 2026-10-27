@@ -1,5 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const openNames = new Set();
+const openItems = new Set(); // "<project>|<line>" of expanded tracker rows, kept across the 15 s re-render
 let light = null;
 
 function esc(value) {
@@ -86,8 +87,13 @@ function renderShortcuts(links) {
   }
 }
 
+// Tracker items are {text, textFull, line, id?, githubUrl?}; plain strings still render (older snapshots).
+function itemText(item) {
+  return typeof item === "string" ? item : (item && item.text) || "";
+}
+
 function lastDone(project) {
-  if (project.completed && project.completed.length) return project.completed[0];
+  if (project.completed && project.completed.length) return itemText(project.completed[0]);
   if (project.merged) return `Merged #${project.merged.number} ${project.merged.title || ""}`;
   if (project.lastCommit) return project.lastCommit.subject || "";
   return "";
@@ -104,9 +110,21 @@ function ciChip(project) {
   return "";
 }
 
-function listBlock(title, items) {
+// A row with more to show is a native <details>: tap expands the full text and the GitHub link.
+function listItem(project, item) {
+  const text = itemText(item);
+  const full = (item && item.textFull) || text;
+  const url = item && item.githubUrl;
+  if (full === text && !url) return `<li>${esc(text)}</li>`;
+  const key = `${project}|${item.line}`;
+  const more = full !== text ? `<p class="item-full">${esc(full)}</p>` : "";
+  const link = url ? `<a class="pill sm" href="${esc(url)}" target="_blank" rel="noopener">Open on GitHub${item.line && url.includes("#L") ? ` (line ${esc(item.line)})` : ""}</a>` : "";
+  return `<li class="item"><details data-key="${esc(key)}"${openItems.has(key) ? " open" : ""}><summary>${esc(text)}</summary>${more}${link}</details></li>`;
+}
+
+function listBlock(title, items, project) {
   if (!items || !items.length) return "";
-  return `<div class="sub-h">${esc(title)}</div><ul>${items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>`;
+  return `<div class="sub-h">${esc(title)}</div><ul>${items.map((item) => listItem(project, item)).join("")}</ul>`;
 }
 
 function mdHtml(text) {
@@ -156,10 +174,10 @@ function projectCard(project) {
   const hasDetail = tasks || blocked || prs.length || (project.warnings || []).length || (project.prompts || []).length || (project.previews || []).length;
   const detail = [
     prs.length ? `<div class="sub-h">Pull requests</div>${prs.map((pr) => `<a class="pr${pr.ci === "failing" || failing.has(pr.url) ? " failing" : ""}" href="${esc(pr.url)}"><span class="num">#${esc(pr.number)}</span><span>${esc(pr.title || "")}</span>${pr.ci ? `<span class="chip">${esc(pr.ci)}</span>` : ""}</a>`).join("")}` : "",
-    listBlock("Tasks", project.tasks),
-    listBlock("Blockers", project.blockers),
-    listBlock("Warnings", project.warnings),
-    listBlock("Waiting", project.prompts),
+    listBlock("Tasks", project.tasks, project.name),
+    listBlock("Blockers", project.blockers, project.name),
+    listBlock("Warnings", project.warnings, project.name),
+    listBlock("Waiting", project.prompts, project.name),
     gallery(project),
   ].join("");
   return `<section class="section${open}" id="${slug(project.name)}" data-project="${esc(project.name)}">
@@ -188,6 +206,12 @@ function renderBoard(projects) {
       button.textContent = isOpen ? "Hide details" : "Show details";
       if (isOpen) openNames.add(card.dataset.project);
       else openNames.delete(card.dataset.project);
+    });
+  });
+  $("board").querySelectorAll("details[data-key]").forEach((row) => {
+    row.addEventListener("toggle", () => {
+      if (row.open) openItems.add(row.dataset.key);
+      else openItems.delete(row.dataset.key);
     });
   });
   $("board").querySelectorAll("img").forEach((img) => {

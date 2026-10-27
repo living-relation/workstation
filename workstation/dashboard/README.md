@@ -36,7 +36,12 @@ The page uses a light card layout: a dark top bar with a Refresh button and one 
 project, summary tiles, a Workstation card (toggles, Health, Process check, shortcuts), then one
 card per project. Each project card shows branch, clean or dirty, CI, open pull
 requests, last completed item, and task and blocker counts. Task text stays
-collapsed until Show details is pressed. Previews are a PDF first page, rendered
+collapsed until Show details is pressed. Inside, tap a task, blocker, warning or waiting row to
+expand it: it shows the row's full text (the list shows the first 300 characters) and an
+**Open on GitHub** link to the project's open-items file on `main`. The link jumps to the row's
+line only when that project's checkout is on `main` with nothing unpushed; otherwise the local
+line may not match `main`, so it opens the file's top. An expanded row stays open through the
+15-second refresh. Previews are a PDF first page, rendered
 markdown, or a large png/jpg/webp. Icons and files that do not decode are
 skipped. A thumbnail opens large and opens the file on this PC.
 

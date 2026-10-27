@@ -85,6 +85,10 @@ button[disabled] { opacity: .45; cursor: not-allowed; transform: none; }
 .sub-h { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #555; margin: 16px 0 8px; }
 .detail ul { margin: 0; padding-left: 18px; font-size: 14px; }
 .detail li { margin: 2px 0; }
+.detail li.item summary { cursor: pointer; }
+.detail li.item summary::marker { color: var(--accent); }
+.detail li.item details[open] { background: var(--soft); border-radius: 12px; padding: 6px 10px 10px; margin: 4px 0; border: 1px solid rgb(23 23 23 / .06); }
+.item-full { margin: 6px 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .pr { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-radius: 12px; background: var(--soft); margin-bottom: 6px; border: 1px solid rgb(23 23 23 / .06); font-size: 14px; }
 .pr.failing { background: var(--err-bg); border-color: rgb(190 18 60 / .25); }
 .pr .num { font-weight: 700; }

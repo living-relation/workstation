@@ -57,16 +57,20 @@ class PictureFilter(unittest.TestCase):
             Path(name).unlink(missing_ok=True)
 
 
+def texts(items: list[dict]) -> list[str]:
+    return [item["text"] for item in items]
+
+
 class ParseTracker(unittest.TestCase):
     def test_rows(self) -> None:
         parsed = collect.parse_tracker(SAMPLE)
-        self.assertTrue(any("Approve the set" in item for item in parsed["prompts"]))
-        self.assertTrue(any(item.startswith("2:") for item in parsed["tasks"]))
-        self.assertTrue(any("measurement" in item for item in parsed["blockers"]))
-        self.assertTrue(any("Gauge note" in item for item in parsed["completed"]))
-        self.assertTrue(any("Landed the pinout" in item for item in parsed["completed"]))
-        self.assertTrue(any("Shield" in item for item in parsed["warnings"]))
-        self.assertFalse(any("Old idea" in item for item in parsed["tasks"]))
+        self.assertTrue(any("Approve the set" in item for item in texts(parsed["prompts"])))
+        self.assertTrue(any(item.startswith("2:") for item in texts(parsed["tasks"])))
+        self.assertTrue(any("measurement" in item for item in texts(parsed["blockers"])))
+        self.assertTrue(any("Gauge note" in item for item in texts(parsed["completed"])))
+        self.assertTrue(any("Landed the pinout" in item for item in texts(parsed["completed"])))
+        self.assertTrue(any("Shield" in item for item in texts(parsed["warnings"])))
+        self.assertFalse(any("Old idea" in item for item in texts(parsed["tasks"])))
 
     def test_path_jail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
