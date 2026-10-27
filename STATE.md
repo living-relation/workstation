@@ -14,6 +14,8 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
 - 2026-10-27: later - the older dashboard POST buttons (toggles, Health, send) don't check the
   `X-Workstation-Dashboard` header yet.
 
+**Last added:** 2026-10-27 root `install.cmd` + `shortcuts\Install.lnk` (same pattern as `pull.cmd` / Pull.lnk). Runs this clone's `install.ps1` with arguments passed through; install behavior unchanged.
+
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27
 **Last cleanup:** 2026-10-27 @ 18ebd4d

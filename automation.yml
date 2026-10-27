@@ -56,7 +56,7 @@ automations:
     run_cmd: .venv/bin/python scripts/gen-inventory.py
   - id: install
     script: install.ps1
-    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/shortcuts/install-shortcuts.ps1]
+    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/shortcuts/install-shortcuts.ps1, workstation/shortcuts/install.ps1, install.cmd]
     trigger: manual
     reads: [toolkit.psd1, memory/templates/**, instructions/**, handoff/**, memory/hooks/**, skills/**]
     writes: [outside the repo (inferred) - LOCALAPPDATA Workstation folder, user .claude settings and hooks, Projects _claude store, shortcuts/*.lnk]
