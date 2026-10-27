@@ -123,10 +123,9 @@ if (Test-Path -LiteralPath $ts) {
         $self = (& $ts status --json | ConvertFrom-Json).Self
         $dns = ([string]$self.DNSName).TrimEnd('.')
         $token = (Get-Content -LiteralPath $tokenFile -Raw).Trim()
-        $phoneLines = @()
+        # Phone bookmark: HTTPS MagicDNS (Secure cookie). Prefer Serve HTTPS over http://100.x.
         if ($env:DASHBOARD_BIND) {
-            $phoneLines += "http://$($env:DASHBOARD_BIND):$port/?token=$token"
-            Write-Host "Phone (tailnet only): http://$($env:DASHBOARD_BIND):$port/"
+            Write-Host "Phone: prefer the HTTPS Tailscale address (not http://$($env:DASHBOARD_BIND):$port/)."
             $alias = (Get-NetAdapter -ErrorAction SilentlyContinue |
                 Where-Object { $_.Name -match 'Tailscale' -or $_.InterfaceDescription -match 'Tailscale' } |
                 Select-Object -First 1).Name
@@ -144,9 +143,22 @@ if (Test-Path -LiteralPath $ts) {
                 }
             }
         }
-        if ($dns) { $phoneLines += "https://$dns/?token=$token" }
-        if ($phoneLines.Count -gt 0) {
-            Set-Content -LiteralPath (Join-Path $state 'phone.url') -Value ($phoneLines -join "`n") -Encoding ascii
+        if ($dns) {
+            $phoneHttps = "https://$dns/?token=$token"
+            Write-Host "Phone (tailnet HTTPS): https://$dns/"
+            # Valid Windows Internet Shortcut so Explorer can open it (plain multi-line text does not).
+            $shortcutBody = "[InternetShortcut]`r`nURL=$phoneHttps`r`n"
+            Set-Content -LiteralPath (Join-Path $state 'phone.url') -Value $shortcutBody -Encoding ascii -NoNewline
+            Set-Content -LiteralPath (Join-Path $state 'phone-link.txt') -Value $phoneHttps -Encoding ascii
+            # Optional QR via make_phone_qr.py; skips quietly if segno/qrcode are missing.
+            $qrPng = Join-Path $state 'phone-qr.png'
+            $qrHelper = Join-Path $here 'make_phone_qr.py'
+            if (Test-Path -LiteralPath $qrHelper) {
+                & $python $qrHelper (Join-Path $state 'phone-link.txt') $qrPng 2>$null
+                if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $qrPng)) {
+                    Write-Host "Phone QR written (scan with the phone; Tailscale must be online)."
+                }
+            }
         }
     } catch { Write-DashWarn 'Could not read the Tailscale name. Localhost still works.' }
 } else {
