@@ -17,7 +17,7 @@
   # Scripts inside the toolkit.
   ShortcutsInstaller = 'shortcuts\install-shortcuts.ps1'
   CommonScript       = 'shortcuts\workstation-common.ps1'
-  PullScript         = ''  # was repo-pull.ps1; do not recreate batch pull
+  PullScript         = 'shortcuts\pull.ps1'  # this clone only; never recreate batch pull-all
   StatusScript       = 'repo-status.ps1'
   WorkerFolder       = 'cursor-worker'
 
@@ -31,6 +31,7 @@
     @{ Name = 'Workers Stop';       Script = 'shortcuts\workers-stop.ps1';       Icon = 131 }
     @{ Name = 'Workstation Status'; Script = 'shortcuts\workstation-status.ps1'; Icon = 23 }
     @{ Name = 'Dashboard';          Script = 'shortcuts\dashboard.ps1';          Icon = 13 }
+    @{ Name = 'Pull';               Script = 'shortcuts\pull.ps1';               Icon = 238 }
     @{ Name = 'Desktop Commander Remote Start'; Script = 'desktop-commander-remote\start-dc-remote.ps1'; Args = '-Show'; Icon = 137 }
     @{ Name = 'Desktop Commander Remote Stop';  Script = 'desktop-commander-remote\stop-dc-remote.ps1';  Icon = 131 }
     # Same commands as the dashboard's Remote toggle and Process check button (toggles\toggles.json).
