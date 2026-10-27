@@ -1,6 +1,8 @@
 const $ = (id) => document.getElementById(id);
 const openNames = new Set();
-const openItems = new Set(); // "<project>|<line>" of expanded tracker rows, kept across the 15 s re-render
+const openItems = new Set(); // "<project>|<fp>" of expanded tracker rows, kept across the 15 s re-render
+const drafts = new Map(); // "<project>|<fp>" -> half-typed answer, kept across the re-render
+let canWriteActions = false; // from the snapshot: write actions are on only where local settings allow
 let light = null;
 
 function esc(value) {
@@ -22,6 +24,7 @@ async function load() {
 
 function render(board) {
   const projects = board.projects || [];
+  canWriteActions = board.canWriteActions === true;
   $("stamp").textContent = board.generatedAt ? `Updated ${board.generatedAt}` : "";
   renderNav(projects);
   renderTiles(projects);
@@ -110,21 +113,81 @@ function ciChip(project) {
   return "";
 }
 
-// A row with more to show is a native <details>: tap expands the full text and the GitHub link.
-function listItem(project, item) {
+// The dashboard never edits a repo: each action starts a Claude session in that project, which
+// makes the changes and opens the PR. The card shows "Claude started" and, once it exists, the PR.
+const KIND_LABEL = { answer: "record your answer", "hand-off": "do this task" };
+
+function sessionLine(item) {
+  if (!item) return "";
+  const pr = item.sessionPr ? ` <a href="${esc(item.sessionPr)}" target="_blank" rel="noopener">${esc(item.sessionPr.replace(/^.*\/pull\//, "PR #"))}</a>` : "";
+  if (!item.session) return pr ? `<p class="answer-done">PR:${pr}</p>` : "";
+  const when = String(item.session.startedAt || "").replace("T", " ").slice(0, 16);
+  return `<p class="answer-done">Claude started to ${esc(KIND_LABEL[item.session.kind] || "work on this")} (${esc(when)} UTC).${pr || " No PR yet."}</p>`;
+}
+
+// Action box: Waiting rows get Yes / No / typed answer; every row gets Hand to Claude with an optional note.
+function actionBox(project, item, answerable) {
+  if (!item || !item.fp) return "";
+  const status = sessionLine(item);
+  if (!canWriteActions) return `${status}<p class="answer-off">Actions are off on this PC.</p>`;
+  const kind = answerable ? "answer" : "hand-off";
+  const key = `${project}|${item.fp}`;
+  const answers = answerable
+    ? `<button type="button" class="pill sm" data-quick="Yes">Yes</button><button type="button" class="pill sm" data-quick="No">No</button>`
+    : "";
+  return `${status}<div class="answer" data-project="${esc(project)}" data-fp="${esc(item.fp)}" data-kind="${kind}">
+    ${answers}
+    <input type="text" class="answer-text" maxlength="500" placeholder="${answerable ? "Or type an answer" : "Note for Claude (optional)"}" value="${esc(drafts.get(key) || "")}">
+    <button type="button" class="pill sm send-answer">${answerable ? "Send answer" : "Hand to Claude"}</button>
+    <span class="answer-msg"></span>
+  </div>`;
+}
+
+// A row with more to show is a native <details>: tap expands the full text, the GitHub link and the actions.
+function listItem(project, item, answerable) {
   const text = itemText(item);
   const full = (item && item.textFull) || text;
   const url = item && item.githubUrl;
-  if (full === text && !url) return `<li>${esc(text)}</li>`;
-  const key = `${project}|${item.line}`;
+  const answer = actionBox(project, item, answerable);
+  if (full === text && !url && !answer) return `<li>${esc(text)}</li>`;
+  const key = `${project}|${item.fp || item.line}`;
   const more = full !== text ? `<p class="item-full">${esc(full)}</p>` : "";
   const link = url ? `<a class="pill sm" href="${esc(url)}" target="_blank" rel="noopener">Open on GitHub${item.line && url.includes("#L") ? ` (line ${esc(item.line)})` : ""}</a>` : "";
-  return `<li class="item"><details data-key="${esc(key)}"${openItems.has(key) ? " open" : ""}><summary>${esc(text)}</summary>${more}${link}</details></li>`;
+  return `<li class="item"><details data-key="${esc(key)}"${openItems.has(key) ? " open" : ""}><summary>${esc(text)}</summary>${more}${link}${answer}</details></li>`;
 }
 
-function listBlock(title, items, project) {
+function listBlock(title, items, project, answerable) {
   if (!items || !items.length) return "";
-  return `<div class="sub-h">${esc(title)}</div><ul>${items.map((item) => listItem(project, item)).join("")}</ul>`;
+  return `<div class="sub-h">${esc(title)}</div><ul>${items.map((item) => listItem(project, item, answerable)).join("")}</ul>`;
+}
+
+async function sendAction(box, value) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  const msg = box.querySelector(".answer-msg");
+  const answer = box.dataset.kind === "answer";
+  if (answer && !text) { msg.textContent = "Type an answer first."; return; }
+  const what = answer ? `record your answer:\n\n"${text}"` : `do this task${text ? ` (your note: "${text}")` : ""}`;
+  if (!window.confirm(`Start Claude in ${box.dataset.project} to ${what}\n\nIt follows that repo's rules and opens a PR. Nothing is merged.`)) return;
+  box.querySelectorAll("button, input").forEach((el) => { el.disabled = true; });
+  msg.textContent = "Starting Claude…";
+  try {
+    const url = answer ? "/api/item-answer" : "/api/item-hand-off";
+    const result = await post(url, { project: box.dataset.project, fp: box.dataset.fp, [answer ? "answer" : "note"]: text });
+    if (result.ok) {
+      drafts.delete(`${box.dataset.project}|${box.dataset.fp}`);
+      msg.textContent = `Claude started (${result.name}). Its PR shows here once it opens one.`;
+      setTimeout(() => {  // redraw so the card shows the session line (tick skips while buttons are disabled)
+        box.querySelectorAll("button, input").forEach((el) => { el.disabled = false; });
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        tick();
+      }, 2500);
+      return;
+    }
+    msg.textContent = result.error || "Could not start Claude.";
+  } catch (error) {
+    msg.textContent = `Could not start Claude: ${error.message}`;
+  }
+  box.querySelectorAll("button, input").forEach((el) => { el.disabled = false; });
 }
 
 function mdHtml(text) {
@@ -177,7 +240,7 @@ function projectCard(project) {
     listBlock("Tasks", project.tasks, project.name),
     listBlock("Blockers", project.blockers, project.name),
     listBlock("Warnings", project.warnings, project.name),
-    listBlock("Waiting", project.prompts, project.name),
+    listBlock("Waiting", project.prompts, project.name, true),
     gallery(project),
   ].join("");
   return `<section class="section${open}" id="${slug(project.name)}" data-project="${esc(project.name)}">
@@ -207,6 +270,13 @@ function renderBoard(projects) {
       if (isOpen) openNames.add(card.dataset.project);
       else openNames.delete(card.dataset.project);
     });
+  });
+  $("board").querySelectorAll(".answer").forEach((box) => {
+    const key = `${box.dataset.project}|${box.dataset.fp}`;
+    const input = box.querySelector(".answer-text");
+    input.addEventListener("input", () => { if (input.value) drafts.set(key, input.value); else drafts.delete(key); });
+    box.querySelectorAll("[data-quick]").forEach((button) => button.addEventListener("click", () => sendAction(box, button.dataset.quick)));
+    box.querySelector(".send-answer").addEventListener("click", () => sendAction(box, input.value));
   });
   $("board").querySelectorAll("details[data-key]").forEach((row) => {
     row.addEventListener("toggle", () => {
@@ -271,6 +341,10 @@ $("light").addEventListener("click", (event) => {
 });
 
 async function tick() {
+  // Don't redraw under someone typing an answer or waiting on a send (it would wipe the box).
+  const active = document.activeElement;
+  if (active && active.closest && active.closest(".answer")) return;
+  if (document.querySelector(".answer button:disabled")) return;
   try {
     await load();
   } catch (error) {
@@ -287,7 +361,8 @@ setInterval(tick, 15000);
 async function post(url, body) {
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    // The dashboard header is the CSRF check on write actions (a cross-site form can't send it).
+    headers: { "Content-Type": "application/json", "X-Workstation-Dashboard": "1" },
     body: JSON.stringify(body || {}),
   });
   return response.json();

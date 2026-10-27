@@ -140,10 +140,15 @@ def _cell(row: list[str], index: int | None) -> str:
 FULL_LIMIT = 4000  # cap on an item's full text so one huge row can't bloat the snapshot
 
 
+def item_fingerprint(full_text: str) -> str:
+    """Stable ID for a row: survives the row moving to another line, changes when its words change."""
+    return hashlib.sha1(full_text.encode("utf-8")).hexdigest()[:12]
+
+
 def _item(text: str, line: int, limit: int, ident: str = "") -> dict:
-    """One tracker row: a clipped preview, the full text, its 1-based line, and its table ID if any."""
+    """One tracker row: a clipped preview, the full text, its 1-based line, a fingerprint, and its table ID if any."""
     full = _clip(text, FULL_LIMIT)
-    item = {"text": _clip(full, limit), "textFull": full, "line": line}
+    item = {"text": _clip(full, limit), "textFull": full, "line": line, "fp": item_fingerprint(full)}
     if ident:
         item["id"] = ident
     return item
@@ -260,6 +265,8 @@ def _consume_table(
     question_i = _col(header, "question")
     item_i = _col(header, "item", "topic", "task")
     id_i = _col(header, "#", "id")
+    if section == "parked":
+        return  # parked rows stay off the board, whatever their Status cell says ("Blocked (known limit)")
     if status_i is None and question_i is None:
         names = {h.strip().lower() for h in header}
         if "open" in names or "bucket" in names:
@@ -301,6 +308,14 @@ def _uniq(items: list[dict]) -> list[dict]:
         seen.add(key)
         out.append(item)
     return out
+
+
+DASHBOARD_ITEM = "Dashboard item:"  # a session started from the page puts "Dashboard item: <fp>" in its PR body
+
+
+def dashboard_items(body: str) -> list[str]:
+    """Item fingerprints a PR body names with the dashboard mark (the body itself is never sent to the page)."""
+    return re.findall(re.escape(DASHBOARD_ITEM) + r"\s*`?([0-9a-f]{12})", body or "")
 
 
 def tracker_github_url(slug: str | None, rel: str, line: int | None, branch: str | None, ahead: int | None) -> str | None:
@@ -381,7 +396,7 @@ def _gh_json(slug: str, state: str, limit: int) -> list[dict]:
             "--limit",
             str(limit),
             "--json",
-            "number,title,url,updatedAt,mergedAt,statusCheckRollup",
+            "number,title,url,updatedAt,mergedAt,statusCheckRollup,body",
         ],
         timeout=25,
     )
@@ -762,6 +777,7 @@ def collect_project(entry: Path, lite: bool) -> dict:
                 "title": _clip(str(row.get("title") or ""), 160),
                 "url": row.get("url"),
                 "ci": state,
+                "items": dashboard_items(str(row.get("body") or "")),
             }
             prs.append(item)
             if state == "failure":
@@ -1347,16 +1363,22 @@ def shortcut_path(name: str) -> Path | None:
     return candidate
 
 
-def project_file(project_name: str, rel: str) -> Path | None:
-    if not project_name or not rel or rel.startswith(("/", "\\")) or ".." in Path(rel).parts:
+def project_dir(project_name: str) -> Path | None:
+    """A direct child folder of active\\ by name, or None (no paths, no escapes)."""
+    if not project_name or any(ch in project_name for ch in "/\\:") or project_name in {".", ".."}:
         return None
     active = Path(load_roots()["active"]).resolve()
     project = (active / project_name).resolve()
-    try:
-        project.relative_to(active)
-    except ValueError:
+    if project.parent != active or not project.is_dir():
         return None
-    if not project.is_dir():
+    return project
+
+
+def project_file(project_name: str, rel: str) -> Path | None:
+    if not project_name or not rel or rel.startswith(("/", "\\")) or ".." in Path(rel).parts:
+        return None
+    project = project_dir(project_name)
+    if project is None:
         return None
     candidate = (project / rel).resolve()
     if not is_allowed_file(project, candidate):

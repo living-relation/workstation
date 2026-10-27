@@ -72,6 +72,11 @@ class ParseTracker(unittest.TestCase):
         self.assertTrue(any("Shield" in item for item in texts(parsed["warnings"])))
         self.assertFalse(any("Old idea" in item for item in texts(parsed["tasks"])))
 
+    def test_parked_table_row_is_never_a_blocker(self) -> None:
+        parked = "## Parked (out of scope)\n\n| # | Item | Status |\n|---|---|---|\n| 9 | Editor runs headless | Blocked (known limit) |\n"
+        parsed = collect.parse_tracker(parked)
+        self.assertEqual([parsed[b] for b in ("tasks", "blockers", "warnings", "prompts", "completed")], [[]] * 5)
+
     def test_path_jail(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

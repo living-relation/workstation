@@ -98,7 +98,7 @@ class SnapshotItems(unittest.TestCase):
         self.assertGreater(len(blocker["textFull"]), len(blocker["text"]))
         self.assertTrue(blocker["githubUrl"].startswith("https://github.com/owner/demo/blob/main/docs/OPEN-ITEMS.md"))
         # Nothing secret-looking rides along in the item.
-        self.assertEqual(set(blocker) - {"text", "textFull", "line", "id", "githubUrl"}, set())
+        self.assertEqual(set(blocker) - {"text", "textFull", "line", "fp", "id", "githubUrl"}, set())
 
 
 if __name__ == "__main__":

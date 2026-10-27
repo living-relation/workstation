@@ -41,7 +41,30 @@ expand it: it shows the row's full text (the list shows the first 300 characters
 **Open on GitHub** link to the project's open-items file on `main`. The link jumps to the row's
 line only when that project's checkout is on `main` with nothing unpushed; otherwise the local
 line may not match `main`, so it opens the file's top. An expanded row stays open through the
-15-second refresh. Previews are a PDF first page, rendered
+15-second refresh.
+
+**Hand a row to Claude, or answer a waiting question.** The dashboard never edits a repo itself.
+An expanded row has **Hand to Claude** (with an optional note); a Waiting row has **Yes**, **No** and
+a text box instead. After you confirm, the page starts a new background Claude Code session
+(`claude --bg --name dashboard-<action>-<project> "<task>"`) in that project's folder under
+`active\`. The task holds the row's full text (re-read from the file, not taken from the page),
+your note or answer, and these orders: read the repo's agent guide and rules first and follow them,
+work on a branch, run the checks, open one PR, never merge, and put `Dashboard item: <id>` in the
+PR body. The card then shows "Claude started ..." and, once that PR is open, its link. The session
+does the real work (for an answer: record it where that repo's rules say and update what it
+affects). Output of the launch goes to `launch\` files in the dashboard's local folder (stdin
+closed, no pipes), and the sessions started are listed in `sessions.json` there. Find a session
+with `claude agents`; open it with `claude attach <id>`. Sessions start with your Claude Code
+defaults, including its permission mode.
+
+Actions are **off** unless this PC has `%LOCALAPPDATA%\Workstation\dashboard\settings.json`
+with `{"writeActions": true, "ownerName": "<your name>"}`. That file is local only and never
+committed; a PC without it shows "Actions are off on this PC." Every action request needs the
+login (localhost, or the phone cookie/token), the `X-Workstation-Dashboard: 1` header the page
+sends, and, when the browser sends an Origin, the same host. The older buttons (toggles, Health,
+send) don't check that header yet; that's a later change.
+
+Previews are a PDF first page, rendered
 markdown, or a large png/jpg/webp. Icons and files that do not decode are
 skipped. A thumbnail opens large and opens the file on this PC.
 
