@@ -99,7 +99,7 @@ automations:
     enabled: true
   - id: workstation-shortcuts
     script: [workstation/shortcuts/workers-start.ps1, workstation/shortcuts/workers-stop.ps1, workstation/shortcuts/workstation-status.ps1, workstation/shortcuts/dashboard.ps1, workstation/shortcuts/pull.ps1, pull.cmd]
-    helpers: [workstation/shortcuts/workstation-common.ps1, workstation/paths.ps1, workstation/repo-status.ps1, workstation/repo-branch.ps1]
+    helpers: [workstation/shortcuts/workstation-common.ps1, workstation/shortcuts/claude-auth-status.ps1, workstation/shortcuts/tests/test-claude-auth-status.ps1, workstation/paths.ps1, workstation/repo-status.ps1, workstation/repo-branch.ps1]
     trigger: manual
     reads: [LOCALAPPDATA Workstation workstation.json, project repos (read-only status)]
     writes: [LOCALAPPDATA Workstation stop flag and logs; pull.cmd/pull.ps1 fast-forward this clone only]

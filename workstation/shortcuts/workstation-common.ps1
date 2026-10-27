@@ -47,6 +47,9 @@ $ClaudeExe = Find-ClaudeExe
 # Branch helpers (base-branch detection, failure reasons).
 . (Join-Path $BridgeRoot 'repo-branch.ps1')
 
+# `claude auth status` JSON parse (join lines, slice first '{' .. last '}').
+. (Join-Path $BridgeShortcuts 'claude-auth-status.ps1')
+
 function Write-Title([string]$t) {
     Write-Host ''
     Write-Host "==== $t ====  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Cyan
@@ -242,11 +245,12 @@ function Show-BridgeStatus {
 }
 
 # Run a command in a background job with a timeout; returns its text output or $null on timeout.
+# Joins output lines with newline. Avoid Out-String: it wraps at host width and can split JSON.
 function Invoke-WithTimeout([scriptblock]$Block, [object[]]$ArgList, [int]$Seconds = 30) {
     $job = Start-Job -ScriptBlock $Block -ArgumentList $ArgList
     try {
-        if (Wait-Job $job -Timeout $Seconds) { return ((Receive-Job $job 2>&1) | Out-String) }
-        return $null
+        if (-not (Wait-Job $job -Timeout $Seconds)) { return $null }
+        return (Get-JoinedText (Receive-Job $job 2>&1))
     } finally { Remove-Job $job -Force -ErrorAction SilentlyContinue }
 }
 
@@ -291,10 +295,15 @@ function Show-Prerequisites {
 
     if ($ClaudeExe) {
         $out = Invoke-WithTimeout { param($c) & $c auth status } @($ClaudeExe) 40
-        $li = $false
-        try { $li = [bool]((ConvertFrom-Json $out).loggedIn) } catch { }
-        if ($li) { Write-Ok "Claude Code CLI: $ClaudeExe - logged in" }
-        else { Write-Bad "Claude Code CLI found ($ClaudeExe) but not logged in (run 'claude' once and sign in)" }
+        if ($null -eq $out) { Write-Warn "Claude Code CLI found ($ClaudeExe) but auth status timed out" }
+        else {
+            $st = Read-ClaudeAuthStatus $out
+            switch ($st.Kind) {
+                'logged-in'  { Write-Ok "Claude Code CLI: $ClaudeExe - logged in" }
+                'logged-out' { Write-Bad "Claude Code CLI found ($ClaudeExe) but not logged in (run 'claude' once and sign in)" }
+                default      { Write-Warn "Claude Code CLI found ($ClaudeExe) but auth status was not parseable ($($st.Hint))" }
+            }
+        }
     } else { Write-Bad "Claude Code CLI (claude.exe) not found (Workers Start needs it for remote control)" }
 
     try {
