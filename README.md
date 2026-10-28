@@ -19,8 +19,9 @@ Stop flag, worker logs and state) live in `%LOCALAPPDATA%\Workstation\`, never i
 **Shortcuts and sign-in links** are generated, never committed (`*.lnk` is gitignored). Their definitions are
 `Shortcuts` and `StartupLinks` in `toolkit.psd1`; `workstation\shortcuts\install-shortcuts.ps1` (run by install.ps1)
 creates them pointing at this clone:
+- `shortcuts\rc\`: one **RC** `<folder>` link and one **Close RC** `<folder>` link per directory in `active\` (a git repo or a plain folder; names starting with a dot are skipped). Generate RC shortcuts rewrites this folder and does not start a session.
 - `shortcuts\`: Workers Start, Workers Stop, Workstation Status, Dashboard, Pull (`git pull --ff-only` of this clone only; or double-click root `pull.cmd`), Install (runs this clone's `install.ps1` with any arguments passed through; or double-click root `install.cmd`), Desktop Commander Remote Start (`-Show`)
-  and Desktop Commander Remote Stop.
+  and Desktop Commander Remote Stop, and Generate RC shortcuts.
 - Startup folder: nothing. Desktop Commander Remote runs only while the dashboard's Remote toggle is on (or from the Remote On / Desktop Commander Remote Start shortcuts); install removes the old `Desktop Commander Remote.lnk` sign-in link (backup first). The Dashboard does not start at sign-in;
   only the Dashboard shortcut starts it.
   A Startup link of the same name is replaced only if it already runs the same script, after a backup to

@@ -6,6 +6,7 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
 3 (hand to Claude) are done; 4 (done / snooze) is next.
 
 ## Open items
+- 2026-10-28: Per-project Claude remote-control shortcuts. After this is on main, run Generate RC shortcuts once on each PC. The links in shortcuts\rc\ are gitignored.
 - 2026-10-27: Feature 4 - **Done** starts Claude through the same launcher with a "mark done / fold
   in" task; **Snooze** hides a row locally for N days (default 7, `snooze.json` in the dashboard's
   local folder, never git).
