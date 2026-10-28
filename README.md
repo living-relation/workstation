@@ -38,11 +38,15 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   (by hand: `link-skills.ps1 [-WhatIf]`). Re-running it removes only its own links whose skill was renamed or removed (the
   link only). CAD skills live in the CAD repo, which links them from its own setup.
   Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching `skills/<name>.zip` for upload to Claude.
-  Zips update automatically: on a same-repo PR that touches skills, a GitHub Action rebuilds them and commits any
-  changes back onto that PR branch. If main's zips are ever stale, the Action opens a PR (it never pushes to main).
-  The local packer is optional (`scripts\pack-skill-zips.ps1` or `bash scripts/pack-skill-zips.sh`; both call
-  `python3 scripts/pack-skill-zips.py`). Zips are deterministic; the packer only treats directories that contain
-  `SKILL.md` as skills and ignores `.zip` files. Limit violations are reported as warnings; skill files are never edited.
+  Zips update automatically: on a same-repo PR that touches skills (and whose head is not main), a GitHub Action
+  rebuilds them and commits any changes back onto that PR branch. If main's zips are ever stale, the Action
+  resets `chore/skill-zips` to `origin/main` and opens or updates that one PR (it never pushes to main).
+  `GITHUB_TOKEN` commits do not start checks; the Action runs `gh workflow run` on the new commit. The owner
+  must leave **Allow GitHub Actions to create and approve pull requests** on, and keep a ruleset on `main`
+  that blocks direct pushes. The local packer is optional (`scripts\pack-skill-zips.ps1` or
+  `bash scripts/pack-skill-zips.sh`; both call `python3 scripts/pack-skill-zips.py`). Zips are deterministic;
+  the packer only treats directories that contain `SKILL.md` as skills and ignores `.zip` files. Limit
+  violations are reported as warnings; skill files are never edited. Untracked `SKILL.md` fails the packer.
 - Ownership notes: `install.ps1` runs `ownership-notes.ps1`, which adds a README.md/AGENTS.md ("owned by the workstation repo")
   to each folder it creates (`%LOCALAPPDATA%\Workstation` and its subfolders, `<Projects>\_claude`, `shortcuts\`). In the shared
   skill folders it adds only `README-workstation.md`, which lists the links this repo owns. Existing files are never changed.

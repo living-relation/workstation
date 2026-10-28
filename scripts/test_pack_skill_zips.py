@@ -226,6 +226,25 @@ class Validate(unittest.TestCase):
             report = pack.pack_all(root)
             self.assertTrue(any("bad-yaml" in w and "YAML" in w for w in report.warnings))
 
+    def test_untracked_skill_md_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_skill(root, "demo-skill", "demo-skill", "Demo.")
+            subprocess.check_call(["git", "init", "-q"], cwd=root)
+            subprocess.check_call(["git", "config", "user.email", "t@t"], cwd=root)
+            subprocess.check_call(["git", "config", "user.name", "t"], cwd=root)
+            subprocess.check_call(["git", "config", "core.hooksPath", "/dev/null"], cwd=root)
+            subprocess.check_call(["git", "commit", "-qm", "init", "--allow-empty"], cwd=root)
+            report = pack.pack_all(root)
+            self.assertTrue(
+                any("demo-skill" in e and "not git-tracked" in e for e in report.errors)
+            )
+            self.assertFalse((root / "demo-skill.zip").is_file())
+            rc = pack.main(["--skills-dir", str(root)])
+            self.assertEqual(rc, 1)
+            rc_strict = pack.main(["--skills-dir", str(root), "--strict"])
+            self.assertEqual(rc_strict, 1)
+
 
 class CommitHelper(unittest.TestCase):
     def test_commits_only_skill_zips(self):
@@ -261,6 +280,32 @@ class CommitHelper(unittest.TestCase):
             ).split()
             self.assertEqual(names, ["skills/demo-skill.zip"])
             self.assertTrue((root / "README").is_file())
+
+    def test_commit_helper_runs_staged_guard(self):
+        script = HERE / "pack-skill-zips-commit.sh"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills = root / "skills"
+            skills.mkdir()
+            subprocess.check_call(["git", "init", "-q"], cwd=root)
+            subprocess.check_call(["git", "config", "user.email", "t@t"], cwd=root)
+            subprocess.check_call(["git", "config", "user.name", "t"], cwd=root)
+            subprocess.check_call(["git", "config", "core.hooksPath", "/dev/null"], cwd=root)
+            write_skill(skills, "demo-skill", "demo-skill", "Demo.")
+            git_track(root)
+            pack.pack_all(skills)
+            subprocess.check_call(["git", "add", "skills/demo-skill"], cwd=root)
+            subprocess.check_call(["git", "commit", "-qm", "skill"], cwd=root)
+            (skills / "huge.zip").write_bytes(b"0" * (1048576 + 1))
+            proc = subprocess.run(
+                ["bash", str(script)],
+                cwd=root,
+                env=os.environ.copy(),
+                text=True,
+                capture_output=True,
+            )
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("guard:", proc.stdout + proc.stderr)
 
 
 if __name__ == "__main__":

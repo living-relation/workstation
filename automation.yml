@@ -1,7 +1,8 @@
 # automation.yml: every script, hook and job in this repo, grouped by tool (format: skills/git-checker).
 # Check it (read-only): python skills/git-checker/hooks/registry-check.py
 # state-check only posts a PR comment. pack-skill-zips auto-commits skills/*.zip onto PR
-# branches (never main; if main is stale it opens a PR). Only gen-inventory writes a tracked file by hand.
+# branches (never main, never if PR head is main; if main is stale it resets chore/skill-zips
+# and force-with-lease that bot branch only). Only gen-inventory writes a tracked file by hand.
 # trigger: manual | git-hook:<name> | agent-hook:<event> | called-by:<id>. "(inferred)" = read from the code, not run.
 generated_patterns: ["**/*.checks.json", "**/*_report.json", "**/*.pdf", "**/*.html", "**/*.xlsx", "skills/*.zip"]
 ignore: ["**/tests/**", "**/test_*.py"]
@@ -161,11 +162,11 @@ automations:
     enabled: true
   - id: pack-skill-zips
     script: .github/workflows/pack-skill-zips.yml
-    helpers: [scripts/pack-skill-zips.py, scripts/pack-skill-zips.sh, scripts/pack-skill-zips.ps1, scripts/pack-skill-zips-commit.sh]
+    helpers: [scripts/pack-skill-zips.py, scripts/pack-skill-zips.sh, scripts/pack-skill-zips.ps1, scripts/pack-skill-zips-commit.sh, scripts/guard-staged.sh, scripts/fetch-gitleaks.sh, scripts/run-gitleaks.sh]
     trigger: pr-check
     reads: [skills/**, scripts/pack-skill-zips.py]
     writes: [skills/*.zip]
     committed: yes
     auto_commit: true
     enabled: true
-    run_cmd: python3 scripts/pack-skill-zips.py
+    run_cmd: python3 scripts/pack-skill-zips.py --strict

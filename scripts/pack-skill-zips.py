@@ -14,7 +14,8 @@ is the packer that Action runs; a local run is optional.
 
 Validation (Claude import limits) is reported as WARN lines; packing still
 happens. A description over 200 characters prints a GitHub ::warning annotation
-and never fails the run. Exit 1 only with --strict on real limit violations.
+and never fails the run. Exit 1 with --strict on real limit violations, and
+always if SKILL.md is not git-tracked.
 """
 from __future__ import annotations
 
@@ -51,6 +52,7 @@ class Report:
         self.removed: list[str] = []
         self.warnings: list[str] = []
         self.soft_warnings: list[str] = []
+        self.errors: list[str] = []
         self.lines: list[str] = []
 
 
@@ -215,6 +217,9 @@ def pack_all(skills_dir: Path) -> Report:
     wanted = {d.name + ".zip" for d in dirs}
 
     for skill in dirs:
+        if not any(rel == "SKILL.md" for rel, _ in iter_skill_files(skill)):
+            report.errors.append(f"{skill.name}: SKILL.md is not git-tracked")
+            continue
         try:
             meta = parse_skill_md(skill / "SKILL.md")
         except ValueError as e:
@@ -275,6 +280,10 @@ def main(argv: list[str] | None = None) -> int:
     for line in report.lines:
         print(line)
     emit_soft_warnings(report, skills_dir)
+    if report.errors:
+        print(f"\n{len(report.errors)} error(s):", file=sys.stderr)
+        for e in report.errors:
+            print(f"ERROR: {e}", file=sys.stderr)
     if report.warnings:
         print(
             f"\n{len(report.warnings)} validation warning(s) (skill content not modified):",
@@ -282,8 +291,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         for w in report.warnings:
             print(f"WARN: {w}", file=sys.stderr)
-    elif not report.packed and not report.removed:
+    elif not report.packed and not report.removed and not report.errors:
         print("no skill folders with SKILL.md found")
+    if report.errors:
+        return 1
     if args.strict and report.warnings:
         return 1
     return 0

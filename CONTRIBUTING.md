@@ -14,9 +14,20 @@ workstation helper scripts.
 secrets, personal paths or data, batch git shortcuts (scripts that pull/push/merge many repos),
 project-specific notes.
 
-**Process:** branch -> PR -> owner's yes. No edits on `main`, no force-push.
+**Process:** branch -> PR -> owner's yes. No edits on `main`, no force-push
+(except the pack-skill-zips Action may `git push --force-with-lease` the
+`chore/skill-zips` bot branch only).
 The pack-skill-zips Action commits `skills/*.zip` onto the PR branch (same-repo PRs
-only). It never pushes to main. If zips on main are stale, it opens or updates a PR.
+only, and never when the PR head is main). It never pushes to main. If zips on
+main are stale, it resets `chore/skill-zips` to `origin/main` and opens or updates
+that one PR.
+
+Owner settings this Action needs (GitHub repo, not in git):
+- Actions → General → **Allow GitHub Actions to create and approve pull requests**
+  (`GITHUB_TOKEN` PRs otherwise get no checks; the Action also runs `gh workflow run`
+  on the new commit).
+- A ruleset on `main` that blocks direct pushes (this Action still refuses to push
+  if a PR head is main).
 
 **Follow each repo's own rules:** read `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, any decisions
 log, hooks and CI gates first. Never bypass a hook or gate (no `--no-verify`, no direct pushes of

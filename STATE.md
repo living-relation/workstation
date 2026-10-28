@@ -6,7 +6,7 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
 3 (hand to Claude) are done; 4 (done / snooze) is next.
 
 ## Open items
-- 2026-10-28: Claude-importable skill zips live at `skills/<name>.zip` (generated, beside the skill folders). A GitHub Action rebuilds them on same-repo PRs that touch skills (commits onto the PR branch, never onto main). If main is stale it opens a PR. Local `scripts/pack-skill-zips.ps1` / `.sh` is optional. Do not edit zips by hand. Skill YAML descriptions were shortened; dropped detail is in each skill's **When to use** section. Description over 200 chars is a `::warning` only (never fails). `deploy-project-watcher` YAML description has no angle-bracket tags; `<project>` placeholders stay in the body.
+- 2026-10-28: Claude-importable skill zips live at `skills/<name>.zip` (generated, beside the skill folders). A GitHub Action rebuilds them on same-repo PRs that touch skills (commits onto the PR branch, never onto main, and never if the PR head is main). If main is stale it resets `chore/skill-zips` to `origin/main` and force-with-lease that bot branch only. Local `scripts/pack-skill-zips.ps1` / `.sh` is optional. Do not edit zips by hand. Skill YAML descriptions were shortened; dropped detail is in each skill's **When to use** section. Description over 200 chars is a `::warning` only (never fails). `deploy-project-watcher` YAML description has no angle-bracket tags; `<project>` placeholders stay in the body. Owner must keep **Allow GitHub Actions to create and approve pull requests** on, and a ruleset on `main` that blocks direct pushes.
 - 2026-10-28: Per-project Claude remote-control shortcuts and per-repo lines in Workstation Status are in PR #55 (https://github.com/living-relation/workstation/pull/55), open. This PC's shortcuts\rc\ links are already generated. After merge, switch this clone back to main. The other PC runs Generate RC shortcuts once after pull.
 - 2026-10-27: Feature 4 - **Done** starts Claude through the same launcher with a "mark done / fold
   in" task; **Snooze** hides a row locally for N days (default 7, `snooze.json` in the dashboard's
@@ -23,7 +23,7 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
   iterative-cleaning and session-start skill zips to Claude desktop, and run Pull + Install on
   both PCs.
 
-**Last added:** 2026-10-28 skill zips auto-rebuilt on PRs; shortened YAML descriptions; 200-char `::warning`; packer uses git-tracked files, yaml.safe_load, ZIP_STORED.
+**Last added:** 2026-10-28 skill-zip Action never pushes when PR head is main; chore branch is reset+force-with-lease; `gh workflow run` after bot commits.
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27

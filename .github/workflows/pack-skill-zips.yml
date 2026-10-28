@@ -1,8 +1,12 @@
 # Rebuild skills/<name>.zip when skill folders change. Never pushes to main.
-# Same-repo PRs: commit changed zips back onto the PR branch.
-# Push to main / workflow_dispatch: if zips are stale, open or update a PR.
-# Retrigger guards: paths exclude **/*.zip, skip github-actions[bot] and [skip ci],
-# and GITHUB_TOKEN events do not start new workflow runs.
+# Same-repo PRs: commit changed zips onto the PR branch (never if head is main).
+# Push to main / workflow_dispatch on main: if zips are stale, reset chore/skill-zips
+# to origin/main and force-with-lease that bot branch only, then open or update the
+# one chore PR.
+# GITHUB_TOKEN pushes and PRs do not start new workflow runs. After a bot commit we
+# `gh workflow run` this workflow on the new ref (verify job). Repo settings the
+# owner must keep on: Actions "Allow GitHub Actions to create and approve pull
+# requests", and a ruleset on main that blocks direct pushes.
 name: pack-skill-zips
 on:
   push:
@@ -28,18 +32,48 @@ on:
       - '.github/workflows/pack-skill-zips.yml'
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: pack-skill-zips-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
-  on-pr:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'github-actions[bot]'
+  verify:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: '3.13'
+      - name: install pyyaml
+        run: pip install 'pyyaml==6.0.2'
+      - name: skip if paused
+        id: enabled
+        run: |
+          en=$(python3 .github/registry-check.py --enabled pack-skill-zips)
+          echo "value=$en" >> "$GITHUB_OUTPUT"
+          echo "pack-skill-zips enabled: $en"
+      - name: test packer
+        if: steps.enabled.outputs.value == 'true'
+        run: python3 scripts/test_pack_skill_zips.py
+      - name: pack --strict
+        if: steps.enabled.outputs.value == 'true'
+        run: python3 scripts/pack-skill-zips.py --strict
+
+  on-pr:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'github-actions[bot]' && github.head_ref != github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -74,21 +108,44 @@ jobs:
         if: steps.enabled.outputs.value == 'true' && steps.skipci.outputs.value != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.head_ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
+          if [ -z "${HEAD_REF}" ]; then
+            echo "HEAD_REF is empty; refusing to push" >&2
+            exit 1
+          fi
+          if [ "$HEAD_REF" = "$DEFAULT_BRANCH" ]; then
+            echo "refusing to push to default branch $DEFAULT_BRANCH" >&2
+            exit 1
+          fi
+          git check-ref-format --branch "$HEAD_REF"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          python3 scripts/pack-skill-zips.py
+          python3 scripts/pack-skill-zips.py --strict
+          bash scripts/fetch-gitleaks.sh
           before=$(git rev-parse HEAD)
-          bash scripts/pack-skill-zips-commit.sh
+          PACK_SKILL_ZIPS_GITLEAKS=1 bash scripts/pack-skill-zips-commit.sh
           if [ "$(git rev-parse HEAD)" != "$before" ]; then
             git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-            git push origin "HEAD:${{ github.head_ref }}"
+            git push origin "HEAD:$HEAD_REF"
+            git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+            if gh workflow list --json name --jq '.[].name' | grep -qx 'pack-skill-zips'; then
+              gh workflow run pack-skill-zips.yml --ref "$HEAD_REF"
+            else
+              echo "pack-skill-zips is not on the default branch yet; skip dispatch"
+            fi
           fi
 
   on-main:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]'))
+    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -118,44 +175,44 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           bot=chore/skill-zips
           git fetch origin main
-          python3 scripts/pack-skill-zips.py
-          stale=0
-          git diff --quiet -- 'skills/*.zip' || stale=1
-          if [ -n "$(git ls-files --others --exclude-standard -- 'skills/*.zip')" ]; then stale=1; fi
-          if [ "$stale" -eq 0 ]; then
-            echo 'Zips on this commit are current; no PR'
-            exit 0
-          fi
-          git reset --hard HEAD
-          git clean -f -- skills
-          open=$(gh pr list --base main --head "$bot" --state open --json number --jq '.[0].number // empty')
-          if [ -n "$open" ]; then
-            git fetch origin "$bot"
-            git checkout -B "$bot" "origin/$bot"
-            git merge --no-edit origin/main
-            python3 scripts/pack-skill-zips.py
-            bash scripts/pack-skill-zips-commit.sh
-            git push origin "$bot"
-            echo "Updated existing PR #$open"
-            exit 0
-          fi
+          git fetch origin "$bot" || true
           git checkout -B "$bot" origin/main
-          python3 scripts/pack-skill-zips.py
-          bash scripts/pack-skill-zips-commit.sh
-          if git diff --quiet origin/main -- 'skills/*.zip'; then
+          python3 scripts/pack-skill-zips.py --strict
+          bash scripts/fetch-gitleaks.sh
+          before=$(git rev-parse HEAD)
+          PACK_SKILL_ZIPS_GITLEAKS=1 bash scripts/pack-skill-zips-commit.sh
+          extras=$(gh pr list --base main --state open --json number,headRefName --jq \
+            '.[] | select(.headRefName | startswith("chore/skill-zips")) | select(.headRefName != "chore/skill-zips") | .number')
+          for n in $extras; do
+            gh pr close "$n" --comment "Superseded by the single $bot branch."
+          done
+          if [ "$(git rev-parse HEAD)" = "$before" ]; then
+            open=$(gh pr list --base main --head "$bot" --state open --json number --jq '.[0].number // empty')
+            if [ -n "$open" ]; then
+              gh pr close "$open" --comment "Zips on main are current."
+            fi
             echo 'Zips on main are current; no PR'
             exit 0
           fi
-          if git push -u origin "$bot"; then
-            :
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git show-ref --verify --quiet "refs/remotes/origin/$bot"; then
+            git push --force-with-lease="refs/heads/${bot}:refs/remotes/origin/${bot}" origin "$bot"
           else
-            bot="chore/skill-zips-${GITHUB_RUN_ID}"
-            git checkout -B "$bot"
             git push -u origin "$bot"
           fi
-          gh pr create --base main --head "$bot" \
-            --title 'chore(skills): rebuild Claude-importable zips' \
-            --body 'Automated rebuild of `skills/<name>.zip`. The Action never pushes to main. Do not edit the zips by hand.'
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          open=$(gh pr list --base main --head "$bot" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            echo "Updated existing PR #$open"
+          else
+            gh pr create --base main --head "$bot" \
+              --title 'chore(skills): rebuild Claude-importable zips' \
+              --body 'Automated rebuild of `skills/<name>.zip`. The Action never pushes to main. Do not edit the zips by hand. Needs the repo setting **Allow GitHub Actions to create and approve pull requests** so this PR gets checks.'
+          fi
+          if gh workflow list --json name --jq '.[].name' | grep -qx 'pack-skill-zips'; then
+            gh workflow run pack-skill-zips.yml --ref "$bot"
+          else
+            echo "pack-skill-zips is not on the default branch yet; skip dispatch"
+          fi
