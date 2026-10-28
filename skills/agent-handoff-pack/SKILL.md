@@ -1,15 +1,14 @@
 ---
 name: agent-handoff-pack
 description: >-
-  Use when the user wants a job written up for another agent or session to pick
-  up: read-only sweep, one self-contained handoff file (repo state, rules and
-  checks, every issue with the tool that made it, leftovers, mistakes not to
-  repeat), then walk the user through open decisions one at a time and record
-  the answers as final for the issue they answer.
+  Use when the user wants a job handed off to another agent or session: read-only sweep, one self-contained handoff file, then walk through open decisions one at a time.
 ---
 # agent-handoff-pack
 
 Purpose: write the handoff, don't do the job. Nothing in the project changes. Every finding is a proposal, never permission to edit.
+
+## When to use
+The handoff file holds repo state, rules and checks, every issue with the tool that made it, leftovers, and mistakes not to repeat. Walk the user through open decisions one at a time and record each answer as final for that issue.
 
 ## Hard rules
 - **Read-only sweep.** Allowed: reading files, `git fetch`, `git status`, `git log`, `git branch -a`, `git worktree list`, `git stash list`. Forbidden in any project copy: edits, commits, pull, stash, checkout, reset, new branches or worktrees, moves, deletes or archiving without the user's yes.

@@ -1,16 +1,14 @@
 ---
 name: git-checker
 description: >-
-  Use when you need to know whether the local clones of the user's repos (on
-  any OS) match the remote main: current branch, ahead/behind
-  origin/main, uncommitted or untracked files, stashes, unmerged branches,
-  worktrees, missing upstreams, stale generated outputs. Any project folder.
-  Read-only: only `git fetch`. Suggests fixes, never applies them. Also holds
-  the warn-only PR state-file hook templates (hooks/).
+  Use to check whether local clones of the user's repos match origin/main: branch, ahead/behind, uncommitted files, stashes, worktrees. Read-only; suggests fixes only.
 ---
 # Git checker
 
 **In one line:** fetch, look, report. Never change a repo.
+
+## When to use
+Any project folder, on any OS. Also reports untracked files, unmerged branches, missing upstreams, and stale generated outputs. Read-only: only `git fetch`. Suggests fixes, never applies them. Also holds the warn-only PR state-file hook templates (`hooks/`).
 
 Works in Grok, Claude Code and Cursor. session-start runs it as its health check. Run alone, it only reports and may suggest `repo-cleanup` or `safe-repo-preflight`.
 

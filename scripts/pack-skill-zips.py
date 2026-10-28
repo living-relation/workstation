@@ -5,33 +5,43 @@ Output: skills/<name>.zip beside the skill folders (not inside them). Each zip
 holds a single top folder named after the skill, with SKILL.md at that folder's
 root plus any supporting files.
 
-Zips are deterministic (sorted entries, fixed timestamps, Unix create_system) so
-an unchanged skill produces byte-identical output. Skill files are never edited.
+Zips are deterministic (sorted entries, fixed timestamps, Unix create_system,
+ZIP_STORED) so an unchanged skill produces byte-identical output. Only
+git-tracked files are packed; dot paths are skipped. Skill files are never edited.
 
 The GitHub Action owns the committed zips (it writes them onto PRs). This script
 is the packer that Action runs; a local run is optional.
 
 Validation (Claude import limits) is reported as WARN lines; packing still
-happens. Exit 1 only with --strict.
+happens. A description over 200 characters prints a GitHub ::warning annotation
+and never fails the run. Exit 1 only with --strict on real limit violations.
 """
 from __future__ import annotations
 
 import argparse
 import io
-import os
 import re
+import stat
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
 
+try:
+    import yaml
+except ImportError as e:  # pragma: no cover
+    raise SystemExit("PyYAML is required (pip install pyyaml)") from e
+
 ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
-NAME_RE = re.compile(r"^[a-z0-9-]{1,64}$")
+# Claude: lowercase letters, numbers, hyphens as separators, max 64 chars.
+NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 TAG_RE = re.compile(r"<[^>]+>")
 RESERVED = ("claude", "anthropic")
-SKIP_DIRS = {".git", "__pycache__", ".venv", "node_modules"}
-SKIP_FILES = {".ds_store", "thumbs.db"}
 DESC_MAX = 1024
+DESC_SOFT = 200
 NAME_MAX = 64
+# Regular file, mode 0644 (includes Unix file-type bits).
+FILE_ATTR = (stat.S_IFREG | 0o644) << 16
 
 
 class Report:
@@ -40,6 +50,7 @@ class Report:
         self.unchanged: list[str] = []
         self.removed: list[str] = []
         self.warnings: list[str] = []
+        self.soft_warnings: list[str] = []
         self.lines: list[str] = []
 
 
@@ -56,74 +67,49 @@ def skill_dirs(skills_dir: Path) -> list[Path]:
     return found
 
 
-def _unquote(val: str) -> str:
-    val = val.strip()
-    if len(val) >= 2 and val[0] == val[-1] and val[0] in "'\"":
-        return val[1:-1]
-    return val
-
-
-def parse_frontmatter_fields(block: str) -> dict[str, str]:
-    """Minimal YAML subset: `key: value` and folded/literal `key: >-` / `|` blocks."""
-    data: dict[str, str] = {}
-    lines = block.splitlines()
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        if not line.strip() or line.lstrip().startswith("#"):
-            i += 1
-            continue
-        if line[0] in " \t":
-            i += 1
-            continue
-        if ":" not in line:
-            i += 1
-            continue
-        key, _, rest = line.partition(":")
-        key = key.strip()
-        rest = rest.strip()
-        if rest in (">", ">-", ">+", "|", "|-", "|+"):
-            folded = rest.startswith(">")
-            strip_final = rest.endswith("-")
-            i += 1
-            chunks: list[str] = []
-            while i < len(lines) and (not lines[i] or lines[i][0] in " \t"):
-                raw = lines[i]
-                if raw.startswith("  "):
-                    chunks.append(raw[2:])
-                elif raw.startswith("\t"):
-                    chunks.append(raw[1:])
-                else:
-                    chunks.append(raw)
-                i += 1
-            if folded:
-                text = " ".join(c.strip() for c in chunks)
-                text = re.sub(r" +", " ", text).strip()
-            else:
-                text = "\n".join(chunks)
-                if strip_final:
-                    text = text.rstrip("\n")
-            data[key] = text
-            continue
-        data[key] = _unquote(rest)
-        i += 1
-    return data
+def git_repo_root(path: Path) -> Path | None:
+    r = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
+        return None
+    return Path(r.stdout.strip())
 
 
 def parse_skill_md(path: Path) -> dict[str, str]:
+    """Parse SKILL.md YAML frontmatter with yaml.safe_load. Raises ValueError on bad YAML."""
     text = path.read_text(encoding="utf-8")
     if not text.startswith("---"):
-        return {}
+        raise ValueError(f"{path}: missing YAML frontmatter")
     rest = text[3:].lstrip("\r\n")
-    # Next --- on its own line ends the frontmatter.
     m = re.search(r"(?m)^---\s*$", rest)
     if not m:
+        raise ValueError(f"{path}: unclosed YAML frontmatter")
+    try:
+        data = yaml.safe_load(rest[: m.start()])
+    except yaml.YAMLError as e:
+        raise ValueError(f"{path}: invalid YAML frontmatter: {e}") from e
+    if data is None:
         return {}
-    return parse_frontmatter_fields(rest[: m.start()])
+    if not isinstance(data, dict):
+        raise ValueError(f"{path}: frontmatter must be a mapping")
+    out: dict[str, str] = {}
+    for k, v in data.items():
+        if v is None:
+            out[str(k)] = ""
+        elif isinstance(v, str):
+            out[str(k)] = v
+        else:
+            out[str(k)] = str(v)
+    return out
 
 
-def validate_skill(skill_dir: Path, meta: dict[str, str]) -> list[str]:
-    warnings = []
+def validate_skill(skill_dir: Path, meta: dict[str, str]) -> tuple[list[str], list[str]]:
+    """Return (limit_warnings, soft_warnings). Soft warnings never fail the run."""
+    warnings: list[str] = []
+    soft: list[str] = []
     folder = skill_dir.name
     name = (meta.get("name") or "").strip()
     desc = meta.get("description") or ""
@@ -135,7 +121,8 @@ def validate_skill(skill_dir: Path, meta: dict[str, str]) -> list[str]:
             warnings.append(f"{folder}: name is {len(name)} chars (max {NAME_MAX})")
         if not NAME_RE.fullmatch(name):
             warnings.append(
-                f"{folder}: name {name!r} must be lowercase letters, numbers and hyphens, max {NAME_MAX} chars"
+                f"{folder}: name {name!r} must be lowercase letters, numbers and hyphens "
+                f"(no leading/trailing hyphen), max {NAME_MAX} chars"
             )
         lower = name.lower()
         for word in RESERVED:
@@ -149,29 +136,58 @@ def validate_skill(skill_dir: Path, meta: dict[str, str]) -> list[str]:
     else:
         if len(desc) > DESC_MAX:
             warnings.append(f"{folder}: description is {len(desc)} chars (max {DESC_MAX})")
+        elif len(desc) > DESC_SOFT:
+            soft.append(
+                f"{folder}: description is {len(desc)} chars (soft limit {DESC_SOFT})"
+            )
         tags = TAG_RE.findall(desc)
         if tags:
             shown = ", ".join(tags[:5])
             warnings.append(f"{folder}: description contains angle-bracket tag(s): {shown}")
-    return warnings
+    return warnings, soft
+
+
+def _is_dot_path(rel: str) -> bool:
+    return any(part.startswith(".") for part in rel.split("/"))
 
 
 def iter_skill_files(skill_dir: Path) -> list[tuple[str, Path]]:
-    """(archive-relative posix path inside the skill folder, file path)."""
+    """Git-tracked files under skill_dir, skipping dot paths. Empty if not a git repo."""
+    root = git_repo_root(skill_dir)
+    if root is None:
+        return []
+    skill_abs = skill_dir.resolve()
+    root_abs = root.resolve()
+    try:
+        prefix = skill_abs.relative_to(root_abs).as_posix()
+    except ValueError:
+        return []
+    r = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z", "--", prefix],
+        capture_output=True,
+        check=False,
+    )
+    if r.returncode != 0:
+        return []
     out: list[tuple[str, Path]] = []
-    for dirpath, dirnames, filenames in os.walk(skill_dir, followlinks=False):
-        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS and not d.startswith("."))
-        for name in sorted(filenames):
-            if name.lower() in SKIP_FILES:
-                continue
-            lower = name.lower()
-            if lower.endswith(".pyc") or lower.endswith(".zip"):
-                continue
-            full = Path(dirpath) / name
-            if not full.is_file() or full.is_symlink():
-                continue
-            rel = full.relative_to(skill_dir).as_posix()
-            out.append((rel, full))
+    for p in r.stdout.decode().split("\0"):
+        if not p:
+            continue
+        full = (root_abs / p).resolve()
+        try:
+            rel = full.relative_to(skill_abs).as_posix()
+        except ValueError:
+            continue
+        if rel in (".", ""):
+            continue
+        if _is_dot_path(rel):
+            continue
+        lower = rel.lower()
+        if lower.endswith(".pyc") or lower.endswith(".zip"):
+            continue
+        if not full.is_file() or full.is_symlink():
+            continue
+        out.append((rel, full))
     out.sort(key=lambda t: t[0])
     return out
 
@@ -179,16 +195,16 @@ def iter_skill_files(skill_dir: Path) -> list[tuple[str, Path]]:
 def build_zip_bytes(skill_dir: Path) -> bytes:
     folder = skill_dir.name
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
         for rel, full in iter_skill_files(skill_dir):
             info = zipfile.ZipInfo(f"{folder}/{rel}")
             info.date_time = ZIP_EPOCH
-            info.compress_type = zipfile.ZIP_DEFLATED
-            info.create_system = 3  # Unix: same bytes on Windows and Linux
-            info.external_attr = 0o644 << 16
+            info.compress_type = zipfile.ZIP_STORED
+            info.create_system = 3
+            info.external_attr = FILE_ATTR
             info.create_version = 20
             info.extract_version = 20
-            zf.writestr(info, full.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+            zf.writestr(info, full.read_bytes(), compress_type=zipfile.ZIP_STORED)
     return buf.getvalue()
 
 
@@ -199,9 +215,14 @@ def pack_all(skills_dir: Path) -> Report:
     wanted = {d.name + ".zip" for d in dirs}
 
     for skill in dirs:
-        meta = parse_skill_md(skill / "SKILL.md")
-        for w in validate_skill(skill, meta):
-            report.warnings.append(w)
+        try:
+            meta = parse_skill_md(skill / "SKILL.md")
+        except ValueError as e:
+            report.warnings.append(f"{skill.name}: {e}")
+            meta = {}
+        hard, soft = validate_skill(skill, meta)
+        report.warnings.extend(hard)
+        report.soft_warnings.extend(soft)
         data = build_zip_bytes(skill)
         dest = skills_dir / f"{skill.name}.zip"
         if dest.is_file() and dest.read_bytes() == data:
@@ -221,6 +242,15 @@ def pack_all(skills_dir: Path) -> Report:
     return report
 
 
+def emit_soft_warnings(report: Report, skills_dir: Path) -> None:
+    """GitHub Actions ::warning annotations; never fail the run."""
+    for w in report.soft_warnings:
+        folder = w.split(":", 1)[0]
+        rel = (skills_dir / folder / "SKILL.md").as_posix()
+        print(f"::warning file={rel}::{w}", file=sys.stderr)
+        print(f"WARN: {w}", file=sys.stderr)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -232,7 +262,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Exit 1 when a skill fails Claude import limits (zips are still written)",
+        help="Exit 1 when a skill fails Claude import limits (zips are still written; "
+        "description-over-200 never fails)",
     )
     args = parser.parse_args(argv)
     repo = Path(__file__).resolve().parent.parent
@@ -243,6 +274,7 @@ def main(argv: list[str] | None = None) -> int:
     report = pack_all(skills_dir)
     for line in report.lines:
         print(line)
+    emit_soft_warnings(report, skills_dir)
     if report.warnings:
         print(
             f"\n{len(report.warnings)} validation warning(s) (skill content not modified):",

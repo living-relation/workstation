@@ -1,9 +1,13 @@
 ---
 name: concise
-description: Use when the user asks for short, plain answers (or turns on concise mode) - simple words, short scannable summaries, no filler or repeats, never longer than one screen. Applies to every reply until the user cancels it.
+description: >-
+  Use when the user asks for short, plain answers or turns on concise mode: simple words, scannable summaries, no filler, one screen max, until cancelled.
 ---
 
 # Concise
+
+## When to use
+Applies to every reply until the user cancels it. No repeats of what a recent reply already said.
 
 Write for fast reading:
 

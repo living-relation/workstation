@@ -1,14 +1,14 @@
 ---
 name: safe-repo-preflight
 description: >-
-  Use before changing, committing or pushing in any of the user's repos: read the
-  repo's own rules, hooks and CI first, work on a branch in your own clone or
-  worktree, run the required checks, open a PR, never bypass hooks or gates,
-  never force-push, and pull ff-only only after a merge you made.
+  Use before changing, committing or pushing in any of the user's repos: read repo rules, hooks and CI, work on a branch, run checks, open a PR, never force-push.
 ---
 # Safe repo preflight
 
 Run before every change, commit or push in any project folder (code, drawings, docs, data).
+
+## When to use
+Read the repo's own rules, hooks and CI first; work on a branch in your own clone or worktree; never bypass hooks or gates; never force-push; pull ff-only only after a merge you made.
 
 ## Steps
 1. **Read the repo's rules first.** Before anything else, read its rules files (AGENTS.md, CLAUDE.md, CONTRIBUTING, DECISIONS), its hooks (`.pre-commit-config.yaml`, `git config core.hooksPath`, `.git/hooks`) and its CI workflows. Follow them. If a planned step would bypass any of them, stop and ask the user. The repo's rules win over this skill.
