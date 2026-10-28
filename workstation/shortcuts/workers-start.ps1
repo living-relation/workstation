@@ -28,9 +28,10 @@ if ($sup) {
     } catch { Write-Bad "could not start supervisor: $($_.Exception.Message)" }
 }
 
-# 2. Claude remote control
-$rc  = Get-RemoteControlProcs $procs
-$rcs = Get-RemoteControlSessions $procs
+# 2. Claude remote control for the projects root. A per-project session is named rc-<folder>
+# and must not count as this one.
+$rc  = @(Select-RcProcs $procs 'workstation-remote-control')
+$rcs = @(Select-ProjectsRootRcSessions (Get-RemoteControlSessions $procs) (Get-RemoteControlStateId))
 if ($rc -or $rcs) {
     Write-Ok 'Claude remote control already running'
 } elseif (-not $ClaudeExe) {

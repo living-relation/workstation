@@ -42,6 +42,8 @@
     # Watcher: off by default, manual only (no scheduled task).
     @{ Name = 'Watcher On';     Script = 'toggles\watcher.ps1'; Args = '-Action on';  Icon = 137 }
     @{ Name = 'Watcher Off';    Script = 'toggles\watcher.ps1'; Args = '-Action off'; Icon = 131 }
+    # One link per project folder under active\ (git repo or plain folder). Output is shortcuts\rc\, gitignored.
+    @{ Name = 'Generate RC shortcuts'; Script = 'shortcuts\rc-generate.ps1'; Icon = 47 }
   )
 
   # Sign-in links that ShortcutsInstaller puts in the user's Startup folder (install.ps1 passes -StartupDir).
