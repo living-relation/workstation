@@ -66,7 +66,16 @@ jobs:
         run: python3 scripts/test_pack_skill_zips.py
       - name: pack --strict
         if: steps.enabled.outputs.value == 'true'
-        run: python3 scripts/pack-skill-zips.py --strict
+        run: |
+          set -euo pipefail
+          python3 scripts/pack-skill-zips.py --strict
+          git diff --exit-code -- 'skills/*.zip'
+          extra=$(git ls-files --others --exclude-standard -- 'skills/*.zip')
+          if [ -n "$extra" ]; then
+            echo "untracked skill zips:" >&2
+            echo "$extra" >&2
+            exit 1
+          fi
 
   on-pr:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'github-actions[bot]' && github.head_ref != github.event.repository.default_branch
