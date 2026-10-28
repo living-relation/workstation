@@ -42,6 +42,7 @@ Works the same in Grok, Claude Code and Cursor, on any project folder. State fil
 Git history is the backup. Before any change, list (read-only) and ask the user **per item**: **commit to a branch** · **push** · **leave alone** (leave-alone items are never touched by the cleanup).
 - Uncommitted changes (`git status --porcelain`, CRLF-only ignored)
 - Untracked files, and ignored files that look like real work (notes, drafts, exports; not build output or caches): `git status --porcelain --ignored`
+- Empty leftover worktree folders, prunable worktrees (registered, folder gone), and untracked notes that point at gone paths. Ask per item; never delete without a yes
 - Local-only branches and unpushed commits (`git branch -vv`, `git rev-list --count origin/<b>..<b>`)
 - Stash entries (`git stash list`): offer "save as a branch" (`git stash branch <name> stash@{n}`) or leave
 Then record in `CLEANUP-PLAN.md`: **Starting commit:** `<hash>` (optionally a lightweight tag `cleanup-start-<date>`, pushed only on a yes). **Rollback:** revert the cleanup PR, or reset a branch to that commit.
@@ -64,6 +65,8 @@ Then record in `CLEANUP-PLAN.md`: **Starting commit:** `<hash>` (optionally a li
 
 ### 3. Save outside-only decisions into the ledger first
 Decisions that live only in chats, memory, email or another machine (session-start lists them as "outside the repo"): add each to the fact ledger (step 4) with where it came from and its date, so it's compared like everything else.
+
+**Files outside the repo that agents load** (a parent-folder `AGENTS.md`, the memory index, and similar): check them against this repo's sources of truth. List needed edits as **Local changes (not in the PR)** in the plan — each needs its own yes, and none of those files go in the cleanup PR. Unsigned memory-index lines are a low-priority cleanliness item: add the missing signature (`-- <agent>, YYYY-MM-DD`); don't rewrite the line.
 
 ### 4. Extract facts (agent does this, not the user)
 Read every agent / state / plan / handoff / task / decision / notes file. If a line looks like it holds an actual secret value (a password, token or key written out, not just a mention such as "login is kept in the credentials file"), log only "possible secret at file:line" and ask about rotating it; never copy the value. Before raising it, confirm the value is really in a tracked file (`git ls-files`); a line that only points to an untracked or external credentials store is not a finding. Pull out **atomic facts**: decisions, rules, open items, specs, status. One row each in the **fact ledger**: `## Fact ledger` in `CLEANUP-PLAN.md` (or a temp file outside the main docs; deleted at the end, git keeps it in the PR history).
@@ -93,12 +96,16 @@ Skipped items stay on the list and keep their current wording in the output, mar
 
 ### 7. Plan the output docs (written in step 12, after the yes)
 Exactly **one doc per type** (keep the repo's existing names if it has them):
-- **Rules / agent doc:** root `AGENTS.md`, short (under ~150 lines), concrete commands, no status or history. `CLAUDE.md` = `@AGENTS.md`. Per-module agent files only where the repo intends them, thin, no rule repeated. Plain `.md` in `.cursor/rules/` is ignored by Cursor; convert to `.mdc` or fold in.
+- **Rules / agent doc:** root `AGENTS.md`, short (under ~150 lines), concrete commands, no status or history. `CLAUDE.md` or `CLAUDE.local.md` must import `@AGENTS.md` (without that import Claude never reads `AGENTS.md`). Per-module agent files only where the repo intends them, thin, no rule repeated. Plain `.md` in `.cursor/rules/` is ignored by Cursor; convert to `.mdc` or fold in.
+  - Every pointer ("see X", "rules live in Y") must land on a heading or file that exists; broken ones go on the fix list.
+  - Mirrored `.claude/rules/*.md` and `.cursor/rules/*.mdc` must have identical bodies; Claude's `paths:` must match Cursor's `globs:` (the field names differ on purpose). A `.claude` rule with no `paths:` loads every session — flag it.
+  - If a read-first step tells agents to read lookup-only content, point at it instead of "read it all". Do not split that content into new files.
 - **`DECISIONS.md`:** one dated line per decision with its source.
 - **`STATE.md`** (or the tracker the repo's rules name, e.g. `docs/OPEN-ITEMS.md`; never add a second one):** current goal on top, status, open items (each dated), `**Last cleanup:**` line.
 Plan to **delete** every source doc whose facts are fully moved. Put the docs to delete into **groups** of similar docs (e.g. old handoffs, superseded plans, merged decision notes) and ask **one yes per group**, listing each doc in the group with a one-line reason; never one yes for the whole plan, and not one question per doc. A no on a group means ask about its docs one by one. Task cards that stay get a `Status:` line. No handoffs in throwaway folders.
 
 ### 8. Account for every fact (before asking for the yes)
+Name exactly one home for current state (the state file in step 7). `AGENTS.md` and memory notes only point to it — they never repeat status.
 Each ledger row ends as exactly one of: **kept** (where), **superseded** (winner ID), **dropped-stale** (reason), **asked** (answer or skipped). Zero rows unaccounted. Counts go in the PR body.
 
 ### 9. Get the yes
@@ -112,7 +119,7 @@ If the approved work splits into **many independent tasks** (e.g. extracting fac
 4. Shared files (`DECISIONS.md`, state file, root `AGENTS.md`) are edited only by the main session.
 
 ### 11. Stale branches and worktrees
-1. List **every** non-main branch (local and remote) and worktree: merged, unmerged and prunable (folder gone). No age rule. One row each: name, last commit (date + subject), merged yes/no, unpushed commits (`git rev-list --count origin/<b>..<b>`, or "no upstream"), open PR if any.
+1. List **every** non-main branch (local and remote) and worktree: merged, unmerged and prunable (folder gone). No age rule. One row each: name, last commit (date + subject), merged yes/no, unpushed commits (`git rev-list --count origin/<b>..<b>`, or "no upstream"), open PR if any. Skip items already decided in 1b.
 2. For each branch, compare its changed files with the cleanup's (`git diff --name-only main...<b>`); flag overlapping or conflicting ones first, since merging both will clash.
 3. Ask the user **per item**: **keep** · **delete** · **save notes first** (copy its unique notes/decisions into `STATE.md`/`DECISIONS.md` on the cleanup branch, then ask delete again).
 4. Delete only on a yes, with normal git: `git branch -d <b>` (refuses unmerged; never `-D` or force for unmerged work), `git worktree remove <path>` (no `--force`), `git worktree prune` for gone folders. Unmerged work or unpushed commits need an explicit "yes, delete unmerged <b>"; save its last commit hash in `CLEANUP-PLAN.md` first (any branch, before deleting).
@@ -122,12 +129,13 @@ If the approved work splits into **many independent tasks** (e.g. extracting fac
 ### 12. Apply
 1. **Check step 1b is done** (starting commit recorded, nothing unsaved except leave-alone items).
 2. **Dry run.** Show the user the exact list of docs written and docs deleted. Wait for yes.
-3. **Apply** on the cleanup branch (via **safe-repo-preflight**): write the step 7 docs, `git rm` the superseded sources.
+3. **Apply** on the cleanup branch (via **safe-repo-preflight**): write the step 7 docs, `git rm` the superseded sources. Rename a heading only after grepping the whole repo for links to it.
 4. **Re-check step 8** on the written docs: every kept fact appears in exactly one output doc; every deleted file is on the approved list (`git diff --name-status <start>`). Then delete the temp ledger (it stays in the PR's history).
 5. Run the repo's required checks.
 
 ### 13. Open one PR
-One PR per repo. Body: fact counts (kept / superseded / dropped-stale / asked / skipped), Superseded (auto) list, docs written and deleted, Ask items still open, starting commit + rollback. Log `PR #N opened` in `## Progress`. Never force-push or skip hooks. Merging is the user's call.
+On the finished branch, re-run the checks in steps 1b, 3, 7 and 8 and report leftovers in the PR body. Prove path-scoped rules load only when intended: a fresh Claude session `/memory` shows the rule not loaded; after opening a matching file, `/context` shows it loaded.
+One PR per repo. Body: fact counts (kept / superseded / dropped-stale / asked / skipped), Superseded (auto) list, docs written and deleted, Ask items still open, leftovers, starting commit + rollback. Log `PR #N opened` in `## Progress`. Never force-push or skip hooks. Merging is the user's call.
 
 ### 14. Finish
 Update the state file: remove "Cleanup needed", note the PR, and write `**Last cleanup:** <date> @ <merge commit>` (fill the commit after merge) so session-start skips full cleanup until something changes. Tell the user what's left on the Ask list.
