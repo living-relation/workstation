@@ -10,6 +10,7 @@ $BridgeProjects  = $WsProjectsRoot
 $BridgeActive    = Join-Path $BridgeProjects 'active'
 $BridgeWorkerDir = Join-Path $BridgeRoot 'cursor-worker'
 $BridgeStopFlag  = $WsStopFlag
+. (Join-Path $BridgeShortcuts 'rc-lib.ps1')
 
 # Claude Code CLI: PATH first (skipping the Claude desktop app's WindowsApps alias), then usual install spots.
 function Find-ClaudeExe {
@@ -156,17 +157,14 @@ function Get-DesktopCommanderRemoteProcs($procs) {
 function Get-ClaudeBgSessions {
     $script:ClaudeAgentsOk = $false
     if (-not $ClaudeExe) { return @() }
-    $list = $null
+    $json = ''
     try {
         $json = (& $ClaudeExe agents --json 2>$null) | Out-String
         if ($LASTEXITCODE -ne 0) { return @() }
-        if ($json.Trim()) { $list = ConvertFrom-Json $json }
     } catch { return @() }
-    # Some versions wrap the list: { "agents": [...] } or { "sessions": [...] }.
-    if ($list -and -not ($list -is [array])) { if ($null -ne $list.agents) { $list = $list.agents } elseif ($null -ne $list.sessions) { $list = $list.sessions } }
     $script:ClaudeAgentsOk = $true
     $out = @()
-    foreach ($s in @($list)) {
+    foreach ($s in @(ConvertFrom-RcAgentsJson $json)) {
         if ($null -eq $s) { continue }
         if ("$($s.state)" -notin @('stopped', 'done', 'failed')) { $out += $s }
     }
@@ -218,10 +216,17 @@ function Show-BridgeStatus {
         else { Write-Off "agent worker not running; $HealthUrl $health" }
     }
 
-    # Claude remote control
-    $rc = Get-RemoteControlProcs $procs
-    $rcs = Get-RemoteControlSessions
-    if ($rc -or $rcs) {
+    # Claude remote control, one line per session, labeled by repo.
+    $rc = @(Get-RemoteControlProcs $procs)
+    $rcs = @(Get-RemoteControlSessions $procs)
+    $rows = @()
+    if ($rc -or $rcs) { $rows = @(Get-RcStatusRows $rcs $rc $BridgeProjects) }
+    if ($rows) {
+        foreach ($row in $rows) {
+            if ($row.Detail) { Write-Ok "Claude remote control: $($row.Label) ($($row.Detail))" }
+            else { Write-Ok "Claude remote control: $($row.Label)" }
+        }
+    } elseif ($rc -or $rcs) {
         $parts = @()
         if ($rc)  { $parts += "process pid $(Format-Pids $rc)" }
         if ($rcs) { $parts += 'session ' + ((@($rcs) | ForEach-Object { "$($_.id) [$($_.state)]" }) -join ', ') }

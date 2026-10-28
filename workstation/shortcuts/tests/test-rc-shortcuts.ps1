@@ -97,6 +97,25 @@ Remove-Item -LiteralPath $links -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $cfg -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $cfgRoot -Recurse -Force -ErrorAction SilentlyContinue
 
+$root = 'C:\rc-status-test'
+Check 'repo from cwd' (Get-RcRepoLabel 'C:\rc-status-test\active\st185-link-ecu-config' 'rc-st185-link-ecu-config' $root) 'st185-link-ecu-config'
+Check 'projects root from cwd' (Get-RcRepoLabel 'C:\rc-status-test' 'workstation-remote-control' $root) 'projects root'
+Check 'repo from rc name' (Get-RcRepoLabel '' 'rc-handbuilt-cad' $root) 'handbuilt-cad'
+Check 'workers name is projects root' (Get-RcRepoLabel '' 'workstation-remote-control' $root) 'projects root'
+Check 'active-other is not under active' (Get-RcRepoLabel 'C:\rc-status-test\active-other' '' $root) 'active-other'
+$sessions = @(
+    [pscustomobject]@{ id='aaa11111'; sessionId='aaa11111-1111-1111-1111-111111111111'; name='rc-st185-link-ecu-config'; cwd='C:\rc-status-test\active\st185-link-ecu-config'; state='blocked' }
+    [pscustomobject]@{ id='bbb22222'; sessionId='bbb22222-2222-2222-2222-222222222222'; name='workstation-remote-control'; cwd='C:\rc-status-test'; state='blocked' }
+)
+$hostProc = [pscustomobject]@{ ProcessId = 10; CommandLine = 'claude.exe --bg-pty-host -- claude.exe --session-id aaa11111-1111-1111-1111-111111111111 --remote-control --name rc-st185-link-ecu-config' }
+$childProc = [pscustomobject]@{ ProcessId = 11; CommandLine = 'claude.exe --session-id aaa11111-1111-1111-1111-111111111111 --remote-control --name rc-st185-link-ecu-config' }
+$onlyProc = [pscustomobject]@{ ProcessId = 12; CommandLine = 'claude.exe --session-id ccc33333-3333-3333-3333-333333333333 --remote-control --name rc-resume-genie' }
+$rows = @(Get-RcStatusRows $sessions @($hostProc, $childProc, $onlyProc) $root)
+Check 'one row per session' $rows.Count '3'
+Check 'labels by repo' ((@($rows) | ForEach-Object { $_.Label }) -join ',') 'projects root,resume-genie,st185-link-ecu-config'
+$st = @($rows | Where-Object { $_.Label -eq 'st185-link-ecu-config' })[0]
+Check 'st185 line names the session' ($st.Detail -like '*rc-st185-link-ecu-config*session aaa11111*blocked*') 'True'
+
 if ($fail -gt 0) { Write-Error "$fail test(s) failed"; exit 1 }
 'OK'
 exit 0

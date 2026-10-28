@@ -187,3 +187,82 @@ function Write-RcShortcuts {
     $result.Errors = @($errors)
     return $result
 }
+# --name / --session-id value on a claude command line. rc-foo does not match inside rc-foobar.
+function Get-RcCommandValue([string]$Cmd, [string]$Flag) {
+    if (-not $Cmd -or -not $Flag) { return '' }
+    $esc = [regex]::Escape($Flag)
+    if ($Cmd -match "(^|\s)$esc(?:=|\s+)(\S+)") { return $Matches[2] }
+    return ''
+}
+
+# Folder name for a remote-control session. A cwd under active\<folder> wins.
+# The Workers Start session lives in the projects root.
+function Get-RcRepoLabel([string]$Cwd, [string]$SessionName, [string]$ProjectsRoot) {
+    $path = Normalize-RcPath $Cwd
+    $root = Normalize-RcPath $ProjectsRoot
+    $active = ''
+    if ($root) { $active = Normalize-RcPath ([IO.Path]::Combine($root, 'active')) }
+    if ($path -and $active) {
+        $prefix = $active + '\'
+        if ($path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+            $leaf = ($path.Substring($prefix.Length) -split '\\', 2)[0]
+            if ($leaf) { return $leaf }
+        }
+    }
+    if ($path -and $root -and ($path -ieq $root)) { return 'projects root' }
+    if ($SessionName -match '^rc-(.+)$') { return $Matches[1] }
+    if ($SessionName -eq 'workstation-remote-control') { return 'projects root' }
+    if ($path) {
+        $leaf = Split-Path $path -Leaf
+        if ($leaf) { return $leaf }
+    }
+    if ($SessionName) { return $SessionName }
+    return 'unknown'
+}
+
+# One row per remote-control session: Label is the repo, Detail is name, id, and state.
+# The PTY host is not its own row. A process is skipped when its session was already listed.
+function Get-RcStatusRows($Sessions, $Procs, [string]$ProjectsRoot) {
+    $rows = New-Object System.Collections.Generic.List[object]
+    $seenId = @{}
+    $seenName = @{}
+    foreach ($s in @($Sessions)) {
+        if (-not $s) { continue }
+        $name = "$($s.name)".Trim()
+        $full = "$($s.sessionId)".Trim()
+        $id = Get-RcStopId $s
+        if ($full -and $seenId.ContainsKey($full)) { continue }
+        if ($id -and $seenId.ContainsKey($id)) { continue }
+        if ($name -and $seenName.ContainsKey($name.ToLower())) { continue }
+        if ($full) { $seenId[$full] = $true }
+        if ($id) { $seenId[$id] = $true }
+        if ($name) { $seenName[$name.ToLower()] = $true }
+        $bits = @()
+        if ($name) { $bits += $name }
+        if ($id) { $bits += "session $id" }
+        $state = "$($s.state)".Trim()
+        if ($state) { $bits += $state }
+        $rows.Add([pscustomobject]@{ Label = (Get-RcRepoLabel "$($s.cwd)" $name $ProjectsRoot); Detail = ($bits -join ', ') })
+    }
+    foreach ($p in @($Procs)) {
+        $cmd = "$($p.CommandLine)"
+        if ($cmd -match '--bg-pty-host') { continue }
+        if ($cmd -notmatch '(^|\s)--remote-control(=|\s|$)') { continue }
+        $name = Get-RcCommandValue $cmd '--name'
+        $full = Get-RcCommandValue $cmd '--session-id'
+        $short = ''
+        if ($full -and $full.Length -ge 8) { $short = $full.Substring(0, 8) }
+        if ($full -and $seenId.ContainsKey($full)) { continue }
+        if ($short -and $seenId.ContainsKey($short)) { continue }
+        if ($name -and $seenName.ContainsKey($name.ToLower())) { continue }
+        if ($full) { $seenId[$full] = $true }
+        if ($short) { $seenId[$short] = $true }
+        if ($name) { $seenName[$name.ToLower()] = $true }
+        $bits = @()
+        if ($name) { $bits += $name }
+        if ($short) { $bits += "session $short" }
+        $detail = if ($bits) { $bits -join ', ' } else { "pid $($p.ProcessId)" }
+        $rows.Add([pscustomobject]@{ Label = (Get-RcRepoLabel '' $name $ProjectsRoot); Detail = $detail })
+    }
+    return @($rows.ToArray() | Sort-Object Label, Detail)
+}
