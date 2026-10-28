@@ -158,13 +158,15 @@ function Get-ClaudeBgSessions {
     $script:ClaudeAgentsOk = $false
     if (-not $ClaudeExe) { return @() }
     $json = ''
+    $list = @()
     try {
         $json = (& $ClaudeExe agents --json 2>$null) | Out-String
         if ($LASTEXITCODE -ne 0) { return @() }
+        $list = @(ConvertFrom-RcAgentsJson $json)
     } catch { return @() }
     $script:ClaudeAgentsOk = $true
     $out = @()
-    foreach ($s in @(ConvertFrom-RcAgentsJson $json)) {
+    foreach ($s in $list) {
         if ($null -eq $s) { continue }
         if ("$($s.state)" -notin @('stopped', 'done', 'failed')) { $out += $s }
     }

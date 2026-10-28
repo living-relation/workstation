@@ -116,6 +116,21 @@ Check 'labels by repo' ((@($rows) | ForEach-Object { $_.Label }) -join ',') 'pro
 $st = @($rows | Where-Object { $_.Label -eq 'st185-link-ecu-config' })[0]
 Check 'st185 line names the session' ($st.Detail -like '*rc-st185-link-ecu-config*session aaa11111*blocked*') 'True'
 
+Check 'empty JSON array is zero sessions' (@(ConvertFrom-RcAgentsJson '[]').Count) '0'
+$bad = 'no throw'
+try { [void](ConvertFrom-RcAgentsJson 'agents listed: none'); $bad = 'no throw' } catch { $bad = 'threw' }
+Check 'non-JSON text throws' $bad 'threw'
+$broken = 'no throw'
+try { [void](ConvertFrom-RcAgentsJson '{not json'); $broken = 'no throw' } catch { $broken = 'threw' }
+Check 'broken JSON throws' $broken 'threw'
+$mix = @(
+    [pscustomobject]@{ name = 'rc-foo'; sessionId = 'aaa'; id = 'aaa'; cwd = 'C:\work\foo'; state = 'blocked' }
+    [pscustomobject]@{ name = 'workstation-remote-control'; sessionId = 'bbb'; id = 'bbb'; cwd = 'C:\work'; state = 'blocked' }
+)
+$rootOnly = @(Select-ProjectsRootRcSessions $mix '')
+Check 'projects-root filter count' $rootOnly.Count '1'
+Check 'projects-root filter name' $rootOnly[0].name 'workstation-remote-control'
+
 if ($fail -gt 0) { Write-Error "$fail test(s) failed"; exit 1 }
 'OK'
 exit 0

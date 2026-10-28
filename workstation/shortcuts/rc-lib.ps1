@@ -65,21 +65,21 @@ function ConvertFrom-RcAgentsJson([string]$Text) {
     $startObj = $text.IndexOf('{')
     if ($startArr -ge 0 -and ($startObj -lt 0 -or $startArr -lt $startObj)) { $json = $text.Substring($startArr) }
     elseif ($startObj -ge 0) { $json = $text.Substring($startObj) }
-    else { return @() }
+    else { throw 'no JSON array or object in claude agents output' }
     $end = [Math]::Max($json.LastIndexOf(']'), $json.LastIndexOf('}'))
     if ($end -ge 0) { $json = $json.Substring(0, $end + 1) }
-    try { $parsed = $json | ConvertFrom-Json } catch { return @() }
+    $parsed = $json | ConvertFrom-Json -ErrorAction Stop
     if ($null -eq $parsed) { return @() }
     $names = @($parsed.PSObject.Properties.Name)
-    $items = New-Object System.Collections.Generic.List[object]
+    $items = @()
     if ($parsed -is [System.Array]) {
-        foreach ($item in $parsed) { if ($null -ne $item) { $items.Add($item) } }
+        foreach ($item in $parsed) { if ($null -ne $item) { $items += $item } }
     } elseif (($names -contains 'agents') -and $null -ne $parsed.agents -and ($names -notcontains 'cwd')) {
-        foreach ($item in $parsed.agents) { if ($null -ne $item) { $items.Add($item) } }
+        foreach ($item in $parsed.agents) { if ($null -ne $item) { $items += $item } }
     } elseif (($names -contains 'sessions') -and $null -ne $parsed.sessions -and ($names -notcontains 'cwd')) {
-        foreach ($item in $parsed.sessions) { if ($null -ne $item) { $items.Add($item) } }
-    } else { $items.Add($parsed) }
-    return $items.ToArray()
+        foreach ($item in $parsed.sessions) { if ($null -ne $item) { $items += $item } }
+    } else { $items += $parsed }
+    return @($items)
 }
 
 # Sessions for this folder and this shortcut's name. Stopped ones are already gone.
@@ -137,11 +137,11 @@ function Write-RcShortcuts {
         [Parameter(Mandatory = $true)][string]$OpenScript,
         [Parameter(Mandatory = $true)][string]$CloseScript
     )
-    $errors = New-Object System.Collections.Generic.List[string]
+    $errors = @()
     $result = @{ Ok = $true; Projects = 0; Created = 0; Updated = 0; Removed = 0; Errors = @() }
-    if (-not (Test-Path -LiteralPath $OpenScript -PathType Leaf)) { $errors.Add("missing $OpenScript") }
-    if (-not (Test-Path -LiteralPath $CloseScript -PathType Leaf)) { $errors.Add("missing $CloseScript") }
-    if (-not (Test-Path -LiteralPath $ActiveDir -PathType Container)) { $errors.Add("project folder not found: $ActiveDir") }
+    if (-not (Test-Path -LiteralPath $OpenScript -PathType Leaf)) { $errors += "missing $OpenScript" }
+    if (-not (Test-Path -LiteralPath $CloseScript -PathType Leaf)) { $errors += "missing $CloseScript" }
+    if (-not (Test-Path -LiteralPath $ActiveDir -PathType Container)) { $errors += "project folder not found: $ActiveDir" }
     if ($errors.Count) { $result.Ok = $false; $result.Errors = @($errors); return $result }
 
     if (-not (Test-Path -LiteralPath $LinkDir)) { New-Item -ItemType Directory -Path $LinkDir -Force | Out-Null }
@@ -172,9 +172,9 @@ function Write-RcShortcuts {
                 $check = $wsh.CreateShortcut($lnkPath)
                 $leaf = [IO.Path]::GetFileName($pair.Script)
                 $ok = ($check.TargetPath -ieq $psExe) -and ($check.Arguments -like "*$leaf*") -and ($check.Arguments -like "*$($p.FullName)*") -and ($check.WorkingDirectory -ieq $p.FullName)
-                if (-not $ok) { $errors.Add("read-back failed for $($pair.Link)"); continue }
+                if (-not $ok) { $errors += "read-back failed for $($pair.Link)"; continue }
                 if ($existed) { $result.Updated++ } else { $result.Created++ }
-            } catch { $errors.Add("$($pair.Link): $($_.Exception.Message)") }
+            } catch { $errors += "$($pair.Link): $($_.Exception.Message)" }
         }
     }
     foreach ($f in @(Get-ChildItem -LiteralPath $LinkDir -Filter *.lnk -File -ErrorAction SilentlyContinue)) {
@@ -223,7 +223,7 @@ function Get-RcRepoLabel([string]$Cwd, [string]$SessionName, [string]$ProjectsRo
 # One row per remote-control session: Label is the repo, Detail is name, id, and state.
 # The PTY host is not its own row. A process is skipped when its session was already listed.
 function Get-RcStatusRows($Sessions, $Procs, [string]$ProjectsRoot) {
-    $rows = New-Object System.Collections.Generic.List[object]
+    $rows = @()
     $seenId = @{}
     $seenName = @{}
     foreach ($s in @($Sessions)) {
@@ -242,7 +242,7 @@ function Get-RcStatusRows($Sessions, $Procs, [string]$ProjectsRoot) {
         if ($id) { $bits += "session $id" }
         $state = "$($s.state)".Trim()
         if ($state) { $bits += $state }
-        $rows.Add([pscustomobject]@{ Label = (Get-RcRepoLabel "$($s.cwd)" $name $ProjectsRoot); Detail = ($bits -join ', ') })
+        $rows += [pscustomobject]@{ Label = (Get-RcRepoLabel "$($s.cwd)" $name $ProjectsRoot); Detail = ($bits -join ', ') }
     }
     foreach ($p in @($Procs)) {
         $cmd = "$($p.CommandLine)"
@@ -262,7 +262,15 @@ function Get-RcStatusRows($Sessions, $Procs, [string]$ProjectsRoot) {
         if ($name) { $bits += $name }
         if ($short) { $bits += "session $short" }
         $detail = if ($bits) { $bits -join ', ' } else { "pid $($p.ProcessId)" }
-        $rows.Add([pscustomobject]@{ Label = (Get-RcRepoLabel '' $name $ProjectsRoot); Detail = $detail })
+        $rows += [pscustomobject]@{ Label = (Get-RcRepoLabel '' $name $ProjectsRoot); Detail = $detail }
     }
-    return @($rows.ToArray() | Sort-Object Label, Detail)
+    return @($rows | Sort-Object Label, Detail)
+}
+
+# The projects-root session Workers Start owns. Per-project sessions are named rc-<folder>.
+function Select-ProjectsRootRcSessions($Sessions, [string]$SavedId) {
+    $name = 'workstation-remote-control'
+    @($Sessions | Where-Object {
+        $_ -and (("$($_.name)" -eq $name) -or ($SavedId -and "$($_.sessionId)" -eq $SavedId))
+    })
 }
