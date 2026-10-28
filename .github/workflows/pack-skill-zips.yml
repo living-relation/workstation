@@ -1,8 +1,8 @@
-# Rebuild skills/<name>.zip on main when skill folders change.
-# Zip-only commits must not retrigger this: paths exclude **/*.zip, skip github-actions[bot]
-# and [skip ci]. GitHub also does not start new workflows from GITHUB_TOKEN pushes.
-# Does not bypass branch protection. If main later requires a PR, this push step will fail;
-# switch it to opening a PR instead of adding a protection bypass.
+# Rebuild skills/<name>.zip when skill folders change. Never pushes to main.
+# Same-repo PRs: commit changed zips back onto the PR branch.
+# Push to main / workflow_dispatch: if zips are stale, open or update a PR.
+# Retrigger guards: paths exclude **/*.zip, skip github-actions[bot] and [skip ci],
+# and GITHUB_TOKEN events do not start new workflow runs.
 name: pack-skill-zips
 on:
   push:
@@ -13,6 +13,7 @@ on:
       - 'scripts/pack-skill-zips.py'
       - 'scripts/pack-skill-zips.sh'
       - 'scripts/pack-skill-zips.ps1'
+      - 'scripts/pack-skill-zips-commit.sh'
       - 'scripts/test_pack_skill_zips.py'
       - '.github/workflows/pack-skill-zips.yml'
   pull_request:
@@ -22,20 +23,62 @@ on:
       - 'scripts/pack-skill-zips.py'
       - 'scripts/pack-skill-zips.sh'
       - 'scripts/pack-skill-zips.ps1'
+      - 'scripts/pack-skill-zips-commit.sh'
       - 'scripts/test_pack_skill_zips.py'
       - '.github/workflows/pack-skill-zips.yml'
   workflow_dispatch:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
-  group: pack-skill-zips-${{ github.event_name }}
+  group: pack-skill-zips-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
-  pack:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || (github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]'))
+  on-pr:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - name: skip if paused
+        id: enabled
+        run: |
+          en=$(python3 .github/registry-check.py --enabled pack-skill-zips)
+          echo "value=$en" >> "$GITHUB_OUTPUT"
+          echo "pack-skill-zips enabled: $en"
+      - name: skip [skip ci] head commit
+        if: steps.enabled.outputs.value == 'true'
+        id: skipci
+        run: |
+          if git log -1 --format=%B | grep -Fq '[skip ci]'; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+            echo "head commit has [skip ci]; not committing"
+          else
+            echo "value=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: test packer
+        if: steps.enabled.outputs.value == 'true'
+        run: python3 scripts/test_pack_skill_zips.py
+      - name: rebuild and commit zips onto this PR branch
+        if: steps.enabled.outputs.value == 'true' && steps.skipci.outputs.value != 'true'
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          python3 scripts/pack-skill-zips.py
+          before=$(git rev-parse HEAD)
+          bash scripts/pack-skill-zips-commit.sh
+          if [ "$(git rev-parse HEAD)" != "$before" ]; then
+            git push origin "HEAD:${{ github.head_ref }}"
+          fi
+
+  on-main:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,32 +93,46 @@ jobs:
       - name: test packer
         if: steps.enabled.outputs.value == 'true'
         run: python3 scripts/test_pack_skill_zips.py
-      - name: rebuild zips
+      - name: open or update a PR if zips are stale
         if: steps.enabled.outputs.value == 'true'
-        run: python3 scripts/pack-skill-zips.py
-      - name: commit changed zips
-        if: steps.enabled.outputs.value == 'true' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          bot=chore/skill-zips
           git fetch origin main
-          git merge --ff-only origin/main
           python3 scripts/pack-skill-zips.py
-          shopt -s nullglob
-          zips=(skills/*.zip)
-          if ((${#zips[@]})); then git add --force -- "${zips[@]}"; fi
-          deleted=$(git diff --name-only --diff-filter=D -- skills | grep -E '^skills/[^/]+\.zip$' || true)
-          if [ -n "$deleted" ]; then printf '%s\n' "$deleted" | xargs git add --; fi
-          if git diff --cached --quiet; then
-            echo 'No skill zip changes'
+          if git diff --quiet -- 'skills/*.zip' && [ -z "$(git ls-files --others --exclude-standard -- 'skills/*.zip')" ]; then
+            echo 'Zips on this commit are current; no PR'
             exit 0
           fi
-          bad=$(git diff --cached --name-only | grep -vE '^skills/[^/]+\.zip$' || true)
-          if [ -n "$bad" ]; then
-            echo "refusing to commit non-zip paths:" >&2
-            echo "$bad" >&2
-            exit 1
+          git checkout -- 'skills/*.zip' 2>/dev/null || true
+          git clean -f -- 'skills/*.zip'
+          open=$(gh pr list --base main --head "$bot" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            git fetch origin "$bot"
+            git checkout -B "$bot" "origin/$bot"
+            git merge --no-edit origin/main
+            python3 scripts/pack-skill-zips.py
+            bash scripts/pack-skill-zips-commit.sh
+            git push origin "$bot"
+            echo "Updated existing PR #$open"
+            exit 0
           fi
-          git commit -m "$(printf 'chore(skills): rebuild Claude-importable zips\n\n[skip ci]')"
-          git push origin HEAD:main
+          git checkout -B "$bot" origin/main
+          python3 scripts/pack-skill-zips.py
+          bash scripts/pack-skill-zips-commit.sh
+          if git diff --quiet origin/main -- 'skills/*.zip'; then
+            echo 'Zips on main are current; no PR'
+            exit 0
+          fi
+          if ! git push -u origin "$bot"; then
+            bot="chore/skill-zips-${GITHUB_RUN_ID}"
+            git checkout -B "$bot"
+            git push -u origin "$bot"
+          fi
+          gh pr create --base main --head "$bot" \
+            --title 'chore(skills): rebuild Claude-importable zips' \
+            --body 'Automated rebuild of `skills/<name>.zip`. The Action never pushes to main. Do not edit the zips by hand.'

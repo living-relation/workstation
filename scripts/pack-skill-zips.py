@@ -8,6 +8,9 @@ root plus any supporting files.
 Zips are deterministic (sorted entries, fixed timestamps, Unix create_system) so
 an unchanged skill produces byte-identical output. Skill files are never edited.
 
+The GitHub Action owns the committed zips (it writes them onto PRs). This script
+is the packer that Action runs; a local run is optional.
+
 Validation (Claude import limits) is reported as WARN lines; packing still
 happens. Exit 1 only with --strict.
 """

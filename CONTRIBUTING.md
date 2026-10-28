@@ -4,8 +4,8 @@
 (`skills/`: safe-repo-preflight, backup-dryrun-apply, agent-handoff-pack,
 wizard, iterative-cleaning, harness-design, deploy-project-watcher,
 session-start, repo-cleanup, git-checker, concise), their generated
-`skills/<name>.zip` Claude import packages (rebuild: `scripts/pack-skill-zips.ps1` /
-`scripts/pack-skill-zips.sh`; do not edit by hand),
+`skills/<name>.zip` Claude import packages (the pack-skill-zips Action rebuilds them
+on the PR; local `scripts/pack-skill-zips.ps1` / `.sh` is optional; do not edit by hand),
 `automations/` (routine texts, docs only), agent rules and instruction templates,
 workstation helper scripts.
 
@@ -15,8 +15,8 @@ secrets, personal paths or data, batch git shortcuts (scripts that pull/push/mer
 project-specific notes.
 
 **Process:** branch -> PR -> owner's yes. No edits on `main`, no force-push.
-Exception: the pack-skill-zips GitHub Action may commit only `skills/*.zip` on main
-(no protection bypass; if main later requires a PR, switch that Action to open a PR).
+The pack-skill-zips Action commits `skills/*.zip` onto the PR branch (same-repo PRs
+only). It never pushes to main. If zips on main are stale, it opens or updates a PR.
 
 **Follow each repo's own rules:** read `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, any decisions
 log, hooks and CI gates first. Never bypass a hook or gate (no `--no-verify`, no direct pushes of

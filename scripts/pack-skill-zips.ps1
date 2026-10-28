@@ -1,4 +1,5 @@
-# pack-skill-zips.ps1 - rebuild skills\<name>.zip for each skills\<name>\ that contains SKILL.md.
+# pack-skill-zips.ps1 - optional local rebuild of skills\<name>.zip for each skills\<name>\ with SKILL.md.
+# The GitHub Action owns the committed zips; you do not need to run this.
 # Usage (from the repo root, or any directory):
 #   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\pack-skill-zips.ps1 [-Strict]
 [CmdletBinding()]

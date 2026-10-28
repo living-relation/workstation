@@ -162,5 +162,43 @@ class Validate(unittest.TestCase):
             self.assertEqual(meta["description"], "First line of the description continues here.")
 
 
+class CommitHelper(unittest.TestCase):
+    def test_commits_only_skill_zips(self):
+        import os
+        import subprocess
+
+        script = HERE / "pack-skill-zips-commit.sh"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skills = root / "skills"
+            skills.mkdir()
+            subprocess.check_call(["git", "init", "-q"], cwd=root)
+            subprocess.check_call(["git", "config", "user.email", "t@t"], cwd=root)
+            subprocess.check_call(["git", "config", "user.name", "t"], cwd=root)
+            subprocess.check_call(["git", "config", "core.hooksPath", "/dev/null"], cwd=root)
+            write_skill(skills, "demo-skill", "demo-skill", "Demo.")
+            pack.pack_all(skills)
+            subprocess.check_call(["git", "add", "skills/demo-skill"], cwd=root)
+            subprocess.check_call(["git", "commit", "-qm", "skill"], cwd=root)
+            subprocess.check_call(["git", "add", "--force", "skills/demo-skill.zip"], cwd=root)
+            subprocess.check_call(["git", "commit", "-qm", "zip"], cwd=root)
+            (skills / "demo-skill" / "SKILL.md").write_text(
+                "---\nname: demo-skill\ndescription: Changed.\n---\n\n# demo-skill\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            pack.pack_all(skills)
+            (root / "README").write_text("do not commit\n", encoding="utf-8")
+            out = subprocess.check_output(["bash", str(script)], cwd=root, env=os.environ.copy(), text=True)
+            self.assertIn("COMMITTED", out)
+            names = subprocess.check_output(
+                ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
+                cwd=root,
+                text=True,
+            ).split()
+            self.assertEqual(names, ["skills/demo-skill.zip"])
+            self.assertTrue((root / "README").is_file())
+
+
 if __name__ == "__main__":
     unittest.main()
