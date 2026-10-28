@@ -12,11 +12,15 @@ while IFS= read -r f; do
   if allow "$f"; then continue; fi
   lc=$(printf '%s' "$f" | tr 'A-Z' 'a-z')
   # Claude-importable skill zips live beside skill folders (skills/<name>.zip).
-  printf '%s' "$lc" | grep -qE '^skills/[^/]+\.zip$' && continue
-  case "$lc" in
-    *.step|*.stp|*.stl|*.3mf|*.f3d|*.fcstd|*.ply|*.obj|*.iges|*.igs|*.brep|*.glb|*.zip|*.7z|*.npz|*.npy|*.frd|*.vtu)
-      echo "guard: BLOCK part/model/archive file: $f"; fail=1; continue;;
-  esac
+  # Allowed as archives, but still blocked if over 1 MB.
+  skillzip=0
+  printf '%s' "$lc" | grep -qE '^skills/[^/]+\.zip$' && skillzip=1
+  if [ "$skillzip" -eq 0 ]; then
+    case "$lc" in
+      *.step|*.stp|*.stl|*.3mf|*.f3d|*.fcstd|*.ply|*.obj|*.iges|*.igs|*.brep|*.glb|*.zip|*.7z|*.npz|*.npy|*.frd|*.vtu)
+        echo "guard: BLOCK part/model/archive file: $f"; fail=1; continue;;
+    esac
+  fi
   base=$(basename "$lc")
   case "$base" in
     .env|.env.*) case "$base" in .env.example|.env.template) ;; *) echo "guard: BLOCK env file: $f"; fail=1; continue;; esac;;
