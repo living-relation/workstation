@@ -11,6 +11,8 @@ while IFS= read -r f; do
   [ -n "$f" ] || continue
   if allow "$f"; then continue; fi
   lc=$(printf '%s' "$f" | tr 'A-Z' 'a-z')
+  # Claude-importable skill zips live beside skill folders (skills/<name>.zip).
+  printf '%s' "$lc" | grep -qE '^skills/[^/]+\.zip$' && continue
   case "$lc" in
     *.step|*.stp|*.stl|*.3mf|*.f3d|*.fcstd|*.ply|*.obj|*.iges|*.igs|*.brep|*.glb|*.zip|*.7z|*.npz|*.npy|*.frd|*.vtu)
       echo "guard: BLOCK part/model/archive file: $f"; fail=1; continue;;

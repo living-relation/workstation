@@ -19,6 +19,7 @@ $plan = @()
 foreach ($src in $From) {
   $src = (Resolve-Path -LiteralPath $src).Path
   foreach ($skill in Get-ChildItem -LiteralPath $src -Directory) {
+    # Only folders with SKILL.md are skills. Zip files beside them (skills\<name>.zip) are Claude import packages, not linked.
     if (-not (Test-Path -LiteralPath (Join-Path $skill.FullName 'SKILL.md'))) { continue }
     if ($seen.ContainsKey($skill.Name)) { throw "skill '$($skill.Name)' is in both $($seen[$skill.Name]) and $src; fix one source first" }
     $seen[$skill.Name] = $src

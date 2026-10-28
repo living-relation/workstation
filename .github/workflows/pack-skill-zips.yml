@@ -1,0 +1,68 @@
+# Rebuild skills/<name>.zip on main when skill folders change.
+# Zip-only commits must not retrigger this: paths exclude **/*.zip, skip github-actions[bot]
+# and [skip ci]. GitHub also does not start new workflows from GITHUB_TOKEN pushes.
+# Does not bypass branch protection. If main later requires a PR, this push step will fail;
+# switch it to opening a PR instead of adding a protection bypass.
+name: pack-skill-zips
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'skills/**'
+      - '!**/*.zip'
+      - 'scripts/pack-skill-zips.py'
+      - 'scripts/pack-skill-zips.sh'
+      - 'scripts/pack-skill-zips.ps1'
+      - '.github/workflows/pack-skill-zips.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pack-skill-zips
+  cancel-in-progress: false
+
+jobs:
+  pack:
+    if: github.event_name == 'workflow_dispatch' || (github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: skip if paused
+        id: enabled
+        run: |
+          en=$(python3 .github/registry-check.py --enabled pack-skill-zips)
+          echo "value=$en" >> "$GITHUB_OUTPUT"
+          echo "pack-skill-zips enabled: $en"
+      - name: test packer
+        if: steps.enabled.outputs.value == 'true'
+        run: python3 scripts/test_pack_skill_zips.py
+      - name: rebuild zips
+        if: steps.enabled.outputs.value == 'true'
+        run: python3 scripts/pack-skill-zips.py
+      - name: commit changed zips
+        if: steps.enabled.outputs.value == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          shopt -s nullglob
+          zips=(skills/*.zip)
+          if ((${#zips[@]})); then git add --force -- "${zips[@]}"; fi
+          # Stage deletions of tracked skill zips only (grep exits 1 when none).
+          deleted=$(git diff --name-only --diff-filter=D -- skills | grep -E '^skills/[^/]+\.zip$' || true)
+          if [ -n "$deleted" ]; then printf '%s\n' "$deleted" | xargs git add --; fi
+          if git diff --cached --quiet; then
+            echo 'No skill zip changes'
+            exit 0
+          fi
+          bad=$(git diff --cached --name-only | grep -vE '^skills/[^/]+\.zip$' || true)
+          if [ -n "$bad" ]; then
+            echo "refusing to commit non-zip paths:" >&2
+            echo "$bad" >&2
+            exit 1
+          fi
+          git commit -m "$(printf 'chore(skills): rebuild Claude-importable zips\n\n[skip ci]')"
+          git pull --ff-only origin main
+          git push

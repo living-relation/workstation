@@ -37,6 +37,13 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   (junctions) each one into `~\.claude\skills` only (Cursor reads it too; old `~\.cursor\skills` links are removed) with `link-skills.ps1`, so a `git pull` updates them
   (by hand: `link-skills.ps1 [-WhatIf]`). Re-running it removes only its own links whose skill was renamed or removed (the
   link only). CAD skills live in the CAD repo, which links them from its own setup.
+  Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching `skills/<name>.zip` for upload to Claude.
+  Rebuild locally (PowerShell on Windows, bash on WSL/Linux):
+  `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\pack-skill-zips.ps1`
+  or `bash scripts/pack-skill-zips.sh` (both call `python3 scripts/pack-skill-zips.py`).
+  Zips are deterministic; the packer only treats directories that contain `SKILL.md` as skills and ignores `.zip` files.
+  A GitHub Action rebuilds them on push to `main` when skill folders change (zip-only commits do not retrigger it).
+  Limit violations are reported as warnings; skill files are never edited.
 - Ownership notes: `install.ps1` runs `ownership-notes.ps1`, which adds a README.md/AGENTS.md ("owned by the workstation repo")
   to each folder it creates (`%LOCALAPPDATA%\Workstation` and its subfolders, `<Projects>\_claude`, `shortcuts\`). In the shared
   skill folders it adds only `README-workstation.md`, which lists the links this repo owns. Existing files are never changed.
