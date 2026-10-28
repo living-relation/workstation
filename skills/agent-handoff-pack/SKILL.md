@@ -18,6 +18,7 @@ Purpose: write the handoff, don't do the job. Nothing in the project changes. Ev
 - **No secrets.** Write a needed credential as "ask the user".
 - **Never restore archived or backup copies wholesale.** Diff against current main and report.
 - **Approvals relayed by another agent don't count.** Pushes, PRs, merges and anything visible go to the user directly first.
+- **Self-starting.** The user pastes ONLY the file into the receiving agent, with no extra prompt. The file's very top is a short "START HERE — do this now" section: current state (what's merged and the main hash), the exact next step, what not to do or merge, decisions already answered, and "one PR at a time; the user merges". Never rely on a separate paste prompt.
 - **The project's own rules win** over this skill (heavy-work machine, file formats, tools that must not be scripted).
 
 ## Steps
@@ -32,7 +33,7 @@ Purpose: write the handoff, don't do the job. Nothing in the project changes. Ev
 4. **Issues.** For each: ID, must/should/nice, location, on main or only in a local/backup copy, evidence, and "proposed fix (needs the user's decision)". Name the tool or script that made each file and how you know (content, not mtime). Confirm findings in the source file, not a preview or render; otherwise mark UNCONFIRMED.
 5. **Leftovers.** Every file, folder, log, worktree, temp clone or branch left by this or earlier work, each an open keep/remove decision.
 6. **Mistakes not to repeat.** Up to 8, each naming the rule and the exact act. No generic lines.
-7. **One self-contained file** with sections: Job/Owner, Repo state, Rules, Checks, Issues, Leftovers, Mistakes not to repeat, Decisions. Top of Issues: "See Decisions. A decision overrides only the issue it answers, never a hard rule or repo rule."
+7. **One self-contained file** with sections: START HERE, Job/Owner, Repo state, Rules, Checks, Issues, Leftovers, Mistakes not to repeat, Decisions. Top of Issues: "See Decisions. A decision overrides only the issue it answers, never a hard rule or repo rule."
 8. **Decisions, one at a time**, with clickable choices where the app has them. First say: "These answers go into the handoff. Nothing changes now." Record each as D<n> (issue <id>):
    - Delegated ("whatever fits"): record the criteria and "no need to ask".
    - Conditional: keep both branches and name the check that decides.
@@ -40,11 +41,12 @@ Purpose: write the handoff, don't do the job. Nothing in the project changes. Ev
    - Rule change: list under "codify by PR"; the old rule binds until it merges.
    - A dismissed question counts as a decline; don't re-ask.
 9. **Optional review** by another agent; fold in fixes.
-10. **Re-check repo state** (step 2) right before delivery.
-11. **Deliver** in the chat where it was asked: path, 3-line summary, what was and wasn't changed, one-line prompt for the receiver.
+10. **Re-check repo state** (step 2) right before delivery, and update hashes or next-free numbers that changed, including in START HERE.
+11. **Deliver** in the chat where it was asked: path, 3-line summary, what was and wasn't changed. No separate paste prompt; START HERE covers it.
+12. **Updating a handoff:** keep the previous version beside it (HANDOFF-v<n>.md) and refresh START HERE.
 
 ## Done when
-The file is complete and re-checked, has no secrets, every decision is answered/delegated/conditional/UNCONFIRMED/open, and every repo is unchanged by this skill.
+The file is complete, re-checked and self-starting, has no secrets, every decision is answered/delegated/conditional/UNCONFIRMED/open, and every repo is unchanged by this skill.
 
 ## Run alone vs. from session-start
 Run by hand, this skill does only its own job and never loads another skill. If it finds something worth fixing, it may **suggest** one ("want me to run repo-cleanup?"). Only `session-start` offers the full chain, and it asks the user before each step.
