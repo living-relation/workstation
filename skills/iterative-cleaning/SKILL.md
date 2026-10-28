@@ -32,11 +32,11 @@ Update it after every step, before replying. Keep each item short: what is stale
 1. **Order the tree.** `git ls-files`, then drop generated files, binaries, vendored data, archives and anything the repo says is not authoritative (read its AGENTS.md / CLAUDE.md / README for these). Keep prose docs, rules, skills, workflows and contract/config docs. Sort the way the tree lists (root files, then directories alphabetically). Rotate the list so it starts at the start file.
 2. **Per document:**
    a. Run the scripted check from the repo root: `python -I ~/.claude/skills/iterative-cleaning/refcheck.py --terms '<regex of retired names>' <files>`. It lists missing paths, `file:line` citations that drifted onto blank lines, and retired-term hits. Build the terms regex from the reference change(s): old names, deleted files, renamed parts, old paths.
-   b. Read the hits in context, plus the doc's header, status and date lines. Check what no script can: counts ("14 files"), lists of items, "current" vs "planned" statements, cross-references to rows or sections, and statements that contradict a newer sibling doc.
+   b. Read the hits in context, plus the doc's header, status and date lines. Check what no script can: counts ("14 files"), lists of items, "current" vs "planned" statements, cross-references to rows or sections, every pointer ("see X", "rules live in Y", a heading or file link) resolving to a real heading or file, and statements that contradict a newer sibling doc.
    c. Classify each hit: **stale** (fix or flag), **history** (dated log or decision record - leave it, optionally suggest a banner), **cross-repo / intentional** (leave), **false positive**.
    d. For contract and config files, run the repo's own gate (a parity or consistency script) instead of eyeballing; a passing gate is the verdict.
 3. **Record** the item in the handoff. Reply with the verdict, the stale lines, and what comes next.
-4. **Cascade.** When a fact is stale, grep the whole repo for it once and list every other place in the handoff, so later steps start with leads.
+4. **Cascade.** When a fact is stale, or a heading is renamed, grep the whole repo for every link to it once and list every other place in the handoff, so later steps start with leads.
 5. **Wrap.** At the end of the list, go back to the top and continue until the next file is the start file. Then add a coverage statement: what was swept, what was only scripted, what was out of scope (data tables, generated files, code beyond docstrings).
 
 ## Rules
