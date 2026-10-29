@@ -35,8 +35,8 @@
     opt out with -NoLinkSkills), which also moves an old handoff-sync-continue copy to ~\.skills-backup.
     -LinkSkills is accepted and ignored. Entries are merged by script name (never duplicated); an unrelated
     statusLine is never overwritten; other hook entries are left alone.
-  - Merges Claude Code MCP connectors into ~\.claude.json (user-scope, plus firecrawl local-scoped to C:/projects)
-    from claude\mcp-servers.json. Existing servers of the same name are left alone. API keys come from env (or a
+  - Merges Claude Code MCP connectors into ~\.claude.json (user-scope) from claude\mcp-servers.json.
+    Existing servers of the same name are left alone. API keys come from env (or a
     prompt unless -Quiet / CI / -WhatIf / -UserHome); a server that still lacks a required key is skipped with a
     message, not a failed install. Then installs Claude Code plugins at user scope from claude\plugins.json
     (Anthropic official marketplace). That file is the source of truth for plugin names.

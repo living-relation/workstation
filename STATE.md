@@ -28,12 +28,14 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
   default; no `-LinkSkills`). Exact leftover paths are in the earlier PR body; do not delete
   them from here.
 - 2026-10-29: install now makes both PCs' Claude Code setups match: MCP connectors in
-  `~/.claude.json` (from `claude/mcp-servers.json`; firecrawl stays local to `C:/projects`),
-  the 24 DansPC official-marketplace plugins in `claude/plugins.json` (that file is the
-  source of truth), and DansPC's `pr-closeout-nudge.ps1` copied + wired as PostToolUse in
+  `~/.claude.json` (from `claude/mcp-servers.json`; no firecrawl), the 24 DansPC
+  official-marketplace plugins in `claude/plugins.json` (that file is the source of
+  truth), and DansPC's `pr-closeout-nudge.ps1` copied + wired as PostToolUse in
   `~/.claude/settings.json`. After merge: Pull + Install on both PCs. Set
-  `GITHUB_PERSONAL_ACCESS_TOKEN` (or `GITHUB_TOKEN`) and `FIRECRAWL_API_KEY` before install, or
-  paste when prompted; missing keys skip that server.
+  `GITHUB_PERSONAL_ACCESS_TOKEN` (or `GITHUB_TOKEN`) before install, or paste when
+  prompted; missing keys skip that server. Install never prompts for Firecrawl.
+- 2026-10-29: firecrawl dropped from `claude/mcp-servers.json` (not used). Merge-style
+  install still leaves an existing firecrawl entry in `~/.claude.json` alone.
 - 2026-10-29: `install.ps1` links skills every run (opt out with `-NoLinkSkills`; `-LinkSkills` is
   a no-op). End of install shows a Windows popup to upload `skills/*.zip` in Claude desktop
   (Settings > Capabilities > Skills); skipped for `-WhatIf`, `-UserHome`, `-NoPopup`/`-Quiet`, and
@@ -41,7 +43,7 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
 
 - 2026-10-29: Fusion lock (`workstation/fusion-lock/fusion-lock.ps1`, rule in `agents/projects-AGENTS.md` section 5). After merge: Pull on both PCs; the old router-project lock (`rtr-v2-router\_coordination\`) should be retired and that project's rules pointed at section 5 (owner's yes needed; not done here).
 
-**Last added:** 2026-10-29 install makes both PCs' Claude Code connectors, plugins, and pr-closeout hook the same.
+**Last added:** 2026-10-29 firecrawl dropped from Claude Code MCP spec (no key prompt).
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27

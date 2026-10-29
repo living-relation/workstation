@@ -31,15 +31,6 @@
       "args": ["-y", "githits@latest", "mcp", "start"]
     },
     {
-      "name": "firecrawl",
-      "scope": "local",
-      "projectPath": "C:/projects",
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "firecrawl-mcp"],
-      "envVars": ["FIRECRAWL_API_KEY"]
-    },
-    {
       "name": "fetch",
       "scope": "user",
       "type": "stdio",
