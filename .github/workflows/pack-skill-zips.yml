@@ -63,7 +63,9 @@ jobs:
           echo "pack-skill-zips enabled: $en"
       - name: test packer
         if: steps.enabled.outputs.value == 'true'
-        run: python3 scripts/test_pack_skill_zips.py
+        run: |
+          python3 scripts/test_pack_skill_zips.py
+          python3 scripts/test_link_skills_guard.py
       - name: pack --strict
         if: steps.enabled.outputs.value == 'true'
         run: |
@@ -112,7 +114,9 @@ jobs:
           fi
       - name: test packer
         if: steps.enabled.outputs.value == 'true'
-        run: python3 scripts/test_pack_skill_zips.py
+        run: |
+          python3 scripts/test_pack_skill_zips.py
+          python3 scripts/test_link_skills_guard.py
       - name: rebuild and commit zips onto this PR branch
         if: steps.enabled.outputs.value == 'true' && steps.skipci.outputs.value != 'true'
         env:
@@ -174,7 +178,9 @@ jobs:
           echo "pack-skill-zips enabled: $en"
       - name: test packer
         if: steps.enabled.outputs.value == 'true'
-        run: python3 scripts/test_pack_skill_zips.py
+        run: |
+          python3 scripts/test_pack_skill_zips.py
+          python3 scripts/test_link_skills_guard.py
       - name: open or update a PR if zips are stale
         if: steps.enabled.outputs.value == 'true'
         env:

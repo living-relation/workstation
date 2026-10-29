@@ -33,11 +33,18 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).
 - No CAD here: this repo does not install, pin or link any CAD tool, CAD skill or CAD repo.
-- `skills/` - this repo's (non-CAD) skills; skills live only in their repo. Linking is opt-in: `install.ps1 -LinkSkills` links
+- `skills/` - this repo's (non-CAD) skills; skills live only in their repo. `install.ps1` links
   (junctions) each one into `~\.claude\skills` only (Cursor reads it too; old `~\.cursor\skills` links are removed) with `link-skills.ps1`, so a `git pull` updates them
-  (by hand: `link-skills.ps1 [-WhatIf]`). Re-running it removes only its own links whose skill was renamed or removed (the
+  (by hand: `link-skills.ps1 [-WhatIf]`). Opt out with `install.ps1 -NoLinkSkills`. `-LinkSkills` is still accepted and ignored.
+  Re-running it removes only its own links whose skill was renamed or removed (the
   link only). CAD skills live in the CAD repo, which links them from its own setup.
+  `skills/EXCLUDE.txt` lists Claude-app-owned skills (harness-design, st185-*); those, and any SKILL.md with
+  `source: harness-design-app`, are never linked or zipped, and `link-skills.ps1` never moves or removes their folders.
   Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching `skills/<name>.zip` for upload to Claude.
+  `install.ps1` ends with a Windows popup reminding you to upload new or changed zips in Claude desktop
+  (Settings > Capabilities > Skills); click OK to open `skills\` in Explorer. The popup is skipped for
+  `-NoPopup` (alias `-Quiet`), `-WhatIf`, `-UserHome`, and CI. Changed zip names are tracked in
+  `%LOCALAPPDATA%\Workstation\skill-zips.json`.
   Zips update automatically: on a same-repo PR that touches skills (and whose head is not main), a GitHub Action
   rebuilds them and commits any changes back onto that PR branch. If main's zips are ever stale, the Action
   resets `chore/skill-zips` to `origin/main` and opens or updates that one PR (it never pushes to main).
