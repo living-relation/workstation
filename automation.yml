@@ -160,6 +160,16 @@ automations:
     committed: no
     auto_commit: false
     enabled: true
+  - id: fusion-lock
+    script: workstation/fusion-lock/fusion-lock.ps1
+    helpers: [workstation/fusion-lock/tests/test-fusion-lock.ps1, workstation/paths.ps1]
+    trigger: manual
+    reads: [LOCALAPPDATA Workstation fusion.lock, AutodeskFusionMCP add-in at 127.0.0.1:8765 (read-only document list, check only)]
+    writes: [LOCALAPPDATA Workstation fusion.lock and fusion-lock.log; hidden pinger process (acquire -StartPinger)]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/fusion-lock/fusion-lock.ps1 status
   - id: pack-skill-zips
     script: .github/workflows/pack-skill-zips.yml
     helpers: [scripts/pack-skill-zips.py, scripts/pack-skill-zips.sh, scripts/pack-skill-zips.ps1, scripts/pack-skill-zips-commit.sh, scripts/guard-staged.sh, scripts/fetch-gitleaks.sh, scripts/run-gitleaks.sh]

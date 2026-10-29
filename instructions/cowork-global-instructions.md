@@ -18,3 +18,6 @@ Working memory lives in %USERPROFILE%\.claude\working-memory. Never create anoth
 - Follow each repo's own rules: read its AGENTS.md, CLAUDE.md, CONTRIBUTING.md, decisions log, hooks and CI before changing anything.
 - Never bypass a hook or gate without my explicit yes: no `--no-verify`, no skipping CI, no direct pushes of generated or bot-owned files.
 - Branch + PR, never force-push, one repo at a time (no batch pull/push), `git pull --ff-only`.
+
+## Fusion
+- Before driving Autodesk Fusion, hold the per-PC Fusion lock: follow section 5 "Fusion lock" in the workstation repo `agents/projects-AGENTS.md`. Check in at least every 10 min; release when done.
