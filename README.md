@@ -37,6 +37,8 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   (junctions) each one into `~\.claude\skills` only (Cursor reads it too; old `~\.cursor\skills` links are removed) with `link-skills.ps1`, so a `git pull` updates them
   (by hand: `link-skills.ps1 [-WhatIf]`). Re-running it removes only its own links whose skill was renamed or removed (the
   link only). CAD skills live in the CAD repo, which links them from its own setup.
+  `skills/EXCLUDE.txt` lists Claude-app-owned skills (harness-design, st185-*); those, and any SKILL.md with
+  `source: harness-design-app`, are never linked or zipped, and `link-skills.ps1` never moves or removes their folders.
   Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching `skills/<name>.zip` for upload to Claude.
   Zips update automatically: on a same-repo PR that touches skills (and whose head is not main), a GitHub Action
   rebuilds them and commits any changes back onto that PR branch. If main's zips are ever stale, the Action

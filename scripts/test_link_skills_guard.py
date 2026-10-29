@@ -51,6 +51,30 @@ class LinkSkillsGuard(unittest.TestCase):
             self.assertFalse((tgt / "marked-skill").exists(), out)
             self.assertFalse(backup.exists(), f"something was backed up aside\n{out}")
 
+    @unittest.skipUnless(sys.platform == "win32", "junctions need Windows")
+    def test_broken_junction_pruned_live_one_kept(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp)
+            src, tgt, backup = t / "src", t / "tgt", t / "bak"
+            (src).mkdir()
+            (src / "EXCLUDE.txt").write_text("harness-design\nst185-pick-parts\n", encoding="utf-8")
+            gone = src / "harness-design"
+            gone.mkdir()
+            live = src / "st185-pick-parts"
+            live.mkdir()
+            (live / "notes.md").write_text("x\n", encoding="utf-8")
+            tgt.mkdir()
+            for name, target in (("harness-design", gone), ("st185-pick-parts", live)):
+                subprocess.check_call(["cmd", "/c", "mklink", "/J", str(tgt / name), str(target)],
+                                      stdout=subprocess.DEVNULL)
+            gone.rmdir()  # broken junction now
+            r = self.run_link(src, tgt, backup, "'none'")
+            out = r.stdout + r.stderr
+            self.assertEqual(r.returncode, 0, out)
+            self.assertFalse(os.path.lexists(tgt / "harness-design"), f"broken link kept\n{out}")
+            self.assertTrue((tgt / "st185-pick-parts" / "notes.md").is_file(), f"live link touched\n{out}")
+            self.assertTrue((live / "notes.md").is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -84,7 +84,9 @@ foreach ($t in $Targets) {
     $tgt = "$(@($item.Target)[0])".TrimEnd('\')
     if (-not @($roots | Where-Object { $tgt.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }).Count) { continue }
     if (Test-Path -LiteralPath (Join-Path $tgt 'SKILL.md')) { continue }
-    if (Test-Protected $item.Name $item.FullName) { Write-Skip $item.FullName 'not pruned'; continue }
+    # A broken junction into this repo's skills\ (target gone) is only a dead link: prune it even for an excluded name.
+    # Real folders are never pruned here, and a non-broken link of an excluded or marked skill stays protected.
+    if ((Test-Path -LiteralPath $tgt) -and (Test-Protected $item.Name $item.FullName)) { Write-Skip $item.FullName 'not pruned'; continue }
     if (-not $PSCmdlet.ShouldProcess($item.FullName, "remove dead skill link -> $tgt")) { [pscustomobject]@{ Path = $item.FullName; Target = $tgt; Action = 'would-prune' }; continue }
     [IO.Directory]::Delete($item.FullName, $false)
     [pscustomobject]@{ Path = $item.FullName; Target = $tgt; Action = 'pruned' }
