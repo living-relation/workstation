@@ -35,6 +35,7 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 4. The one state file `AGENTS.md` names (e.g. `STATE.md`), the to-do list, the log. If no state file is named, say "no live state file". Don't guess from random PLAN/HANDOFF files.
 5. `.cursor/rules/*.mdc` with `alwaysApply: true`, if present.
 6. Session tracker `%LOCALAPPDATA%\Workstation\tracker\tracker.json` (tool: `workstation/tracker/`). If missing, say so.
+7. Find and read this repo's state and source-of-truth docs, whatever they're most likely named (e.g. open items, decisions, tracker, state, handoff).
 
 Skip: `node_modules`, build output, caches, archive/`old` folders, other worktrees' copies, other modules' agent files.
 
@@ -125,6 +126,9 @@ Tell the agent these, and follow them:
 5. **Decisions go in one decisions file**, one dated line each.
 6. **Handoffs never go in throwaway folders** (`output/`, `tmp/`, scratch dirs).
 7. **Finished to-dos:** delete from the to-do list; add one dated line to the decisions file or changelog.
+
+## Before ending
+Update any of those state/source-of-truth docs your work changed.
 
 ---
 
