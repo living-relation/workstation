@@ -4,7 +4,7 @@
 (`skills/`: safe-repo-preflight, backup-dryrun-apply, agent-handoff-pack,
 wizard, iterative-cleaning, harness-design, deploy-project-watcher,
 session-start, repo-cleanup, git-checker, concise), their generated
-`skills/<name>.zip` Claude import packages (the pack-skill-zips Action rebuilds them
+`skills/<name>.zip` Claude import packages (the skill-zips CI bot rebuilds them
 on the PR; local `scripts/pack-skill-zips.ps1` / `.sh` is optional; do not edit by hand),
 `automations/` (routine texts, docs only), agent rules and instruction templates,
 workstation helper scripts.
@@ -15,9 +15,9 @@ secrets, personal paths or data, batch git shortcuts (scripts that pull/push/mer
 project-specific notes.
 
 **Process:** branch -> PR -> owner's yes. No edits on `main`, no force-push
-(except the pack-skill-zips Action may `git push --force-with-lease` the
+(except the skill-zips CI bot may `git push --force-with-lease` the
 `chore/skill-zips` bot branch only).
-The pack-skill-zips Action commits `skills/*.zip` onto the PR branch (same-repo PRs
+The skill-zips CI bot commits `skills/*.zip` onto the PR branch (same-repo PRs
 only, and never when the PR head is main). It never pushes to main. If zips on
 main are stale, it resets `chore/skill-zips` to `origin/main` and opens or updates
 that one PR.
