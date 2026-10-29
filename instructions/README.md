@@ -28,3 +28,5 @@ install.ps1) and no repo rules beyond pointing at each repo's `AGENTS.md`. Curso
 so install.ps1 cannot check them.
 
 `repo-rules.mdc` is the Cursor user-rule version of the repo-rules section (copy to `~/.cursor/rules/`).
+
+`state-sot.mdc` is a one-line alwaysApply Cursor rule: read and keep current the project's state and source of truth (copy to `~/.cursor/rules/`).

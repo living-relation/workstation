@@ -1,7 +1,7 @@
 ---
 name: session-start
 description: >-
-  Use when starting any new chat, task or session in a repo or project folder, before reading code or changing anything: finds current state, reports, asks before follow-ups.
+  Use when starting any new chat, task or session in a repo or project folder, before reading code or changing anything: finds current state, reads the repo's state and source-of-truth docs, reports, asks before follow-ups.
 ---
 # Session start
 
@@ -32,10 +32,9 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 1. Root `AGENTS.md`. `CLAUDE.md` or `CLAUDE.local.md` should import `@AGENTS.md` (+ Claude-only lines).
 2. The nearest nested `AGENTS.md` above the folder you'll work in (closest wins).
 3. `README.md`.
-4. The one state file `AGENTS.md` names (e.g. `STATE.md`), the to-do list, the log. If no state file is named, say "no live state file". Don't guess from random PLAN/HANDOFF files.
+4. **Must read:** every state or source-of-truth doc the rules name or link (state, open items, decisions, tracker, handoff, whatever they're called). List each one in the note. If there are none, write 'no live state file'.
 5. `.cursor/rules/*.mdc` with `alwaysApply: true`, if present.
 6. Session tracker `%LOCALAPPDATA%\Workstation\tracker\tracker.json` (tool: `workstation/tracker/`). If missing, say so.
-7. Find and read this repo's state and source-of-truth docs, whatever they're most likely named (e.g. open items, decisions, tracker, state, handoff).
 
 Skip: `node_modules`, build output, caches, archive/`old` folders, other worktrees' copies, other modules' agent files.
 
@@ -81,6 +80,7 @@ Put it in the repo's state file if one exists and writing it is allowed; otherwi
 **Goal now:** <one sentence: the current objective>
 **Last session:** finished | stopped early (<which sign>) — handoff: <path>
 **Where work is:** branch <x>, PR #N (open), worktrees: <list>
+**SoT:** read <paths> · changed this session: <paths or none>
 **Open:** <top 3 items, each with a date>
 **Flags:** promised-not-written: … | outside the repo: … | stale memory: … | unsigned memory: … | orientation-cost: …
 **Health:** git-checker <verdict> · outputs: FRESH|STALE-OUTPUT <list> · hook: installed|missing
@@ -126,9 +126,7 @@ Tell the agent these, and follow them:
 5. **Decisions go in one decisions file**, one dated line each.
 6. **Handoffs never go in throwaway folders** (`output/`, `tmp/`, scratch dirs).
 7. **Finished to-dos:** delete from the to-do list; add one dated line to the decisions file or changelog.
-
-## Before ending
-Update any of those state/source-of-truth docs your work changed.
+8. **Before your final reply:** update every state or source-of-truth doc your work changed. If none changed, say 'SoT: no change'. The work isn't done until they're updated.
 
 ---
 
