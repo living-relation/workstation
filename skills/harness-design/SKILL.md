@@ -1,9 +1,13 @@
 ---
 name: harness-design
-description: Use when creating, editing, checking, or uploading harness.design wiring harness files (.harness / .harnesslib), working with the harness.design desktop app, MCP tools (create_harness, set_document_json), part libraries, signals/nets, or schematic and layout views. Requires a spreadsheet wire list before any harness is built, and covers the order of work, live local-file workflow, optional cloud upload, library sync, signal propagation, view conventions and known app quirks. Applies to any project; a project's own rules (its AGENTS.md / decisions file) win over this skill.
+description: >-
+  Use when creating, editing, checking or uploading harness.design wiring harness files (.harness/.harnesslib), its desktop app or MCP tools, part libraries or signals.
 ---
 
 # harness-design
+
+## When to use
+Covers MCP tools (`create_harness`, `set_document_json`), schematic and layout views, a spreadsheet wire list before any harness is built, live local-file workflow, optional cloud upload, library sync, signal propagation, view conventions and known app quirks. Applies to any project; a project's own rules (its AGENTS.md / decisions file) win over this skill.
 
 ## Precedence
 The harness.design docs and tutorials (https://docs.harness.design) win on drawing conventions and best practice. Read the relevant page before drawing. If one of the owner's rules conflicts with the docs: do not pick silently. Flag it, log it in the project's one tracker with both sides and the doc link, and ask/report to the owner. The owner's own drawing rules (clean-drawing, shared-connector and signal rules) are owned by each project's repo (its decisions file); this skill is the app mechanics and only points at them.

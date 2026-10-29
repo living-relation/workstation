@@ -1,9 +1,13 @@
 ---
 name: deploy-project-watcher
-description: Add a project to the owner's shared session watcher (phone alerts when a Claude session needs him, stalls, or a PR finishes). Use when the owner says "add a watcher to PROJECT", "watch this project", "deploy the watcher", or "update all watchers". Creates the project's untracked _watch folder, registers it with the shared engine in the projects\_tools folder, makes the two shortcuts, and gives the ntfy topic with setup steps.
+description: >-
+  Use when the owner says "add a watcher to PROJECT", "watch this project", "deploy the watcher" or "update all watchers" for phone alerts on Claude sessions and PRs.
 ---
 
 # Deploy the project watcher
+
+## When to use
+Adds a project to the owner's shared session watcher (phone alerts when a Claude session needs him, stalls, or a PR finishes). Creates the project's untracked `_watch` folder, registers it with the shared engine in the `projects\_tools` folder, makes the two shortcuts, and gives the ntfy topic with setup steps.
 
 The engine is shared and already installed in `<projects>\_tools\` (`watcher.py`, `watch_gui.py`, `watch-*.ps1`, `watch-VERSION`, `watch-README.md`, registry `watch-projects.json`). One process serves every registered project; one ntfy topic serves all. This skill only adds a project to it. Never copy engine code into a project or into a repo.
 

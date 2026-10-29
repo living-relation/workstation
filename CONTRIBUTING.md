@@ -3,15 +3,31 @@
 **In scope:** installer and preflight, `workstation.lock.yaml`, `patches/`, the non-CAD skills
 (`skills/`: safe-repo-preflight, backup-dryrun-apply, agent-handoff-pack,
 wizard, iterative-cleaning, harness-design, deploy-project-watcher,
-session-start, repo-cleanup, git-checker, concise),
+session-start, repo-cleanup, git-checker, concise), their generated
+`skills/<name>.zip` Claude import packages (the pack-skill-zips Action rebuilds them
+on the PR; local `scripts/pack-skill-zips.ps1` / `.sh` is optional; do not edit by hand),
 `automations/` (routine texts, docs only), agent rules and instruction templates,
 workstation helper scripts.
 
-**Never:** CAD code or models (they belong to the CAD repo), part files, binaries, archives,
+**Never:** CAD code or models (they belong to the CAD repo), part files, binaries, archives
+(except the generated Claude-importable `skills/<name>.zip` files owned by pack-skill-zips),
 secrets, personal paths or data, batch git shortcuts (scripts that pull/push/merge many repos),
 project-specific notes.
 
-**Process:** branch -> PR -> owner's yes. No edits on `main`, no force-push.
+**Process:** branch -> PR -> owner's yes. No edits on `main`, no force-push
+(except the pack-skill-zips Action may `git push --force-with-lease` the
+`chore/skill-zips` bot branch only).
+The pack-skill-zips Action commits `skills/*.zip` onto the PR branch (same-repo PRs
+only, and never when the PR head is main). It never pushes to main. If zips on
+main are stale, it resets `chore/skill-zips` to `origin/main` and opens or updates
+that one PR.
+
+Owner settings this Action needs (GitHub repo, not in git):
+- Actions → General → **Allow GitHub Actions to create and approve pull requests**
+  (`GITHUB_TOKEN` PRs otherwise get no checks; the Action also runs `gh workflow run`
+  on the new commit).
+- A ruleset on `main` that blocks direct pushes (this Action still refuses to push
+  if a PR head is main).
 
 **Follow each repo's own rules:** read `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, any decisions
 log, hooks and CI gates first. Never bypass a hook or gate (no `--no-verify`, no direct pushes of

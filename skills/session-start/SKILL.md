@@ -1,16 +1,14 @@
 ---
 name: session-start
 description: >-
-  Use when starting any new chat, task or session in a repo or project folder,
-  before reading code or changing anything: finds the project's true current
-  state cheaply, detects whether the last session was cut off (usage limit,
-  crash), runs git-checker and a cheap drift check, reports, then asks the user
-  before each follow-up (repo-cleanup, iterative-cleaning, fixes, handoff,
-  PR hook install). Nothing runs automatically. Any project folder.
+  Use when starting any new chat, task or session in a repo or project folder, before reading code or changing anything: finds current state, reports, asks before follow-ups.
 ---
 # Session start
 
 **In one line:** figure out where the project really stands, change nothing, then say so in one short note.
+
+## When to use
+Finds the project's true current state cheaply, detects whether the last session was cut off (usage limit, crash), runs git-checker and a cheap drift check, reports, then asks before each follow-up (repo-cleanup, iterative-cleaning, fixes, handoff, PR hook install). Nothing runs automatically. Any project folder.
 
 Works the same in Grok, Claude Code and Cursor. It runs only when the user calls it ("run session-start").
 

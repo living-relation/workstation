@@ -1,11 +1,15 @@
 ---
 name: iterative-cleaning
-description: Sweep a repo or project one document at a time to find stale, superseded or conflicting content, record findings in a running handoff file, and wrap around the file tree until you are back at the start file. Use when the user says "iterative cleaning", "find stale docs", "which docs are superseded or conflict with newer ones", or asks to walk the file tree and audit docs against recent changes. Report-first; does not edit docs unless the user says to.
+description: >-
+  Use when the user says "iterative cleaning" or "find stale docs", or wants a repo's docs swept one at a time for stale, superseded or conflicting content. Report-first.
 ---
 
 # Iterative cleaning
 
 A document-by-document staleness sweep with a running handoff. Works on any repo or project folder.
+
+## When to use
+Record findings in a running handoff file and wrap around the file tree until you are back at the start file. Also when the user asks "which docs are superseded or conflict with newer ones" or wants the tree walked and audited. Report-first; do not edit docs unless the user says to.
 
 **Scope vs repo-cleanup:** repo-cleanup consolidates agent / state / plan / handoff / decision files into one doc per type. This skill sweeps the other prose docs (README, guides, specs, rules docs) for staleness against them. Same judgment rule: a newer explicit decision beats an older one only on the same subject and context; dated user decisions outrank agent notes; what the code/config does outranks what docs say.
 

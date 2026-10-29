@@ -1,16 +1,14 @@
 ---
 name: repo-cleanup
 description: >-
-  Use when a repo's agent, state, plan, handoff or decision files have sprawled
-  (session-start flagged "Cleanup needed", or there are duplicate
-  decisions/state files): the agent extracts every fact with its source and
-  date, clusters and resolves them in context, asks the user only true
-  conflicts and important unconfirmed facts, writes one doc per type, deletes
-  the superseded docs, and lands it as one PR with every fact accounted for.
+  Use when a repo's agent, state, plan, handoff or decision files have sprawled or duplicated, or session-start flagged "Cleanup needed"; consolidates them in one PR.
 ---
 # Repo cleanup
 
 **In one line:** turn a messy repo into one state file, one decisions file and short agent files, without losing anything, and only with the user's yes.
+
+## When to use
+Extract every fact with its source and date, cluster and resolve them in context, ask the user only true conflicts and important unconfirmed facts, write one doc per type, delete the superseded docs, and land it as one PR with every fact accounted for.
 
 Works the same in Grok, Claude Code and Cursor, on any project folder. State file is `STATE.md` (no line limit). Its only helper is **safe-repo-preflight** (read the repo's rules, work on a branch, run checks, open a PR); git history is the backup (step 1b), and every fact is accounted for (step 8).
 

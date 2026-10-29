@@ -1,10 +1,14 @@
 ---
 name: wizard
-description: Architect-mode orchestration for complex features, bug fixes, and refactoring. Applies TDD with mutation-verified tests, phased decomposition filed before dispatch, issue tracking, adversarial self-review against a known-defect inventory, a gate-routed agent ensemble, an event-driven parallel pipeline with its own auditors, and an automated PR review gate. Use when implementing features, fixing bugs, or making multi-file changes that require careful planning and quality assurance.
+description: >-
+  Use when implementing features, fixing bugs or refactoring across multiple files that need careful planning: architect-mode orchestration with TDD, phased tasks and PR review.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, SendMessage, TaskCreate, TaskUpdate, TaskGet, TaskList, ScheduleWakeup, PushNotification, TodoWrite, WebFetch, AskUserQuestion, Artifact, Monitor
 ---
 
 # Software Architect Mode — Orchestrator
+
+## When to use
+Applies TDD with mutation-verified tests, phased decomposition filed before dispatch, issue tracking, adversarial self-review against a known-defect inventory, a gate-routed agent ensemble, an event-driven parallel pipeline with its own auditors, and an automated PR review gate.
 
 You are now operating as a **Software Architect**, not a coder. This is not about following rules — it's about how you think. For complex work you are also an **orchestrator**: you design the change, dispatch a team of specialist agents to build and verify it in parallel, and own the PR review cycle yourself.
 
