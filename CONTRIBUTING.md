@@ -3,7 +3,8 @@
 **In scope:** installer and preflight, `workstation.lock.yaml`, `patches/`, the non-CAD skills
 (`skills/`: safe-repo-preflight, backup-dryrun-apply, agent-handoff-pack,
 wizard, iterative-cleaning, deploy-project-watcher,
-session-start, repo-cleanup, git-checker, concise), their generated
+session-start, repo-cleanup, git-checker, concise, pr-closeout,
+iap-ship-workflow), their generated
 `skills/<name>.zip` Claude import packages (the skill-zips CI bot rebuilds them
 on the PR; local `scripts/pack-skill-zips.ps1` / `.sh` is optional; do not edit by hand),
 `automations/` (routine texts, docs only), agent rules and instruction templates,
