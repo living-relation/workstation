@@ -520,6 +520,11 @@ function Show-Automations {
         if ($p -and (Test-Path -LiteralPath $p)) { Write-Ok "context-guard hook ($($c.Event)) -> $p" }
         else { Write-Bad "context-guard hook ($($c.Event)) points at a missing script: $($c.Command)" }
     }
+    $nudge = Join-Path $claudeDir 'hooks\pr-closeout-nudge.ps1'
+    $nudgeRef = @($hookCmds | Where-Object { $_.Command -match 'pr-closeout-nudge' })
+    if (-not (Test-Path -LiteralPath $nudge)) { Write-Warn "pr-closeout-nudge.ps1 missing: $nudge" }
+    elseif (-not $nudgeRef) { Write-Warn 'pr-closeout-nudge.ps1 exists but no hook in settings.json runs it' }
+    else { Write-Ok "pr-closeout-nudge hook: $(($nudgeRef | ForEach-Object Event | Sort-Object -Unique) -join ', ') -> $nudge" }
 
     if ($settings) {
         $amd = $settings.autoMemoryDirectory

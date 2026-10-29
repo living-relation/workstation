@@ -1,0 +1,32 @@
+{
+  "sourceOfTruth": "This file is the source of truth for which Claude Code plugins workstation install enables at user scope. install.ps1 reads it. Plugins come from Anthropic's official marketplace (claude-plugins-official). The list is DansPC's installed set, all @claude-plugins-official.",
+  "marketplace": "anthropics/claude-plugins-official",
+  "marketplaceName": "claude-plugins-official",
+  "scope": "user",
+  "plugins": [
+    "agent-sdk-dev",
+    "claude-code-setup",
+    "claude-md-management",
+    "code-review",
+    "code-simplifier",
+    "commit-commands",
+    "desktop-commander",
+    "explanatory-output-style",
+    "learning-output-style",
+    "pr-review-toolkit",
+    "hookify",
+    "code-modernization",
+    "frontend-design",
+    "skill-creator",
+    "playground",
+    "feature-dev",
+    "github",
+    "superpowers",
+    "mcp-server-dev",
+    "plugin-dev",
+    "context7",
+    "security-guidance",
+    "typescript-lsp",
+    "pyright-lsp"
+  ]
+}

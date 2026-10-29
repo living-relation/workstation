@@ -23,11 +23,17 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
   iterative-cleaning and session-start skill zips to Claude desktop, and run Pull + Install on
   both PCs.
 - 2026-10-29: `pr-closeout` and `iap-ship-workflow` live under `skills/` so install can
-  junction them on both PCs. The local `pr-closeout-nudge.ps1` Claude Code hook stays on the PC
-  (this repo does not ship Claude Code PostToolUse hooks from skill folders). After merge:
-  remove the old loose copies of those two skills on each PC (they block the new links), then
-  Pull + Install on both PCs (skill linking is now the default; no `-LinkSkills`). Exact leftover
-  paths are in the PR body; do not delete them from here.
+  junction them on both PCs. After merge: remove the old loose copies of those two skills on
+  each PC (they block the new links), then Pull + Install on both PCs (skill linking is now the
+  default; no `-LinkSkills`). Exact leftover paths are in the earlier PR body; do not delete
+  them from here.
+- 2026-10-29: install now makes both PCs' Claude Code setups match: MCP connectors in
+  `~/.claude.json` (from `claude/mcp-servers.json`; firecrawl stays local to `C:/projects`),
+  the 24 DansPC official-marketplace plugins in `claude/plugins.json` (that file is the
+  source of truth), and DansPC's `pr-closeout-nudge.ps1` copied + wired as PostToolUse in
+  `~/.claude/settings.json`. After merge: Pull + Install on both PCs. Set
+  `GITHUB_PERSONAL_ACCESS_TOKEN` (or `GITHUB_TOKEN`) and `FIRECRAWL_API_KEY` before install, or
+  paste when prompted; missing keys skip that server.
 - 2026-10-29: `install.ps1` links skills every run (opt out with `-NoLinkSkills`; `-LinkSkills` is
   a no-op). End of install shows a Windows popup to upload `skills/*.zip` in Claude desktop
   (Settings > Capabilities > Skills); skipped for `-WhatIf`, `-UserHome`, `-NoPopup`/`-Quiet`, and
@@ -35,7 +41,7 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
 
 - 2026-10-29: Fusion lock (`workstation/fusion-lock/fusion-lock.ps1`, rule in `agents/projects-AGENTS.md` section 5). After merge: Pull on both PCs; the old router-project lock (`rtr-v2-router\_coordination\`) should be retired and that project's rules pointed at section 5 (owner's yes needed; not done here).
 
-**Last added:** 2026-10-29 Fusion lock; install links skills by default; skill-zip upload popup.
+**Last added:** 2026-10-29 install makes both PCs' Claude Code connectors, plugins, and pr-closeout hook the same.
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27

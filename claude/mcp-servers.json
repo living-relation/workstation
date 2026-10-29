@@ -1,0 +1,64 @@
+{
+  "sourceOfTruth": "This file is the source of truth for Claude Code MCP connectors workstation install merges into ~/.claude.json. No secrets. Keys are read from env (or prompted at install) and written only into the user file on the PC. A server that still lacks a required key is skipped with a message; install does not fail. Existing servers of the same name are left alone.",
+  "servers": [
+    {
+      "name": "kapture",
+      "scope": "user",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "kapture-mcp@latest", "bridge"]
+    },
+    {
+      "name": "github",
+      "scope": "user",
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer ",
+      "requiredEnvAny": ["GITHUB_PERSONAL_ACCESS_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"]
+    },
+    {
+      "name": "autodesk-fusion-mcp",
+      "scope": "user",
+      "type": "http",
+      "url": "http://127.0.0.1:27182/mcp"
+    },
+    {
+      "name": "githits",
+      "scope": "user",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "githits@latest", "mcp", "start"]
+    },
+    {
+      "name": "firecrawl",
+      "scope": "local",
+      "projectPath": "C:/projects",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "firecrawl-mcp"],
+      "envVars": ["FIRECRAWL_API_KEY"]
+    },
+    {
+      "name": "fetch",
+      "scope": "user",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch"]
+    },
+    {
+      "name": "windows-mcp",
+      "scope": "user",
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["windows-mcp@0.8.8", "serve", "--transport", "stdio"]
+    },
+    {
+      "name": "context7",
+      "scope": "user",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    }
+  ]
+}

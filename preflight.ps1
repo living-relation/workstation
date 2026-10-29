@@ -81,9 +81,10 @@ $WmLink     = Join-Path $DotClaude 'working-memory'
 $SettingsPath = Join-Path $DotClaude 'settings.json'
 $CursorHooksJson = Join-Path $DotCursor 'hooks.json'
 $Expected = @{
-  'context-guard.ps1'     = (Join-Path $DotClaude 'hooks\context-guard.ps1')
-  'memory-link-guard.ps1' = (Join-Path $DotClaude 'hooks\memory-link-guard.ps1')
-  'handoff-at-80.py'      = (Join-Path $DotCursor 'hooks\handoff-at-80.py')
+  'context-guard.ps1'      = (Join-Path $DotClaude 'hooks\context-guard.ps1')
+  'memory-link-guard.ps1'  = (Join-Path $DotClaude 'hooks\memory-link-guard.ps1')
+  'pr-closeout-nudge.ps1'  = (Join-Path $DotClaude 'hooks\pr-closeout-nudge.ps1')
+  'handoff-at-80.py'       = (Join-Path $DotCursor 'hooks\handoff-at-80.py')
 }
 $ArmedPath = Join-Path $DotCursor 'hooks\state\handoff-at-80\armed'
 if ($testMode) { $AutoMemValue = ($LinkPath -replace '\\', '/') } else { $AutoMemValue = "~/.claude/projects/$ProjectKey/memory" }
@@ -93,7 +94,7 @@ if ($testMode) { $AutoMemValue = ($LinkPath -replace '\\', '/') } else { $AutoMe
 $pkgToolkit = Join-Path $PkgRoot $TK.PackageFolder
 $toolkitLeaves = @(Get-ChildItem -LiteralPath $pkgToolkit -Recurse -File -Filter *.ps1 -ErrorAction SilentlyContinue | ForEach-Object Name | Where-Object { @('config.ps1', 'install-shortcuts.ps1', 'repair-sqlite.ps1', 'health-check.ps1', 'run-worker.ps1') -notcontains $_ })
 $legacyLeaves = @($TK.LegacyScripts | Where-Object { $toolkitLeaves -notcontains $_ })
-$OurLeaves = @('memory-link-guard.ps1', 'context-guard.ps1', 'handoff-at-80.py') + $toolkitLeaves + $legacyLeaves | Select-Object -Unique
+$OurLeaves = @('memory-link-guard.ps1', 'context-guard.ps1', 'pr-closeout-nudge.ps1', 'handoff-at-80.py') + $toolkitLeaves + $legacyLeaves | Select-Object -Unique
 $OurScriptRx  = '(?i)(^|[\\/"\s])(' + (($OurLeaves | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
 $RetiredRx    = '(?i)sync-claude-memory-to-cursor|_claude\\run-hidden\.vbs|watch-pull|cursor-worker|run-worker\.ps1|ClaudeCode-?RemoteControl|watcher\.py'
 $RetiredNameRx = '(?i)Claude-Memory-To-Cursor-Sync|watch-?pull|cursor-?worker|ClaudeCode-?RemoteControl|Workstation-Watcher'
@@ -373,7 +374,7 @@ function Test-ClaudeSettings([string]$Path, [bool]$IsUser) {
   if (-not $j.Ok) { Add-Finding 'CONFLICT' 'claude' $Path "does not parse as JSON ($($j.Err)); install.ps1 cannot merge into it. Fix it first."; return }
   $s = $j.Obj
   $hooks = @(Get-ClaudeHooks $s)
-  $wantEvents = @{ 'context-guard.ps1' = @('Stop', 'PreCompact'); 'memory-link-guard.ps1' = @('SessionStart', 'PreToolUse') }
+  $wantEvents = @{ 'context-guard.ps1' = @('Stop', 'PreCompact'); 'memory-link-guard.ps1' = @('SessionStart', 'PreToolUse'); 'pr-closeout-nudge.ps1' = @('PostToolUse') }
   foreach ($leaf in $wantEvents.Keys) {
     $mine = @($hooks | Where-Object { $_.Command -match [regex]::Escape($leaf) })
     foreach ($ev in @($mine | ForEach-Object Event | Sort-Object -Unique)) {
@@ -391,7 +392,7 @@ function Test-ClaudeSettings([string]$Path, [bool]$IsUser) {
     }
   }
   foreach ($h in $hooks) {
-    if ($h.Command -match 'context-guard\.ps1|memory-link-guard\.ps1') { continue }
+    if ($h.Command -match 'context-guard\.ps1|memory-link-guard\.ps1|pr-closeout-nudge\.ps1') { continue }
     if (@('Stop', 'PreCompact', 'SessionStart', 'PreToolUse', 'SubagentStop', 'SessionEnd') -contains $h.Event -and $h.Command -match $SimilarHookRx) {
       Add-Finding 'WARN' 'claude' "$Path > hooks.$($h.Event)" "other hook with a similar purpose (handoff / backup / memory); check it does not double up: $($h.Command)"
     }
@@ -440,6 +441,42 @@ if (Test-Path -LiteralPath $rootCm) { Add-Finding 'WARN' 'rules' $rootCm ("root 
 elseif (Test-Path -LiteralPath $rootAm) { Add-Finding 'OK' 'rules' $rootAm 'root guide is AGENTS.md (no root CLAUDE.md)' }
 else { Add-Finding 'OK' 'rules' $rootAm 'not there yet; install.ps1 creates it' }
 if (-not $projSettings.Count) { Add-Finding 'OK' 'claude' 'project .claude\settings*.json' "none under $ProjectsRoot (checked the root, its folders and active\*)" }
+
+# 6b. Claude Code MCP (~/.claude.json) from claude/mcp-servers.json
+$ClaudeJson = Join-Path $UserHome '.claude.json'
+$mcpSpecPath = Join-Path $PkgRoot 'claude\mcp-servers.json'
+if (Test-Path -LiteralPath $mcpSpecPath) {
+  $mcpSpec = $null
+  try { $mcpSpec = [IO.File]::ReadAllText($mcpSpecPath) | ConvertFrom-Json } catch { Add-Finding 'WARN' 'claude-mcp' $mcpSpecPath "does not parse ($($_.Exception.Message))" }
+  $cj = Read-JsonFile $ClaudeJson
+  if (-not $cj.Exists) { Add-Finding 'OK' 'claude-mcp' $ClaudeJson 'not found; install.ps1 merges MCP connectors into it' }
+  elseif (-not $cj.Ok) { Add-Finding 'CONFLICT' 'claude-mcp' $ClaudeJson "does not parse as JSON ($($cj.Err)); install.ps1 cannot merge into it. Fix it first." }
+  elseif ($mcpSpec) {
+    $foundNames = @{}
+    $ms = $cj.Obj.mcpServers
+    if ($ms) { foreach ($p in $ms.PSObject.Properties) { $foundNames[$p.Name] = "user" } }
+    $projects = $cj.Obj.projects
+    if ($projects) {
+      foreach ($pp in $projects.PSObject.Properties) {
+        $pms = $null; if ($pp.Value) { $pms = $pp.Value.mcpServers }
+        if ($pms) { foreach ($sp in $pms.PSObject.Properties) { if (-not $foundNames.ContainsKey($sp.Name)) { $foundNames[$sp.Name] = "local:$($pp.Name)" } } }
+      }
+    }
+    foreach ($s in @($mcpSpec.servers)) {
+      $n = [string]$s.name
+      if ($foundNames.ContainsKey($n)) { Add-Finding 'ALREADY-INSTALLED' 'claude-mcp' "$ClaudeJson > $n" "present ($($foundNames[$n])); install.ps1 leaves it alone" }
+      else { Add-Finding 'OK' 'claude-mcp' "$ClaudeJson > $n" 'not present; install.ps1 adds it (skipped if a required key is missing)' }
+    }
+  }
+}
+$pluginListPath = Join-Path $PkgRoot 'claude\plugins.json'
+if (Test-Path -LiteralPath $pluginListPath) {
+  try {
+    $pl = [IO.File]::ReadAllText($pluginListPath) | ConvertFrom-Json
+    $n = @($pl.plugins).Count
+    Add-Finding 'OK' 'claude-plugins' $pluginListPath "$n plugin(s) in the source-of-truth list; install.ps1 installs missing ones at user scope from $($pl.marketplaceName)"
+  } catch { Add-Finding 'WARN' 'claude-plugins' $pluginListPath "does not parse ($($_.Exception.Message))" }
+}
 
 # ---------------------------------------------------------------- 7. Cursor hooks.json (user + project)
 function Test-CursorHooks([string]$Path, [bool]$IsUser) {
