@@ -35,7 +35,7 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
 
 - 2026-10-29: Fusion lock (`workstation/fusion-lock/fusion-lock.ps1`, rule in `agents/projects-AGENTS.md` section 5). After merge: Pull on both PCs; the old router-project lock (`rtr-v2-router\_coordination\`) should be retired and that project's rules pointed at section 5 (owner's yes needed; not done here).
 
-**Last added:** 2026-10-29 Fusion lock.
+**Last added:** 2026-10-29 Fusion lock; install links skills by default; skill-zip upload popup.
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27
