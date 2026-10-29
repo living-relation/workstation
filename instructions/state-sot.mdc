@@ -2,4 +2,4 @@
 description: Read and keep current the project's state and source of truth
 alwaysApply: true
 ---
-After each step, and before ending a turn or opening a PR, update the state/SoT docs that changed, on the same branch; if none changed, end with "State/SoT: no change."
+Before any other work, read in full the state and source-of-truth docs the agent guide names. After each step, and before ending a turn or opening a PR, update the state/SoT docs that changed, on the same branch; if none changed, end with "State/SoT: no change."

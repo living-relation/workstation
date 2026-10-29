@@ -81,7 +81,7 @@ Put it in the repo's state file if one exists and writing it is allowed; otherwi
 **Last session:** finished | stopped early (<which sign>) — handoff: <path>
 **Where work is:** branch <x>, PR #N (open), worktrees: <list>
 **Read:** <paths, or none named>
-changed this session: <paths or none>
+**Changed:** <paths or none>
 **Open:** <top 3 items, each with a date>
 **Flags:** promised-not-written: … | outside the repo: … | stale memory: … | unsigned memory: … | orientation-cost: …
 **Health:** git-checker <verdict> · outputs: FRESH|STALE-OUTPUT <list> · hook: installed|missing
