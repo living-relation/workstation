@@ -22,8 +22,14 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
 - 2026-10-28: After merge of the skill first-pass checks — re-upload the repo-cleanup,
   iterative-cleaning and session-start skill zips to Claude desktop, and run Pull + Install on
   both PCs.
+- 2026-10-29: `pr-closeout` and `iap-ship-workflow` live under `skills/` so `-LinkSkills` can
+  junction them on both PCs. The local `pr-closeout-nudge.ps1` Claude Code hook stays on the PC
+  (this repo does not ship Claude Code PostToolUse hooks from skill folders). After merge:
+  remove the old loose copies of those two skills on each PC (they block the new links), then
+  Pull + Install `-LinkSkills` on both PCs. Exact leftover paths are in the PR body; do not
+  delete them from here.
 
-**Last added:** 2026-10-28 skill-zip Action never pushes when PR head is main; chore branch is reset+force-with-lease; `gh workflow run` after bot commits.
+**Last added:** 2026-10-29 pr-closeout and iap-ship-workflow skills (hook stays local).
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27
