@@ -63,13 +63,13 @@ a few lines. Any repo.
    - anything left for the user (a conflict between rules, a decision)
 
 ## Where it runs
-One skill file for every agent. A local hook can fire it in Claude Code on the PC
-(`~\.claude\settings.json` PostToolUse) and in Cursor on the PC (`~\.cursor\hooks.json`
-postToolUse). Both use `~\.claude\hooks\pr-closeout-nudge.ps1` when that file is present
-locally. The Grok Bot reads this same file from `~\.claude\skills`. Claude Code cloud
-sessions and Cowork get it as a skill uploaded to claude.ai. Where no hook runs (Grok, cloud,
-Cowork), the description above is the trigger: run it as soon as you open a PR, or when the
-user says "run pr-closeout" / "close out".
+One skill file for every agent. Workstation `install.ps1` copies `handoff/claude/pr-closeout-nudge.ps1`
+into `~\.claude\hooks` and wires it in `~\.claude\settings.json` PostToolUse (merge; other hook
+entries stay). Cursor on the PC also runs those user Claude hooks, so the same script fires there.
+The Grok Bot reads this same skill from `~\.claude\skills`. Claude Code cloud sessions and Cowork
+get it as a skill uploaded to claude.ai. Where no hook runs (Grok, cloud, Cowork), the description
+above is the trigger: run it as soon as you open a PR, or when the user says "run pr-closeout" /
+"close out".
 
 ## Not this skill's job
 Merging, deleting branches before the merge, CI babysitting (the app's Auto-fix does that), and

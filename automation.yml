@@ -58,10 +58,10 @@ automations:
     run_cmd: .venv/bin/python scripts/gen-inventory.py
   - id: install
     script: install.ps1
-    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/shortcuts/install-shortcuts.ps1, workstation/shortcuts/install.ps1, install.cmd]
+    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/shortcuts/install-shortcuts.ps1, workstation/shortcuts/install.ps1, install.cmd, claude/claude-setup.ps1, claude/mcp-servers.json, claude/plugins.json]
     trigger: manual
-    reads: [toolkit.psd1, memory/templates/**, instructions/**, handoff/**, memory/hooks/**, skills/**]
-    writes: [outside the repo (inferred) - LOCALAPPDATA Workstation folder, user .claude settings and hooks, Projects _claude store, shortcuts/*.lnk]
+    reads: [toolkit.psd1, memory/templates/**, instructions/**, handoff/**, memory/hooks/**, skills/**, claude/**]
+    writes: [outside the repo (inferred) - LOCALAPPDATA Workstation folder, user .claude settings and hooks, user .claude.json MCP servers, Projects _claude store, shortcuts/*.lnk]
     committed: no
     auto_commit: false
     enabled: true
@@ -92,13 +92,24 @@ automations:
     auto_commit: false
     enabled: true
   - id: handoff-hooks
-    script: [handoff/claude/context-guard.ps1, handoff/cursor/handoff-at-80.py]
-    trigger: agent-hook:statusLine+Stop+PreCompact (installed copies, by install)
-    reads: [agent session context usage]
-    writes: [handoff backups outside the repo (inferred)]
+    script: [handoff/claude/context-guard.ps1, handoff/claude/pr-closeout-nudge.ps1, handoff/cursor/handoff-at-80.py]
+    helpers: [handoff/claude/tests/test-pr-closeout-nudge.ps1]
+    trigger: agent-hook:statusLine+Stop+PreCompact+PostToolUse (installed copies, by install)
+    reads: [agent session context usage; PostToolUse payload for pr-closeout-nudge]
+    writes: [handoff backups outside the repo (inferred); no files for pr-closeout-nudge]
     committed: no
     auto_commit: false
     enabled: true
+  - id: claude-setup
+    script: claude/claude-setup.ps1
+    helpers: [claude/mcp-servers.json, claude/plugins.json, claude/tests/test-claude-setup.ps1]
+    trigger: called-by:install
+    reads: [claude/mcp-servers.json, claude/plugins.json, user .claude.json]
+    writes: [user .claude.json MCP servers (merge); Claude Code plugins via claude plugin install]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File claude/tests/test-claude-setup.ps1
   - id: workstation-shortcuts
     script: [workstation/shortcuts/workers-start.ps1, workstation/shortcuts/workers-stop.ps1, workstation/shortcuts/workstation-status.ps1, workstation/shortcuts/dashboard.ps1, workstation/shortcuts/pull.ps1, pull.cmd, workstation/shortcuts/rc-generate.ps1, workstation/shortcuts/rc-open.ps1, workstation/shortcuts/rc-close.ps1]
     helpers: [workstation/shortcuts/workstation-common.ps1, workstation/shortcuts/claude-auth-status.ps1, workstation/shortcuts/tests/test-claude-auth-status.ps1, workstation/shortcuts/rc-lib.ps1, workstation/shortcuts/tests/test-rc-shortcuts.ps1, workstation/paths.ps1, workstation/repo-status.ps1, workstation/repo-branch.ps1]

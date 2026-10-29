@@ -15,7 +15,7 @@
     (only after the user reviewed the preflight report). -WhatIf runs preflight too.
   - Never moves or deletes folders, never overwrites memory or starter files.
   - Appends memory sections to rule files only when the marker <!-- shared-memory:v1 --> is missing.
-  - Backs up ~\.claude\settings.json (timestamped .bak next to it) before changing it.
+  - Backs up ~\.claude\settings.json and ~\.claude.json (timestamped .bak next to each) before changing them.
   - Sets Claude Code's Project instructions to claude-md-and-agents-md (read CLAUDE.md AND AGENTS.md) in
     ~\.claude\settings.json > pluginConfigs (plugin cc-plugin-agents-md@builtin, or agents-md@builtin before
     Claude Code 2.1.285). WARN if Claude Code is older than 2.1.281. uninstall.ps1 reverts only that key.
@@ -30,10 +30,16 @@
   - Creates the junction ~\.claude\working-memory -> the memory store (the same path on every PC;
     the Cowork Global instructions line uses it). An existing folder or link there is never changed.
   - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
-    handoff-at-80.py (Cursor preCompact + stop, needs py -3); the skill they trigger, agent-handoff-pack, is linked
-    by default (section 9b; opt out with -NoLinkSkills), which also moves an old handoff-sync-continue copy to
-    ~\.skills-backup. -LinkSkills is accepted and ignored. Entries are merged by script name (never duplicated);
-    an unrelated statusLine is never overwritten.
+    pr-closeout-nudge.ps1 (Claude Code PostToolUse, after a PR is opened), handoff-at-80.py (Cursor preCompact +
+    stop, needs py -3); the skill the handoff hooks trigger, agent-handoff-pack, is linked by default (section 9b;
+    opt out with -NoLinkSkills), which also moves an old handoff-sync-continue copy to ~\.skills-backup.
+    -LinkSkills is accepted and ignored. Entries are merged by script name (never duplicated); an unrelated
+    statusLine is never overwritten; other hook entries are left alone.
+  - Merges Claude Code MCP connectors into ~\.claude.json (user-scope, plus firecrawl local-scoped to C:/projects)
+    from claude\mcp-servers.json. Existing servers of the same name are left alone. API keys come from env (or a
+    prompt unless -Quiet / CI / -WhatIf / -UserHome); a server that still lacks a required key is skipped with a
+    message, not a failed install. Then installs Claude Code plugins at user scope from claude\plugins.json
+    (Anthropic official marketplace). That file is the source of truth for plugin names.
   - Makes sure Cursor starts at sign-in: an existing Cursor entry (Startup folder or Run key) is left alone,
     even if it is turned off in Startup apps (warning only); otherwise adds Cursor.lnk to the Startup folder.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
@@ -169,6 +175,7 @@ $Templates   = Join-Path $PkgRoot 'memory\templates'
 # 80% handoff hooks + skill
 $HandoffPkg  = Join-Path $PkgRoot 'handoff'
 $CtxDest     = Join-Path $HooksDir 'context-guard.ps1'
+$NudgeDest   = Join-Path $HooksDir 'pr-closeout-nudge.ps1'
 $DotCursor   = Join-Path $UserHome '.cursor'
 $CursorHookDest = Join-Path $DotCursor 'hooks\handoff-at-80.py'
 $CursorHooksJson = Join-Path $DotCursor 'hooks.json'
@@ -186,6 +193,7 @@ if ($testMode) { $AutoMemValue = ($LinkPath -replace '\\', '/') } else { $AutoMe
 $GuardCommand = 'powershell -NoProfile -ExecutionPolicy Bypass -File "' + ($GuardDest -replace '\\', '/') + '"'
 # Same command shapes as the hand-made originals, built from this user's real profile path (forward slashes).
 function Get-CtxCommand([string]$Mode) { return ('powershell -NoProfile -ExecutionPolicy Bypass -File "' + ($CtxDest -replace '\\', '/') + '" ' + $Mode) }
+function Get-NudgeCommand { return ('powershell -NoProfile -ExecutionPolicy Bypass -File "' + ($NudgeDest -replace '\\', '/') + '"') }
 $CursorHookFwd = ($CursorHookDest -replace '\\', '/')
 $CursorCommand = 'py -3 ' + $(if ($CursorHookFwd -match '\s') { '"' + $CursorHookFwd + '"' } else { $CursorHookFwd })
 
@@ -655,14 +663,15 @@ if (-not $wmItem) {
   Note 'WARN' "$WmLink is a file, not a junction. Left alone; move it aside by hand and re-run install.ps1."
 }
 
-# 6c. 80% handoff files: context-guard.ps1, handoff-at-80.py (only with py -3), the skill (never overwritten)
+# 6c. 80% handoff files: context-guard.ps1, pr-closeout-nudge.ps1, handoff-at-80.py (only with py -3), the skill (never overwritten)
 Copy-HomeFile (Join-Path $HandoffPkg 'claude\context-guard.ps1') $CtxDest
+Copy-HomeFile (Join-Path $HandoffPkg 'claude\pr-closeout-nudge.ps1') $NudgeDest
 $CursorHookOk = [bool]$Preflight.PyOk
 if ($CursorHookOk) { Copy-HomeFile (Join-Path $HandoffPkg 'cursor\handoff-at-80.py') $CursorHookDest }
 else { Note 'WARN' "py -3 (Python 3.7+) not available: Cursor 80% handoff hook skipped ($CursorHookDest, $CursorHooksJson unchanged). Install Python 3, then re-run install.ps1." }
 # The skill the hooks trigger is agent-handoff-pack (skills\), linked by default in section 9b.
 
-# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart/PreToolUse guard hook + handoff hooks/statusLine), keep everything else
+# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart/PreToolUse guard hook + handoff hooks/statusLine + PostToolUse pr-closeout-nudge), keep everything else
 $settings = $null; $settingsOk = $true; $settingsExisted = Test-Path -LiteralPath $SettingsPath
 if ($AutoMemAtStore) {
   $settingsOk = $false
@@ -735,6 +744,8 @@ if ($settingsOk) {
   $stopCmd = Get-CtxCommand 'stop'; $preCmd = Get-CtxCommand 'precompact'
   Merge-HookCommand $settings.hooks 'PreCompact' 'context-guard.ps1' $preCmd ([pscustomobject]@{ hooks = @([pscustomobject]@{ type = 'command'; command = $preCmd; timeout = 60; statusMessage = 'Backing up before compaction...' }) }) 'claude' $pendingS ([ref]$changes) -Nested
   Merge-HookCommand $settings.hooks 'Stop' 'context-guard.ps1' $stopCmd ([pscustomobject]@{ hooks = @([pscustomobject]@{ type = 'command'; command = $stopCmd; timeout = 15 }) }) 'claude' $pendingS ([ref]$changes) -Nested
+  $nudgeCmd = Get-NudgeCommand
+  Merge-HookCommand $settings.hooks 'PostToolUse' 'pr-closeout-nudge.ps1' $nudgeCmd ([pscustomobject]@{ matcher = '*'; hooks = @([pscustomobject]@{ type = 'command'; command = $nudgeCmd; timeout = 15 }) }) 'claude' $pendingS ([ref]$changes) -Nested
   $slCmd = Get-CtxCommand 'statusline'
   $curSl = $null; if ($settings.PSObject.Properties['statusLine']) { $curSl = $settings.statusLine }
   $curSlCmd = ''; if ($curSl -and $curSl.PSObject.Properties['command']) { $curSlCmd = [string]$curSl.command }
@@ -795,6 +806,23 @@ if ($settingsOk) {
       foreach ($p in $pendingS) { Add-ManifestJson $p }
     }
   }
+}
+
+# 7c. Claude Code MCP connectors (~/.claude.json) and official-marketplace plugins (claude\)
+$ccSetup = Join-Path $PkgRoot 'claude\claude-setup.ps1'
+if (-not (Test-Path -LiteralPath $ccSetup)) { Note 'ERROR' "claude-setup.ps1 not found: $ccSetup" }
+else {
+  $ccArgs = @{ ProjectsRoot = $ProjectsRoot }
+  if ($testMode) { $ccArgs.UserHome = $UserHome }
+  if ($WhatIf) { $ccArgs.WhatIf = $true }
+  if ($NoPopup) { $ccArgs.Quiet = $true }
+  try {
+    foreach ($r in @(& $ccSetup @ccArgs)) {
+      if (-not $r -or -not $r.PSObject.Properties['Status']) { continue }
+      Note $r.Status $r.Item
+      if ($r.Manifest -and -not $WhatIf) { Add-ManifestJson $r.Manifest }
+    }
+  } catch { Note 'ERROR' ("claude setup -- " + $_.Exception.Message) }
 }
 
 # 7b. ~\.cursor\hooks.json: preCompact + stop run handoff-at-80.py (only with py -3); armed flag

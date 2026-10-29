@@ -7,6 +7,7 @@ It does not commit or push.
 | File | Installed to | Wired in |
 |---|---|---|
 | `claude\context-guard.ps1` | `%USERPROFILE%\.claude\hooks\` | `~\.claude\settings.json`: `statusLine` (measures context), `hooks.Stop` (fires at 80% of the compaction point), `hooks.PreCompact` (backs up the transcript to `~\.claude\compaction-backups\`) |
+| `claude\pr-closeout-nudge.ps1` | `%USERPROFILE%\.claude\hooks\` | `~\.claude\settings.json`: `hooks.PostToolUse` (after `gh pr create` or a GitHub create-pull-request tool succeeds, tells Claude to run the pr-closeout skill). Other PostToolUse entries are left alone. |
 | `cursor\handoff-at-80.py` | `%USERPROFILE%\.cursor\hooks\` | `~\.cursor\hooks.json`: `preCompact` + `stop` (`py -3`, timeout 10, stop `loop_limit` 1). Armed by the flag file `~\.cursor\hooks\state\handoff-at-80\armed` (delete it to disarm) |
 | `..\skills\agent-handoff-pack\` | linked into `%USERPROFILE%\.claude\skills\` (Cursor reads it too) by `link-skills.ps1` (`install.ps1`, opt out with `-NoLinkSkills`) | the skill both hooks trigger (quick mode) |
 

@@ -1,0 +1,18 @@
+{
+  "sourceOfTruth": "This file is the source of truth for which Claude Code plugins workstation install enables at user scope. install.ps1 reads it; add or remove names here. Plugins come from Anthropic's official marketplace (claude-plugins-official). DansPC's exact 23-plugin set is not stored elsewhere in this repo; the names below are that known set plus desktop-commander. On a PC, claude plugin list --json shows what is already installed.",
+  "marketplace": "anthropics/claude-plugins-official",
+  "marketplaceName": "claude-plugins-official",
+  "scope": "user",
+  "plugins": [
+    "code-review",
+    "pr-review-toolkit",
+    "feature-dev",
+    "skill-creator",
+    "superpowers",
+    "context7",
+    "security-guidance",
+    "typescript-lsp",
+    "pyright-lsp",
+    "desktop-commander"
+  ]
+}

@@ -16,10 +16,14 @@
     it had before install (or removed if there was none; left alone if it changed since); the 80% handoff hook
     entries (a re-pointed entry gets its old command back); the statusLine while it is still the one install set;
     pluginConfigs > <agents-md plugin> > options.instructionFiles put back to its value before install (or removed,
-    with the empty parent objects install created; left alone if it changed since),
+    with the empty parent objects install created; left alone if it changed since); the PostToolUse pr-closeout-nudge
+    hook install added,
+  - in ~\.claude.json: MCP servers install added, only while they still match the fingerprint install recorded
+    (a server the user changed is left alone); servers install did not add stay,
+  - Claude Code plugins install newly installed (claude plugin uninstall); ones that were already there stay,
   - in ~\.cursor\hooks.json: the handoff-at-80.py entries install added; the file if install created it and it is
     empty again,
-  - files install created (guard script and config, context-guard.ps1, handoff-at-80.py, the armed flag, the
+  - files install created (guard script and config, context-guard.ps1, pr-closeout-nudge.ps1, handoff-at-80.py, the armed flag, the
     handoff-sync-continue skill, the runtime config %LOCALAPPDATA%\<StateFolder>\<ConfigFile>, sync scripts, and
     toolkit files an older install copied into <Projects>\_workstation or _bridge) only while unchanged, and
     folders install created (only if empty). The toolkit itself runs from the repo clone; uninstall never touches
@@ -63,6 +67,7 @@ $SettingsPath = Join-Path $DotClaude 'settings.json'
 $BackupDir  = Join-Path $ProjectsRoot ("_archive\automation-uninstall-backup-$Stamp")
 $ManifestPath = Join-Path $ClaudeDir 'automation-installed-files.txt'
 $CursorHooksJson = Join-Path $UserHome '.cursor\hooks.json'
+$ClaudeJson = Join-Path $UserHome '.claude.json'
 # 'json|{...}' manifest entries written by install.ps1 (hooks, statusLine, files outside <Projects>, startup link).
 $ManifestJson = @()
 if (Test-Path -LiteralPath $ManifestPath) {
@@ -300,6 +305,61 @@ if (Test-Path -LiteralPath $SettingsPath) {
   }
 }
 
+# 2a. ~\.claude.json: MCP servers install added (fingerprint must still match)
+function Get-McpFingerprint($Entry) {
+  if (-not $Entry) { return '' }
+  if ($Entry.PSObject.Properties['url'] -and $Entry.url) { return "http|$($Entry.url)" }
+  $cmd = ''; if ($Entry.PSObject.Properties['command']) { $cmd = [string]$Entry.command }
+  $argl = @(); if ($Entry.PSObject.Properties['args'] -and $Entry.args) { $argl = @($Entry.args) }
+  return "stdio|$cmd|$($argl -join ' ')"
+}
+$mcpRecs = @($ManifestJson | Where-Object { $_.kind -eq 'mcp-server' })
+if ($mcpRecs.Count -and (Test-Path -LiteralPath $ClaudeJson)) {
+  $rawJ = [IO.File]::ReadAllText($ClaudeJson); $cj = $null
+  try { $cj = $rawJ | ConvertFrom-Json } catch { Note 'ERROR' "could not parse $ClaudeJson (left unchanged)" }
+  if ($cj) {
+    $mcpChanges = @()
+    foreach ($m in $mcpRecs) {
+      $name = [string]$m.name
+      $scope = [string]$m.scope
+      $want = [string]$m.fingerprint
+      $container = $null; $entry = $null
+      if ($scope -eq 'local') {
+        if ($cj.PSObject.Properties['projects'] -and $cj.projects) {
+          foreach ($p in $cj.projects.PSObject.Properties) {
+            $pms = $null; if ($p.Value) { $pms = $p.Value.mcpServers }
+            if ($pms -and $pms.PSObject.Properties[$name]) { $container = $pms; $entry = $pms.$name; break }
+          }
+        }
+      } elseif ($cj.PSObject.Properties['mcpServers'] -and $cj.mcpServers -and $cj.mcpServers.PSObject.Properties[$name]) {
+        $container = $cj.mcpServers; $entry = $cj.mcpServers.$name
+      }
+      if (-not $entry) { Note 'INFO' "MCP $name already removed from $ClaudeJson"; continue }
+      $cur = Get-McpFingerprint $entry
+      if ($cur -ne $want) { Note 'WARN' "MCP $name in $ClaudeJson changed since install; left alone"; continue }
+      $container.PSObject.Properties.Remove($name); $mcpChanges += "remove MCP $name"
+    }
+    if ($mcpChanges.Count) {
+      $jbak = Get-FreePath "$ClaudeJson.bak-$Stamp"
+      Invoke-Change ("update $ClaudeJson (" + ($mcpChanges -join '; ') + "; backup $jbak)") { Write-JsonChecked $ClaudeJson $cj $rawJ $jbak }
+    } else { Note 'OK' "$ClaudeJson has nothing from install (or those MCP servers changed)" }
+  }
+} elseif ($mcpRecs.Count) { Note 'INFO' "no $ClaudeJson; MCP servers not present" }
+
+foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'claude-plugin' })) {
+  $qual = "$($m.name)@$($m.marketplace)"
+  $claudeCmd = Get-Command claude -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $claudeCmd) { Note 'WARN' "Claude Code CLI not found; plugin $qual not uninstalled (install recorded it)"; continue }
+  Invoke-Change "uninstall Claude Code plugin $qual (user scope)" {
+    $ErrorActionPreference = 'Continue'
+    & $claudeCmd.Source plugin uninstall $qual --scope user --yes 2>&1 | Out-Null
+    $ErrorActionPreference = 'Stop'
+  }
+}
+foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'claude-plugin-preexisting' })) {
+  Note 'OK' "plugin $($m.name)@$($m.marketplace) was already installed before this package; left as is"
+}
+
 # 2b. ~\.cursor\hooks.json: the handoff-at-80.py entries install added; the file itself if install created it
 if (Test-Path -LiteralPath $CursorHooksJson) {
   $rawH = [IO.File]::ReadAllText($CursorHooksJson); $hj = $null
@@ -367,7 +427,7 @@ if ((Test-Path -LiteralPath $SettingsPath) -and ([IO.File]::ReadAllText($Setting
 if ((Test-Path -LiteralPath $CursorHooksJson) -and ([IO.File]::ReadAllText($CursorHooksJson)).Contains('handoff-at-80.py') -and -not @($ManifestJson | Where-Object { $_.target -eq 'cursor' -and $_.kind -match '^(hook|hook-updated)$' }).Count) {
   Note 'OK' "handoff-at-80.py entries in hooks.json: not installed by this package, left alone"
 }
-foreach ($hp in @((Join-Path $DotClaude 'hooks\context-guard.ps1'), (Join-Path $UserHome '.cursor\hooks\handoff-at-80.py'),
+foreach ($hp in @((Join-Path $DotClaude 'hooks\context-guard.ps1'), (Join-Path $DotClaude 'hooks\pr-closeout-nudge.ps1'), (Join-Path $UserHome '.cursor\hooks\handoff-at-80.py'),
                   (Join-Path $UserHome '.cursor\hooks\state\handoff-at-80\armed'), (Join-Path $DotClaude 'skills\handoff-sync-continue'))) {
   if ((Test-Path -LiteralPath $hp) -and -not @($listedAny | Where-Object { $_ -ieq $hp }).Count) { Note 'OK' "not installed by this package, left alone: $hp" }
 }
