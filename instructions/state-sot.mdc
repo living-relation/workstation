@@ -2,4 +2,4 @@
 description: Read and keep current the project's state and source of truth
 alwaysApply: true
 ---
-Read the project's state and source-of-truth docs (state, open items, decisions, tracker, handoff) before working, and update every one your work changed before your final reply.
+After each step, and before ending a turn or opening a PR, update the state/SoT docs that changed, on the same branch; if none changed, end with "State/SoT: no change."
