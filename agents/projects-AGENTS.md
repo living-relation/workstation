@@ -19,7 +19,7 @@ generated or bot-owned files (let the workflow that owns a file regenerate it). 
 would bypass one, stop and ask.
 
 ## 2. Git
-- Branch -> PR -> review. No commits on `main`, never force-push.
+- Branch -> PR -> review. No commits on `main`, never force-push. Exception: the skill-zips CI bot may force-push (with lease) its own `chore/skill-zips` branch only.
 - One repo at a time: no batch pull/push/merge scripts or shortcuts.
 - After a merge, update local copies with `git pull --ff-only`, never over uncommitted changes.
 - Commits use the GitHub noreply address; no personal email in commit metadata.
