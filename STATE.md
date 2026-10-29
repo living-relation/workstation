@@ -22,14 +22,18 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
 - 2026-10-28: After merge of the skill first-pass checks — re-upload the repo-cleanup,
   iterative-cleaning and session-start skill zips to Claude desktop, and run Pull + Install on
   both PCs.
-- 2026-10-29: `pr-closeout` and `iap-ship-workflow` live under `skills/` so `-LinkSkills` can
+- 2026-10-29: `pr-closeout` and `iap-ship-workflow` live under `skills/` so install can
   junction them on both PCs. The local `pr-closeout-nudge.ps1` Claude Code hook stays on the PC
   (this repo does not ship Claude Code PostToolUse hooks from skill folders). After merge:
   remove the old loose copies of those two skills on each PC (they block the new links), then
-  Pull + Install `-LinkSkills` on both PCs. Exact leftover paths are in the PR body; do not
-  delete them from here.
+  Pull + Install on both PCs (skill linking is now the default; no `-LinkSkills`). Exact leftover
+  paths are in the PR body; do not delete them from here.
+- 2026-10-29: `install.ps1` links skills every run (opt out with `-NoLinkSkills`; `-LinkSkills` is
+  a no-op). End of install shows a Windows popup to upload `skills/*.zip` in Claude desktop
+  (Settings > Capabilities > Skills); skipped for `-WhatIf`, `-UserHome`, `-NoPopup`/`-Quiet`, and
+  CI. Changed zip names are tracked in `%LOCALAPPDATA%\Workstation\skill-zips.json`.
 
-**Last added:** 2026-10-29 pr-closeout and iap-ship-workflow skills (hook stays local).
+**Last added:** 2026-10-29 install links skills by default; skill-zip upload popup.
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27
