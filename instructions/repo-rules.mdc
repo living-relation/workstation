@@ -9,3 +9,5 @@ Before changing anything in a repo, read and follow its own AGENTS.md, CLAUDE.md
 decisions log, hooks (.pre-commit-config.yaml, core.hooksPath, .git/hooks) and CI workflows.
 Never bypass a hook or gate without the user's explicit yes: no --no-verify, no skipping CI, no
 direct pushes of generated or bot-owned files. Branch + PR, never force-push, one repo at a time.
+
+Before driving Autodesk Fusion, hold the per-PC Fusion lock: see section 5 "Fusion lock" in the workstation repo agents/projects-AGENTS.md.

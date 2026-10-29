@@ -32,3 +32,12 @@ would bypass one, stop and ask.
 ## 4. Files
 - Part/model files stay out of repos unless that repo's own rules say otherwise; finished models go to the models folder (`$MODELS_DIR`), add-only.
 - Generic content only in shared repos: project-specific notes belong in that project.
+
+## 5. Fusion lock (one agent drives Autodesk Fusion at a time)
+One lock per PC: `%LOCALAPPDATA%\Workstation\fusion.lock` (outside every repo); log `fusion-lock.log` beside it.
+Script: `<Projects>\active\workstation\workstation\fusion-lock\fusion-lock.ps1` (call it with `powershell -NoProfile -ExecutionPolicy Bypass -File`).
+- Before driving Fusion (MCP add-in or by hand), run `status`. Free: `acquire -Holder <your name> -Kind claude-code|cursor|remote -Files <files you will open>`. Held by someone else: wait or ask the owner; never drive Fusion.
+- Claude Code / Cursor: add `-StartPinger`; a hidden pinger checks in every 5 min and exits when your session process ends.
+- Remote agents (cloud Claude via Desktop Commander, Grok bots): run `checkin -Holder <name>` at least every 10 min while working.
+- Done: save your work, then `release -Holder <name>`.
+- Found a lock with no check-in for 15+ min: run `check`. It clears the lock only if the holder's files are closed and nothing in Fusion is unsaved; otherwise it says ask the owner. Never delete the lock file by hand or on time alone.
