@@ -38,6 +38,8 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   (by hand: `link-skills.ps1 [-WhatIf]`). Opt out with `install.ps1 -NoLinkSkills`. `-LinkSkills` is still accepted and ignored.
   Re-running it removes only its own links whose skill was renamed or removed (the
   link only). CAD skills live in the CAD repo, which links them from its own setup.
+  `skills/EXCLUDE.txt` lists Claude-app-owned skills (harness-design, st185-*); those, and any SKILL.md with
+  `source: harness-design-app`, are never linked or zipped, and `link-skills.ps1` never moves or removes their folders.
   Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching `skills/<name>.zip` for upload to Claude.
   `install.ps1` ends with a Windows popup reminding you to upload new or changed zips in Claude desktop
   (Settings > Capabilities > Skills); click OK to open `skills\` in Explorer. The popup is skipped for

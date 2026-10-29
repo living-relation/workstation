@@ -308,5 +308,55 @@ class CommitHelper(unittest.TestCase):
             self.assertIn("guard:", proc.stdout + proc.stderr)
 
 
+
+
+class Exclude(unittest.TestCase):
+    def _repo(self, root: Path):
+        write_skill(root, "keep-me", "keep-me", "Normal skill.")
+        write_skill(root, "harness-design", "harness-design", "App owned.")
+        d = root / "marked-skill"
+        d.mkdir()
+        (d / "SKILL.md").write_text(
+            "---\nname: marked-skill\ndescription: Marked.\nsource: harness-design-app\n---\nbody\n",
+            encoding="utf-8", newline="\n",
+        )
+        (root / "EXCLUDE.txt").write_text("# comment\nharness-design\nst185-pick-parts\n", encoding="utf-8")
+        git_track(root)
+
+    def test_load_excluded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._repo(root)
+            self.assertEqual(pack.load_excluded(root), {"harness-design", "st185-pick-parts"})
+            self.assertTrue(pack.is_app_marked(root / "marked-skill"))
+            self.assertFalse(pack.is_app_marked(root / "keep-me"))
+
+    def test_excluded_and_marked_not_packed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._repo(root)
+            report = pack.pack_all(root)
+            self.assertEqual(report.packed, ["keep-me"])
+            self.assertFalse((root / "harness-design.zip").exists())
+            self.assertFalse((root / "marked-skill.zip").exists())
+            self.assertTrue(any("skip excluded harness-design" in l for l in report.lines))
+
+    def test_excluded_zip_never_removed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._repo(root)
+            (root / "harness-design.zip").write_bytes(b"keep")
+            (root / "st185-pick-parts.zip").write_bytes(b"keep")
+            pack.pack_all(root)
+            self.assertEqual((root / "harness-design.zip").read_bytes(), b"keep")
+            self.assertEqual((root / "st185-pick-parts.zip").read_bytes(), b"keep")
+
+    def test_repo_exclude_lists_harness_skills(self):
+        names = pack.load_excluded(HERE.parent / "skills")
+        for n in ("harness-design", "st185-build-harness-from-sot", "st185-pick-parts",
+                  "st185-ship-change", "st185-change-sot", "st185-apply-route-markup"):
+            self.assertIn(n, names)
+        self.assertFalse((HERE.parent / "skills" / "harness-design").exists())
+
 if __name__ == "__main__":
     unittest.main()
