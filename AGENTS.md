@@ -10,5 +10,5 @@ maintainer something the rules already answer.
 
 Read `agents/projects-AGENTS.md` (shared rules) and `CONTRIBUTING.md` first; follow the hooks in
 `.githooks/`. Current status and open items live only in `STATE.md` (the one state file); every
-script and hook is listed in `automation.yml`. This repo is public but still generic: no machine-specific, project-specific or
+script and hook is listed in `automation.yml`. Before driving Autodesk Fusion, follow the Fusion lock rule in `agents/projects-AGENTS.md` section 5. This repo is public but still generic: no machine-specific, project-specific or
 personal content, no secrets, no CAD code or models.

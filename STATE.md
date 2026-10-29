@@ -39,6 +39,8 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
   (Settings > Capabilities > Skills); skipped for `-WhatIf`, `-UserHome`, `-NoPopup`/`-Quiet`, and
   CI. Changed zip names are tracked in `%LOCALAPPDATA%\Workstation\skill-zips.json`.
 
+- 2026-10-29: Fusion lock (`workstation/fusion-lock/fusion-lock.ps1`, rule in `agents/projects-AGENTS.md` section 5). After merge: Pull on both PCs; the old router-project lock (`rtr-v2-router\_coordination\`) should be retired and that project's rules pointed at section 5 (owner's yes needed; not done here).
+
 **Last added:** 2026-10-29 install makes both PCs' Claude Code connectors, plugins, and pr-closeout hook the same.
 
 **Kept branches:** none
