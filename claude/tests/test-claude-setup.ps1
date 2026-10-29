@@ -9,7 +9,6 @@ function Check([string]$What, $Ok) {
 
 $root = Join-Path ([IO.Path]::GetTempPath()) ("ccsetup-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
 New-Item -ItemType Directory -Path $root -Force | Out-Null
-$env:FIRECRAWL_API_KEY = 'fc-test-key-not-real'
 $env:GITHUB_PERSONAL_ACCESS_TOKEN = 'ghp_test_token_not_real'
 
 function Invoke-Setup([switch]$WhatIf) {
@@ -30,7 +29,7 @@ $names = @($would | ForEach-Object { if ($_.Item -match 'MCP (\S+)') { $Matches[
 Check 'whatif does not create claude.json' (-not (Test-Path -LiteralPath (Join-Path $root '.claude.json')))
 Check 'whatif would add kapture' ($names -contains 'kapture')
 Check 'whatif would add github' ($names -contains 'github')
-Check 'whatif would add firecrawl' ($names -contains 'firecrawl')
+Check 'whatif would not add firecrawl' ($names -notcontains 'firecrawl')
 Check 'whatif would add windows-mcp' ($names -contains 'windows-mcp')
 Check 'whatif would add context7' ($names -contains 'context7')
 Check 'whatif would add fetch' ($names -contains 'fetch')
@@ -52,14 +51,16 @@ Check 'user autodesk-fusion-mcp' ([bool]$doc.mcpServers.'autodesk-fusion-mcp')
 Check 'github is http' ($doc.mcpServers.github.type -eq 'http')
 Check 'github url' ($doc.mcpServers.github.url -match 'githubcopilot')
 Check 'firecrawl not user-scope' (-not $doc.mcpServers.PSObject.Properties['firecrawl'])
-$fc = $null
-if ($doc.projects -and $doc.projects.PSObject.Properties['C:/projects']) {
-  $fc = $doc.projects.'C:/projects'.mcpServers.firecrawl
+$fcLocal = $false
+if ($doc.projects) {
+  foreach ($pp in $doc.projects.PSObject.Properties) {
+    $pms = $null; if ($pp.Value) { $pms = $pp.Value.mcpServers }
+    if ($pms -and $pms.PSObject.Properties['firecrawl']) { $fcLocal = $true }
+  }
 }
-Check 'firecrawl local to C:/projects' ([bool]$fc)
-Check 'firecrawl has env key name' ([bool]($fc.env.PSObject.Properties['FIRECRAWL_API_KEY']))
+Check 'firecrawl not local-scoped' (-not $fcLocal)
 Check 'unrelated keys not required' (-not $doc.PSObject.Properties['theme'])
-Check 'done count' (@($r2 | Where-Object Status -eq 'DONE').Count -ge 8)
+Check 'done count' (@($r2 | Where-Object Status -eq 'DONE').Count -ge 7)
 
 # 3. Idempotent: second run leaves a hand-made extra server and does not duplicate.
 $doc.mcpServers | Add-Member -NotePropertyName 'handmade' -NotePropertyValue ([pscustomobject]@{ type = 'stdio'; command = 'echo'; args = @('keep-me') })
@@ -67,7 +68,7 @@ $nl = if ([IO.File]::ReadAllText($jsonPath).Contains("`r`n")) { "`r`n" } else { 
 [IO.File]::WriteAllText($jsonPath, (($doc | ConvertTo-Json -Depth 20)))
 $r3 = Invoke-Setup
 $doc2 = [IO.File]::ReadAllText($jsonPath) | ConvertFrom-Json
-Check 'second run all OK' (@($r3 | Where-Object Status -eq 'OK').Count -ge 8)
+Check 'second run all OK' (@($r3 | Where-Object Status -eq 'OK').Count -ge 7)
 Check 'handmade server kept' ([bool]$doc2.mcpServers.handmade)
 Check 'kapture still one entry' ([bool]$doc2.mcpServers.kapture)
 
@@ -77,7 +78,6 @@ New-Item -ItemType Directory -Path $root2 -Force | Out-Null
 $env:GITHUB_PERSONAL_ACCESS_TOKEN = ''
 $env:GITHUB_TOKEN = ''
 $env:GH_TOKEN = ''
-$env:FIRECRAWL_API_KEY = 'fc-test-key-not-real'
 $r4 = @(& $helper -UserHome $root2 -ProjectsRoot (Join-Path $root2 'Projects') -SkipPlugins -Quiet)
 $skipGh = @($r4 | Where-Object { $_.Status -eq 'SKIP' -and $_.Item -match 'github' })
 $doc4 = $null
@@ -101,6 +101,15 @@ Check 'plugin list mentions official marketplace' ($plist.marketplaceName -eq 'c
 Check 'plugin list has 24 names' (@($plist.plugins).Count -eq 24)
 Check 'plugin list order matches DansPC' ((@($plist.plugins) -join ',') -eq ($wantPlugins -join ','))
 Check 'plugin list has no TODO' ($plist.sourceOfTruth -notmatch 'TODO')
+
+# Spec file itself has no firecrawl (not used; install must not prompt for its key).
+$spec = [IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\mcp-servers.json')) | ConvertFrom-Json
+$specNames = @($spec.servers | ForEach-Object { $_.name })
+Check 'spec has 7 servers' ($specNames.Count -eq 7)
+Check 'spec has no firecrawl' ($specNames -notcontains 'firecrawl')
+Check 'spec has no FIRECRAWL env' (-not (@($spec.servers | ForEach-Object {
+  @($_.envVars) + @($_.requiredEnvAny)
+}) -contains 'FIRECRAWL_API_KEY'))
 
 # 6. SkipPlugins + plugins file missing is not hit; plugin install skipped in test mode.
 $r6 = @(& $helper -UserHome $root -SkipMcp -Quiet)

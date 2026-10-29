@@ -59,9 +59,9 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   skill folders it adds only `README-workstation.md`, which lists the links this repo owns. Existing files are never changed.
 - `claude/` - Claude Code user-scope setup that `install.ps1` applies on each PC (merge; backup first; never
   removes or overwrites servers/plugins/hooks it did not add). `mcp-servers.json` is the connector list merged
-  into `~/.claude.json` (kapture, github, autodesk-fusion-mcp, githits, firecrawl local-scoped to `C:/projects`,
-  fetch, windows-mcp, context7). Required API keys are read from env or prompted; a server that still lacks a
-  key is skipped with a message. `plugins.json` is the source of truth for plugins installed from Anthropic's
+  into `~/.claude.json` (kapture, github, autodesk-fusion-mcp, githits, fetch, windows-mcp, context7). Required
+  API keys are read from env or prompted; a server that still lacks a key is skipped with a message.
+  `plugins.json` is the source of truth for plugins installed from Anthropic's
   official marketplace at user scope. `handoff/claude/pr-closeout-nudge.ps1` is copied into `~/.claude/hooks` and
   wired as a PostToolUse hook in `~/.claude/settings.json` next to context-guard and memory-link-guard.
 - `agents/projects-AGENTS.md` - the shared agent rules file for a projects root.
