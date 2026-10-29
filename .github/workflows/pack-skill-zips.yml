@@ -14,6 +14,7 @@ on:
     paths:
       - 'skills/**'
       - '!**/*.zip'
+      - 'skills/EXCLUDE.txt'
       - 'scripts/pack-skill-zips.py'
       - 'scripts/pack-skill-zips.sh'
       - 'scripts/pack-skill-zips.ps1'
@@ -24,6 +25,7 @@ on:
     paths:
       - 'skills/**'
       - '!**/*.zip'
+      - 'skills/EXCLUDE.txt'
       - 'scripts/pack-skill-zips.py'
       - 'scripts/pack-skill-zips.sh'
       - 'scripts/pack-skill-zips.ps1'

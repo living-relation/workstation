@@ -41,6 +41,9 @@ RESERVED = ("claude", "anthropic")
 DESC_MAX = 1024
 DESC_SOFT = 200
 NAME_MAX = 64
+EXCLUDE_FILE = "EXCLUDE.txt"
+APP_MARKER = "harness-design-app"
+MARKER_RE = re.compile(r"(?m)^source:\s*['\"]?harness-design-app['\"]?\s*$")
 # Regular file, mode 0644 (includes Unix file-type bits).
 FILE_ATTR = (stat.S_IFREG | 0o644) << 16
 
@@ -67,6 +70,37 @@ def skill_dirs(skills_dir: Path) -> list[Path]:
         if (child / "SKILL.md").is_file():
             found.append(child)
     return found
+
+
+def load_excluded(skills_dir: Path) -> set[str]:
+    """Names in skills/EXCLUDE.txt (one per line, # comments). Claude-app-owned skills."""
+    f = skills_dir / EXCLUDE_FILE
+    if not f.is_file():
+        return set()
+    out = set()
+    for line in f.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            out.add(line)
+    return out
+
+
+def is_app_marked(skill_dir: Path) -> bool:
+    """True if SKILL.md frontmatter has `source: harness-design-app`."""
+    p = skill_dir / "SKILL.md"
+    if not p.is_file():
+        return False
+    text = p.read_text(encoding="utf-8", errors="replace")
+    if not text.startswith("---"):
+        return False
+    rest = text[3:].lstrip("\r\n")
+    m = re.search(r"(?m)^---\s*$", rest)
+    head = rest[: m.start()] if m else ""
+    return bool(MARKER_RE.search(head))
+
+
+def is_excluded(skill_dir: Path, excluded: set[str]) -> bool:
+    return skill_dir.name in excluded or is_app_marked(skill_dir)
 
 
 def git_repo_root(path: Path) -> Path | None:
@@ -213,7 +247,15 @@ def build_zip_bytes(skill_dir: Path) -> bytes:
 def pack_all(skills_dir: Path) -> Report:
     report = Report()
     skills_dir = skills_dir.resolve()
-    dirs = skill_dirs(skills_dir)
+    excluded = load_excluded(skills_dir)
+    dirs = []
+    skipped: set[str] = set(excluded)
+    for d in skill_dirs(skills_dir):
+        if is_excluded(d, excluded):
+            skipped.add(d.name)
+            report.lines.append(f"skip excluded {d.name} (harness app skill)")
+            continue
+        dirs.append(d)
     wanted = {d.name + ".zip" for d in dirs}
 
     for skill in dirs:
@@ -241,6 +283,9 @@ def pack_all(skills_dir: Path) -> Report:
 
     for child in sorted(skills_dir.glob("*.zip"), key=lambda p: p.name):
         if child.name not in wanted:
+            if child.name[: -len(".zip")] in skipped:
+                # Excluded skills: never pack, never touch.
+                continue
             child.unlink()
             report.removed.append(child.name)
             report.lines.append(f"removed orphan {child.name}")
