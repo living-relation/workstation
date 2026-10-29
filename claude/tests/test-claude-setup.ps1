@@ -87,13 +87,19 @@ Check 'github skipped without key' ($skipGh.Count -eq 1)
 Check 'kapture still added without github key' ($doc4 -and $doc4.mcpServers.kapture)
 Check 'github absent when skipped' ($doc4 -and -not $doc4.mcpServers.PSObject.Properties['github'])
 
-# 5. Plugin list file is the source of truth and has the known names.
+# 5. Plugin list file is the source of truth and is DansPC's 24 official-marketplace plugins.
+$wantPlugins = @(
+  'agent-sdk-dev', 'claude-code-setup', 'claude-md-management', 'code-review', 'code-simplifier',
+  'commit-commands', 'desktop-commander', 'explanatory-output-style', 'learning-output-style',
+  'pr-review-toolkit', 'hookify', 'code-modernization', 'frontend-design', 'skill-creator',
+  'playground', 'feature-dev', 'github', 'superpowers', 'mcp-server-dev', 'plugin-dev',
+  'context7', 'security-guidance', 'typescript-lsp', 'pyright-lsp'
+)
 $plist = [IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\plugins.json')) | ConvertFrom-Json
 Check 'plugin list has sourceOfTruth' ([bool]$plist.sourceOfTruth)
 Check 'plugin list mentions official marketplace' ($plist.marketplaceName -eq 'claude-plugins-official')
-foreach ($n in @('code-review', 'pr-review-toolkit', 'feature-dev', 'skill-creator', 'superpowers', 'context7', 'security-guidance', 'typescript-lsp', 'pyright-lsp', 'desktop-commander')) {
-  Check "plugin list has $n" (@($plist.plugins) -contains $n)
-}
+Check 'plugin list has 24 names' (@($plist.plugins).Count -eq 24)
+Check 'plugin list order matches DansPC' ((@($plist.plugins) -join ',') -eq ($wantPlugins -join ','))
 Check 'plugin list has no TODO' ($plist.sourceOfTruth -notmatch 'TODO')
 
 # 6. SkipPlugins + plugins file missing is not hit; plugin install skipped in test mode.

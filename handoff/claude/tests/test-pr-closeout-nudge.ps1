@@ -6,6 +6,7 @@ $fail = 0
 function Check([string]$What, $Ok) {
   if ($Ok) { "PASS $What" } else { "FAIL $What"; $script:fail++ }
 }
+function Is-Quiet($Out) { return ([string]$Out).Trim() -eq '{}' }
 $shell = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
 function Invoke-Hook($Payload) {
   $psi = New-Object Diagnostics.ProcessStartInfo $shell, "-NoProfile -ExecutionPolicy Bypass -File `"$hook`""
@@ -23,7 +24,7 @@ function Invoke-Hook($Payload) {
 }
 
 $r0 = Invoke-Hook @{ hook_event_name = 'PostToolUse'; tool_name = 'Bash'; tool_input = @{ command = 'git status' } }
-Check 'unrelated bash silent' ([string]::IsNullOrWhiteSpace($r0.Out))
+Check 'unrelated bash quiet {}' (Is-Quiet $r0.Out)
 Check 'unrelated bash exit 0' ($r0.Code -eq 0)
 
 $rView = Invoke-Hook @{
@@ -32,7 +33,7 @@ $rView = Invoke-Hook @{
   tool_input = @{ command = 'gh pr view 12' }
   tool_response = 'https://github.com/org/repo/pull/12'
 }
-Check 'gh pr view silent' ([string]::IsNullOrWhiteSpace($rView.Out))
+Check 'gh pr view quiet {}' (Is-Quiet $rView.Out)
 
 $rCreate = Invoke-Hook @{
   hook_event_name = 'PostToolUse'
@@ -59,6 +60,15 @@ $rErr = Invoke-Hook @{
   tool_input = @{ command = 'gh pr create --fill' }
   tool_response = @{ is_error = $true; stderr = 'failed' }
 }
-Check 'failed create silent' ([string]::IsNullOrWhiteSpace($rErr.Out))
+Check 'failed create quiet {}' (Is-Quiet $rErr.Out)
+
+$rCursor = Invoke-Hook @{
+  hook_event_name = 'postToolUse'
+  tool_name = 'Shell'
+  cursor_version = '1.0'
+  tool_input = @{ command = 'gh pr create --fill' }
+  tool_output = 'https://github.com/org/repo/pull/3'
+}
+Check 'cursor Shell uses additional_context' ($rCursor.Out -match 'additional_context' -and $rCursor.Out -match '/pull/3' -and $rCursor.Out -notmatch 'hookSpecificOutput')
 
 if ($fail) { exit 1 } else { 'ALL PASS' }

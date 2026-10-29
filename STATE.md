@@ -29,12 +29,11 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
   them from here.
 - 2026-10-29: install now makes both PCs' Claude Code setups match: MCP connectors in
   `~/.claude.json` (from `claude/mcp-servers.json`; firecrawl stays local to `C:/projects`),
-  official-marketplace plugins from `claude/plugins.json` (that file is the source of truth;
-  DansPC's remaining names go there), and `pr-closeout-nudge.ps1` copied + wired as PostToolUse
-  in `~/.claude/settings.json`. After merge: Pull + Install on both PCs. Set
+  the 24 DansPC official-marketplace plugins in `claude/plugins.json` (that file is the
+  source of truth), and DansPC's `pr-closeout-nudge.ps1` copied + wired as PostToolUse in
+  `~/.claude/settings.json`. After merge: Pull + Install on both PCs. Set
   `GITHUB_PERSONAL_ACCESS_TOKEN` (or `GITHUB_TOKEN`) and `FIRECRAWL_API_KEY` before install, or
-  paste when prompted; missing keys skip that server. Compare DansPC `claude plugin list --json`
-  to `claude/plugins.json` and add any missing names on a follow-up if the list is short of 23.
+  paste when prompted; missing keys skip that server.
 - 2026-10-29: `install.ps1` links skills every run (opt out with `-NoLinkSkills`; `-LinkSkills` is
   a no-op). End of install shows a Windows popup to upload `skills/*.zip` in Claude desktop
   (Settings > Capabilities > Skills); skipped for `-WhatIf`, `-UserHome`, `-NoPopup`/`-Quiet`, and

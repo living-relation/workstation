@@ -1,52 +1,28 @@
-# pr-closeout-nudge.ps1 — Claude Code PostToolUse hook.
-# After a pull request is opened, remind Claude to run the pr-closeout skill
-# (state file on this branch, durable memory, gates, report). Never merges,
-# never force-pushes, never skips hooks. Silent on everything else.
-# Wired by install.ps1 into ~/.claude/settings.json (merge; other hooks stay).
-$ErrorActionPreference = 'Continue'
-$raw = [Console]::In.ReadToEnd()
-if (-not $raw) { exit 0 }
-try { $in = $raw | ConvertFrom-Json } catch { exit 0 }
-if (-not $in) { exit 0 }
+# PostToolUse nudge (Dan, 2026-10-28): after a shell call that ran `gh pr create` and printed a
+# PR URL, or a GitHub-MCP create_pull_request, tell the agent to run the pr-closeout skill
+# (state file on the same PR branch + memory + hygiene). One script for Claude Code
+# (~\.claude\settings.json, tools Bash / PowerShell) and Cursor (~\.cursor\hooks.json
+# postToolUse, tool Shell). Never blocks. Prints "{}" when it has nothing to say, because
+# Cursor treats an empty reply as invalid JSON. -- Claude Code, 2026-10-28
+$ErrorActionPreference = 'Stop'
+function Exit-Quiet { [Console]::Out.WriteLine('{}'); exit 0 }
+try { $in = [Console]::In.ReadToEnd() | ConvertFrom-Json } catch { Exit-Quiet }
+$tool = "$($in.tool_name)"
+$cursor = ($in.PSObject.Properties.Name -contains 'cursor_version') -or ($tool -eq 'Shell')
+# Claude sends tool_response (object); Cursor sends tool_output (a JSON string).
+$resp = if ($cursor) { "$($in.tool_output)" } else { $in.tool_response | ConvertTo-Json -Depth 6 -Compress }
 
-$tool = [string]$in.tool_name
-$cmd = ''
-if ($in.PSObject.Properties['tool_input'] -and $in.tool_input) {
-  foreach ($k in @('command', 'Command', 'cmd')) {
-    if ($in.tool_input.PSObject.Properties[$k] -and $in.tool_input.$k) {
-      $cmd = [string]$in.tool_input.$k
-      break
-    }
-  }
+if ($tool -in 'Bash', 'PowerShell', 'Shell') {
+  if ("$($in.tool_input.command)" -notmatch '(?i)\bgh\s+pr\s+create\b') { Exit-Quiet }
+} elseif ($tool -notmatch '(?i)create_pull_request$') { Exit-Quiet }
+
+$m = [regex]::Match("$resp", 'https://github\.com/[\w.-]+/[\w.-]+/pull/\d+')
+if (-not $m.Success) { Exit-Quiet }   # the command ran but no PR was created
+
+$ctx = "A pull request was just opened: $($m.Value). Run the pr-closeout skill now: update the repo's state file on this PR's own branch, save durable non-repo facts to memory (signed), run the repo's gates, and report in a few lines. Skip any step that does not apply."
+if ($cursor) {
+  @{ additional_context = $ctx } | ConvertTo-Json -Compress
+} else {
+  @{ hookSpecificOutput = @{ hookEventName = 'PostToolUse'; additionalContext = $ctx } } | ConvertTo-Json -Compress
 }
-
-$isCreate = $false
-if ($cmd -match '(?i)(?:^|[;&|]\s*)(?:gh(?:\.exe|\.cmd)?)\s+pr\s+create\b') { $isCreate = $true }
-if ($tool -match '(?i)(create_pull_request|createPullRequest|open_pull_request|submit_pull_request)') { $isCreate = $true }
-if (-not $isCreate) { exit 0 }
-
-$blob = $raw
-if ($blob -match '(?i)"is_error"\s*:\s*true') { exit 0 }
-if ($cmd -match '(?i)\b--dry-run\b') { exit 0 }
-
-$url = $null
-$m = [regex]::Match($blob, 'https://github\.com/[^/\s"'']+/[^/\s"'']+/pull/\d+')
-if ($m.Success) { $url = $m.Value }
-$num = $null
-if ($url) {
-  $nm = [regex]::Match($url, '/pull/(\d+)')
-  if ($nm.Success) { $num = $nm.Groups[1].Value }
-}
-
-$where = if ($url) { $url } elseif ($num) { "PR #$num" } else { 'a pull request' }
-$msg = @"
-A pull request was just opened ($where). Run the pr-closeout skill now: put the PR's effect into the repo's state file on this same branch, save durable memory, run the repo's gates, and report. Do not merge, do not force-push, do not skip hooks. Do not wait for the user to say close out.
-"@.Trim()
-
-@{
-  hookSpecificOutput = @{
-    hookEventName = 'PostToolUse'
-    additionalContext = $msg
-  }
-} | ConvertTo-Json -Compress -Depth 6
 exit 0
