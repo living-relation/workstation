@@ -25,7 +25,7 @@ import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -83,7 +83,11 @@ def load_toggles() -> list[dict]:
 def settings() -> dict:
     data = _read(local_file()).get("processCheck") or {}
     expected = [e for e in data.get("expected") or [] if isinstance(e, dict) and e.get("match")]
-    return {"expected": EXPECTED_ORPHANS + expected}
+    age = data.get("backgroundJobMaxAgeHours", DEFAULT_BACKGROUND_JOB_MAX_AGE_HOURS)
+    return {
+        "expected": EXPECTED_ORPHANS + expected,
+        "backgroundJobMaxAgeHours": _max_age_hours(age),
+    }
 
 
 def find(tid: str) -> dict | None:
@@ -225,9 +229,14 @@ WATCHED_NAMES = {"node.exe", "cmd.exe", "npx.exe", "uv.exe", "uvx.exe", "python.
 MCP_HINTS = ("mcp", "desktop-commander", "context7", "modelcontextprotocol", "server")
 # Orphans that are normal when launched hidden (the launcher exits on purpose). "max" = copies allowed.
 # Add your own in the local file: "processCheck": {"expected": [{"match": "pnpm dev:", "max": 2}]}.
+# Kapture's bridge-lib.js spawns dist/index.js detached so sessions share one server.
 EXPECTED_ORPHANS = [
     {"match": r"desktop-commander.*\bremote\b", "max": 1, "label": "Desktop Commander Remote"},
+    {"match": r"kapture-mcp.*dist[/\\]index\.js", "max": 1, "label": "Kapture MCP"},
 ]
+DEFAULT_BACKGROUND_JOB_MAX_AGE_HOURS = 2.0
+_CLAUDE_PRINT_BIN = re.compile(r"claude(?:\.exe|\.cmd)?(?:\s|$)|claude-code", re.IGNORECASE)
+_CLAUDE_PRINT_FLAG = re.compile(r"(?:^|[\s\"'])(?:-p|--print)(?:\s|=|$)", re.IGNORECASE)
 
 
 def list_processes() -> list[dict]:
@@ -264,9 +273,62 @@ def _mcp_key(cmd: str) -> str:
     return _short(low, 120)
 
 
-def analyze(procs: list[dict], expected: list[dict] | None = None) -> dict:
+def _max_age_hours(raw) -> float:
+    try:
+        hours = float(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_BACKGROUND_JOB_MAX_AGE_HOURS
+    if hours < 0 or hours != hours:  # NaN
+        return DEFAULT_BACKGROUND_JOB_MAX_AGE_HOURS
+    return hours
+
+
+def _parse_iso(ts: str) -> datetime | None:
+    text = (ts or "").strip()
+    if not text:
+        return None
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _age_hours(created: str, now: datetime) -> float | None:
+    dt = _parse_iso(created)
+    if dt is None:
+        return None
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    return max(0.0, (now.astimezone(timezone.utc) - dt.astimezone(timezone.utc)).total_seconds() / 3600.0)
+
+
+def _is_claude_print_cmd(cmd: str) -> bool:
+    """True for a `claude -p` / `claude --print` command line (CLI or claude-code)."""
+    if not cmd or not _CLAUDE_PRINT_BIN.search(cmd):
+        return False
+    return bool(_CLAUDE_PRINT_FLAG.search(cmd))
+
+
+def _is_desktop_commander_remote(cmd: str, key: str = "") -> bool:
+    return bool(re.search(r"\bremote\b", f"{key} {cmd}", re.IGNORECASE))
+
+
+def analyze(
+    procs: list[dict],
+    expected: list[dict] | None = None,
+    *,
+    now: datetime | None = None,
+    background_job_max_age_hours: float | None = None,
+) -> dict:
     """Pure function over a process list (pid, ppid, name, cmd, mem, created)."""
     by_pid = {int(p.get("pid") or 0): p for p in procs}
+    clock = now or datetime.now(timezone.utc)
+    max_age = DEFAULT_BACKGROUND_JOB_MAX_AGE_HOURS if background_job_max_age_hours is None else _max_age_hours(
+        background_job_max_age_hours
+    )
 
     def parent_alive(proc: dict) -> bool:
         parent = by_pid.get(int(proc.get("ppid") or 0))
@@ -290,6 +352,22 @@ def analyze(procs: list[dict], expected: list[dict] | None = None) -> dict:
             if app:
                 return app
         return "other"
+
+    def claude_session_pid(proc: dict) -> int | None:
+        """Nearest live claude.exe ancestor, if this process sits under a Claude window."""
+        seen: set[int] = set()
+        cur: dict | None = proc
+        while cur is not None:
+            pid = int(cur.get("pid") or 0)
+            if pid in seen:
+                return None
+            seen.add(pid)
+            if str(cur.get("name") or "").lower() == "claude.exe":
+                return pid
+            if not parent_alive(cur):
+                return None
+            cur = by_pid.get(int(cur.get("ppid") or 0))
+        return None
 
     node = [p for p in procs if str(p.get("name") or "").lower() == "node.exe"]
     node_mb = sum(int(p.get("mem") or 0) for p in node) / 1_048_576
@@ -323,6 +401,9 @@ def analyze(procs: list[dict], expected: list[dict] | None = None) -> dict:
                 "cmd": _short(cmd),
                 "processes": len(tree),
                 "mb": round(sum(int(t.get("mem") or 0) for t in tree) / 1_048_576, 1),
+                "_match": cmd,
+                "_bg": any(_is_claude_print_cmd(str(t.get("cmd") or "")) for t in tree),
+                "_created": str(p.get("created") or ""),
             }
         )
 
@@ -330,9 +411,20 @@ def analyze(procs: list[dict], expected: list[dict] | None = None) -> dict:
     seen_rule: dict[int, list[dict]] = {}
     for o in orphans:
         o["expected"] = False
+        created = o.pop("_created", "")
+        match_cmd = o.pop("_match", o["cmd"])
+        if o.pop("_bg", False):
+            o["kind"] = "background-job"
+            o["label"] = "background job running"
+            age = _age_hours(created, clock)
+            if age is not None and age > max_age:
+                o["note"] = f"running for {age:.1f} hours, expected at most {max_age:g} hours"
+            else:
+                o["expected"] = True
+            continue
         for i, rule in enumerate(rules):
             try:
-                hit = re.search(str(rule["match"]), o["cmd"], re.IGNORECASE)
+                hit = re.search(str(rule["match"]), match_cmd, re.IGNORECASE)
             except re.error:
                 hit = None
             if hit:
@@ -347,15 +439,26 @@ def analyze(procs: list[dict], expected: list[dict] | None = None) -> dict:
                 o["expected"] = False
                 o["note"] = f"{len(rows)} copies running, expected at most {allowed}"
     bad = [o for o in orphans if not o["expected"]]
+    stale_jobs = [o for o in bad if o.get("kind") == "background-job"]
+    strays = [o for o in bad if o.get("kind") != "background-job"]
 
     groups: dict[str, list[dict]] = {}
+    group_label: dict[str, str] = {}
     for p in node:
-        key = _mcp_key(str(p.get("cmd") or ""))
-        if key:
-            groups.setdefault(key, []).append(p)
+        cmd = str(p.get("cmd") or "")
+        key = _mcp_key(cmd)
+        if not key:
+            continue
+        group_key = key
+        if "desktop-commander" in f"{key} {cmd}".lower() and not _is_desktop_commander_remote(cmd, key):
+            session = claude_session_pid(p)
+            if session:
+                group_key = f"{key}#claude-{session}"
+        groups.setdefault(group_key, []).append(p)
+        group_label[group_key] = key
     duplicates = [
         {
-            "server": key,
+            "server": group_label[key],
             "count": len(rows),
             "mb": round(sum(int(r.get("mem") or 0) for r in rows) / 1_048_576, 1),
             "pids": [int(r.get("pid") or 0) for r in rows],
@@ -365,10 +468,15 @@ def analyze(procs: list[dict], expected: list[dict] | None = None) -> dict:
     ]
 
     problems = []
-    if bad:
+    if strays:
         problems.append(
-            f"{len(bad)} orphaned process tree(s), {sum(o['mb'] for o in bad):.0f} MB: "
-            + ", ".join(f"{o.get('label') or o['name']} {o['pid']}" for o in bad[:4])
+            f"{len(strays)} orphaned process tree(s), {sum(o['mb'] for o in strays):.0f} MB: "
+            + ", ".join(f"{o.get('label') or o['name']} {o['pid']}" for o in strays[:4])
+        )
+    if stale_jobs:
+        problems.append(
+            f"{len(stale_jobs)} background job(s) older than {max_age:g} hours: "
+            + ", ".join(f"{o.get('label') or o['name']} {o['pid']}" for o in stale_jobs[:4])
         )
     return {
         "node": {
@@ -388,7 +496,12 @@ def process_check() -> dict:
     if not procs:
         return {"problems": ["could not read the process list"], "node": {}, "orphans": [], "duplicates": []}
     conf = settings()
-    return analyze(procs, conf["expected"])
+    return analyze(
+        procs,
+        conf["expected"],
+        now=datetime.now(timezone.utc),
+        background_job_max_age_hours=conf["backgroundJobMaxAgeHours"],
+    )
 
 
 def main(argv: list[str]) -> int:

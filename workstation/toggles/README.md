@@ -52,7 +52,16 @@ because a hidden launcher exits on purpose are listed under `expected`, with how
 { "processCheck": { "expected": [ { "match": "launch-my-app\\.bat", "max": 1 } ] } }
 ```
 
-Desktop Commander Remote (max 1 copy) is expected by default, so a second copy is flagged.
+Built-in expected orphans (max 1 copy each; a second copy is flagged):
+- Desktop Commander Remote
+- Kapture MCP (`kapture-mcp` … `dist/index.js`; the bridge starts this detached so sessions share it)
+
+A `claude -p` (or `claude --print`) job whose cmd/PowerShell launcher has already exited is reported as
+**background job running**, not as an orphan. It is only a problem if it has been running longer than
+`backgroundJobMaxAgeHours` (default 2; set it in the local file next to `expected`).
+
+Desktop Commander MCP copies are duplicates only when two of them sit under the same Claude window.
+One copy per Claude window is fine. Other MCP servers are still counted across the whole PC.
 
 ## Shortcuts and CLI
 
