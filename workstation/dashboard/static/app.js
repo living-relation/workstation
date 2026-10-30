@@ -379,11 +379,17 @@ function processText(result) {
   const node = result.node || {};
   lines.push(`Node processes: ${node.count ?? "?"} (${node.mb ?? "?"} MB), for information`);
   for (const [owner, row] of Object.entries(node.byOwner || {})) lines.push(`  ${owner}: ${row.count} (${row.mb} MB)`);
-  lines.push("", `Orphaned process trees (parent gone): ${(result.orphans || []).length}`);
-  for (const o of result.orphans || []) {
+  const all = result.orphans || [];
+  const jobs = all.filter((o) => o.kind === "background-job");
+  const orphans = all.filter((o) => o.kind !== "background-job");
+  const row = (o) => {
     lines.push(`  ${o.expected ? "ok  " : "WARN"} pid ${o.pid} ${o.label || o.name}: ${o.processes} process(es), ${o.mb} MB${o.note ? ` - ${o.note}` : ""}`);
     lines.push(`       ${o.cmd}`);
-  }
+  };
+  lines.push("", `Orphaned process trees (parent gone): ${orphans.length}`);
+  for (const o of orphans) row(o);
+  lines.push("", `Background jobs (claude -p): ${jobs.length}`);
+  for (const o of jobs) row(o);
   lines.push("", `Duplicate MCP / server processes: ${(result.duplicates || []).length}`);
   for (const d of result.duplicates || []) lines.push(`  x${d.count} (${d.mb} MB) ${d.server}`);
   lines.push("", (result.problems || []).length ? `Problems:\n  ${result.problems.join("\n  ")}` : "No problems found.");

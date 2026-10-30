@@ -1,5 +1,6 @@
 {
   "processCheck": {
+    "backgroundJobMaxAgeHours": 2,
     "expected": [
       {
         "match": "pnpm dev:",

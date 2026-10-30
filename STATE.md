@@ -43,7 +43,14 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
 
 - 2026-10-29: Fusion lock (`workstation/fusion-lock/fusion-lock.ps1`, rule in `agents/projects-AGENTS.md` section 5). After merge: Pull on both PCs; the old router-project lock (`rtr-v2-router\_coordination\`) should be retired and that project's rules pointed at section 5 (owner's yes needed; not done here).
 
-**Last added:** 2026-10-29 firecrawl dropped from Claude Code MCP spec (no key prompt).
+- 2026-10-30: Process check no longer treats Kapture's shared detached server, a young `claude -p`
+  background job, or one Desktop Commander MCP per Claude window as a stray/orphan. Two Kapture
+  servers, a `claude -p` job older than `backgroundJobMaxAgeHours` (default 2), and two Desktop
+  Commander copies under the same Claude session still warn. Local `processCheck.expected` still
+  appends to the built-in list. After merge: Pull on both PCs (the Dashboard shortcut already
+  fast-forwards this clone).
+
+**Last added:** 2026-10-30 process-check false alarms (Kapture, claude -p jobs, Desktop Commander per window).
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27
