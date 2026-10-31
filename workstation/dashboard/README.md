@@ -33,7 +33,7 @@ A token for non-localhost requests is created in
 `%LOCALAPPDATA%\Workstation\dashboard\`. Nothing in that folder is committed.
 
 The page uses a light card layout: a dark top bar with a Refresh button and one jump link per
-project, summary tiles, a Workstation card (toggles, Health, Process check, shortcuts), then one
+project, summary tiles, a Workstation card (toggles, Health, Check for stray processes, shortcuts), then one
 card per project. Each project card shows branch, clean or dirty, CI, open pull
 requests, last completed item, and task and blocker counts. Task text stays
 collapsed until Show details is pressed. Inside, tap a task, blocker, warning or waiting row to
@@ -72,7 +72,7 @@ skipped. A thumbnail opens large and opens the file on this PC.
 
 The top row has on/off switches (Remote, plus any from your local
 `%LOCALAPPDATA%\Workstation\toggles.json`), a Health button per switch and a
-Process check button. See `workstation\toggles\README.md` to add or remove one.
+Check for stray processes button. See `workstation\toggles\README.md` to add or remove one.
 The Dashboard shortcut first pulls the workstation clone (fast-forward only; skipped with a warning when it
 is not on main or has local changes) and restarts the server, so the page always runs the latest code. It opens the page and closes by itself; it stays open only when
 there is a warning to read (for example, the tailnet firewall rule needs admin).

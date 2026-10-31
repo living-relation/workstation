@@ -55,7 +55,14 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
   Existing `autoMode` keys and allow entries stay; `"$defaults"` is put first. No
   `permissions.allow` `Bash(gh pr merge*)` rule. After merge: Pull + Install on both PCs.
 
-**Last added:** 2026-10-31 Claude Code autoMode.allow PR-merge rule (install settings merge).
+- 2026-10-31: Plain shortcut names, same words on the dashboard: Start/Stop Claude remote - <folder>, Start/Stop
+  phone access (dashboard toggle "Phone access (Desktop Commander + Cursor worker + Claude)"), Start/Stop Desktop
+  Commander, Start/Stop Cursor workers, Start/Stop phone alerts watcher, Update from GitHub, Check for stray
+  processes, Health check, Make Claude remote shortcuts. New click-only "Stop and start all Claude remotes" shortcut
+  and dashboard button (rc-restart-all.ps1). Process check output now labels each process (repo/folder, session,
+  who started it). After merge: Update from GitHub + Install, then Make Claude remote shortcuts, on both PCs.
+
+**Last added:** 2026-10-31 plain shortcut names and Stop and start all Claude remotes.
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27

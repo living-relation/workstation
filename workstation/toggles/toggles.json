@@ -2,7 +2,7 @@
   "toggles": [
     {
       "id": "remote",
-      "name": "Remote",
+      "name": "Phone access (Desktop Commander + Cursor worker + Claude)",
       "start": "& '{toolkit}\\toggles\\remote.ps1' -Action start",
       "stop": "& '{toolkit}\\toggles\\remote.ps1' -Action stop",
       "status": "& '{toolkit}\\toggles\\remote.ps1' -Action status",

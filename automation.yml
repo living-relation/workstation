@@ -111,7 +111,7 @@ automations:
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File claude/tests/test-claude-setup.ps1
   - id: workstation-shortcuts
-    script: [workstation/shortcuts/workers-start.ps1, workstation/shortcuts/workers-stop.ps1, workstation/shortcuts/workstation-status.ps1, workstation/shortcuts/dashboard.ps1, workstation/shortcuts/pull.ps1, pull.cmd, workstation/shortcuts/rc-generate.ps1, workstation/shortcuts/rc-open.ps1, workstation/shortcuts/rc-close.ps1]
+    script: [workstation/shortcuts/workers-start.ps1, workstation/shortcuts/workers-stop.ps1, workstation/shortcuts/workstation-status.ps1, workstation/shortcuts/dashboard.ps1, workstation/shortcuts/pull.ps1, pull.cmd, workstation/shortcuts/rc-generate.ps1, workstation/shortcuts/rc-open.ps1, workstation/shortcuts/rc-close.ps1, workstation/shortcuts/rc-restart-all.ps1]
     helpers: [workstation/shortcuts/workstation-common.ps1, workstation/shortcuts/claude-auth-status.ps1, workstation/shortcuts/tests/test-claude-auth-status.ps1, workstation/shortcuts/rc-lib.ps1, workstation/shortcuts/tests/test-rc-shortcuts.ps1, workstation/paths.ps1, workstation/repo-status.ps1, workstation/repo-branch.ps1]
     trigger: manual
     reads: [LOCALAPPDATA Workstation workstation.json, project repos (read-only status)]

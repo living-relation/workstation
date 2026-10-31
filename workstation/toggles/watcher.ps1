@@ -1,7 +1,7 @@
 #Requires -Version 5.1
-# Watcher On / Off / Status (manual only, off by default; no scheduled task, nothing starts it at sign-in).
+# Start phone alerts watcher / Stop phone alerts watcher / Status (manual only, off by default; no scheduled task, nothing starts it at sign-in).
 #   on     : starts watcher.py --loop 15 hidden (pythonw). Checks the toggles that are on and the processes
-#            every 15 minutes and shows a toast on problems. Runs until Watcher Off or sign-out.
+#            every 15 minutes and shows a toast on problems. Runs until Stop phone alerts watcher or sign-out.
 #   off    : stops it. Also removes the old scheduled task Workstation-Watcher if an older install left it
 #            (that part needs an admin window; otherwise it prints the command).
 #   status : prints on or off.
@@ -35,7 +35,7 @@ switch ($Action) {
         $p = Start-Process -FilePath $pyw -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -PassThru `
             -ArgumentList @("`"$script`"", '--loop', "$Minutes")
         Set-Content -LiteralPath $pidFile -Value $p.Id -Encoding ascii
-        Write-Host "Watcher ON (every $Minutes min, pid $($p.Id)). Use Watcher Off to stop it." -ForegroundColor Green
+        Write-Host "Watcher ON (every $Minutes min, pid $($p.Id)). Use Stop phone alerts watcher to stop it." -ForegroundColor Green
         Done 0
     }
     'off' {

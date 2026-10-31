@@ -328,6 +328,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/toggle-health":
             self._json(200, toggles.health(str(body.get("id") or "")))
             return
+        if path == "/api/restart-claude-remotes":
+            self._json(200, toggles.restart_claude_remotes())
+            return
         if path == "/api/process-check":
             self._json(200, toggles.process_check())
             return

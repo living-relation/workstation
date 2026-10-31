@@ -25,8 +25,8 @@ Check 'missing active dir is empty' (@(Get-RcProjectFolders (Join-Path $active '
 Check 'session name' (Get-RcSessionName 'plain-folder') 'rc-plain-folder'
 Check 'session name keeps case' (Get-RcSessionName 'PowerTuneDigitalOfficial') 'rc-PowerTuneDigitalOfficial'
 Check 'session name slug' (Get-RcSessionName 'my project') 'rc-my-project'
-Check 'open link name' (Get-RcOpenLinkName 'my project') 'RC my project.lnk'
-Check 'close link name' (Get-RcCloseLinkName 'my project') 'Close RC my project.lnk'
+Check 'open link name' (Get-RcOpenLinkName 'my project') 'Start Claude remote - my project.lnk'
+Check 'close link name' (Get-RcCloseLinkName 'my project') 'Stop Claude remote - my project.lnk'
 
 $scriptRoot = 'D:\box\active\workstation\workstation\shortcuts'
 $defs = Get-RcDefaults -ScriptRoot $scriptRoot -ConfigPath ''
@@ -72,21 +72,26 @@ $closeScript = Join-Path $PSScriptRoot '..\rc-close.ps1'
 New-Item -ItemType Directory -Path $links -Force | Out-Null
 [IO.File]::WriteAllText((Join-Path $links 'RC gone.lnk'), 'stale')
 [IO.File]::WriteAllText((Join-Path $links 'Close RC gone.lnk'), 'stale')
+[IO.File]::WriteAllText((Join-Path $links 'Start Claude remote - gone.lnk'), 'stale')
+# Old-named links for folders that still exist: removed too (the rename).
+[IO.File]::WriteAllText((Join-Path $links 'RC plain-folder.lnk'), 'old name')
+[IO.File]::WriteAllText((Join-Path $links 'Close RC has-git.lnk'), 'old name')
 [IO.File]::WriteAllText((Join-Path $links 'notes.txt'), 'keep')
 $written = Write-RcShortcuts -ActiveDir $active -LinkDir $links -OpenScript $openScript -CloseScript $closeScript
 Check 'write ok' $written.Ok 'True'
 Check 'two projects' $written.Projects '2'
 Check 'four links created' $written.Created '4'
-Check 'two stale links removed' $written.Removed '2'
+Check 'stale and old-named links removed' $written.Removed '5'
+Check 'old open name gone' (Test-Path -LiteralPath (Join-Path $links 'RC plain-folder.lnk')) 'False'
 Check 'notes kept' (Test-Path -LiteralPath (Join-Path $links 'notes.txt')) 'True'
 $wsh = New-Object -ComObject WScript.Shell
-$lnk = $wsh.CreateShortcut((Join-Path $links 'RC plain-folder.lnk'))
+$lnk = $wsh.CreateShortcut((Join-Path $links 'Start Claude remote - plain-folder.lnk'))
 Check 'open link runs rc-open' ($lnk.Arguments -like '*rc-open.ps1*') 'True'
 Check 'open link repo arg' ($lnk.Arguments -like ('*' + (Join-Path $active 'plain-folder') + '*')) 'True'
 Check 'open link working directory' $lnk.WorkingDirectory (Join-Path $active 'plain-folder')
-$closeLnk = $wsh.CreateShortcut((Join-Path $links 'Close RC has-git.lnk'))
+$closeLnk = $wsh.CreateShortcut((Join-Path $links 'Stop Claude remote - has-git.lnk'))
 Check 'close link runs rc-close' ($closeLnk.Arguments -like '*rc-close.ps1*') 'True'
-Check 'no dot-folder link' (Test-Path -LiteralPath (Join-Path $links 'RC .cursor.lnk')) 'False'
+Check 'no dot-folder link' (Test-Path -LiteralPath (Join-Path $links 'Start Claude remote - .cursor.lnk')) 'False'
 $again = Write-RcShortcuts -ActiveDir $active -LinkDir $links -OpenScript $openScript -CloseScript $closeScript
 Check 'second run updates' $again.Updated '4'
 Check 'second run creates none' $again.Created '0'

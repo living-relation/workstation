@@ -353,12 +353,12 @@ if ($null -ne $procs) {
     $cl = [string]$p.CommandLine
     if (-not $cl -or $p.ProcessId -eq $PID) { continue }
     $id = "$($p.Name) pid $($p.ProcessId)"
-    if ($cl -match '(?i)watch-pull') { $hits++; Add-Finding 'CONFLICT' 'processes' $id "retired watch-pull loop is running (Workers Stop ends it): $cl" }
+    if ($cl -match '(?i)watch-pull') { $hits++; Add-Finding 'CONFLICT' 'processes' $id "retired watch-pull loop is running (Stop Cursor workers ends it): $cl" }
     elseif ($cl -match '(?i)cursor-worker\\run-worker\.ps1|run-worker\.ps1') {
       $hits++
-      if ($cl.ToLower().Contains((Join-Path $BridgeDir $TK.WorkerFolder).ToLower())) { Add-Finding 'OK' 'processes' $id 'Cursor worker supervisor from this toolkit (started by Workers Start; Workers Stop ends it)' }
-      elseif (@($LegacyDirs | Where-Object { $cl.ToLower().Contains($_.ToLower() + '\') }).Count) { Add-Finding 'WARN' 'processes' $id "Cursor worker running from the LEGACY toolkit folder; stop it (old Workers Stop) and start it from $BridgeDir after install: $cl" }
-      else { Add-Finding 'WARN' 'processes' $id "Cursor worker running from another toolkit folder; stop it with that toolkit's Workers Stop before using this one: $cl" }
+      if ($cl.ToLower().Contains((Join-Path $BridgeDir $TK.WorkerFolder).ToLower())) { Add-Finding 'OK' 'processes' $id 'Cursor worker supervisor from this toolkit (started by Start Cursor workers; Stop Cursor workers ends it)' }
+      elseif (@($LegacyDirs | Where-Object { $cl.ToLower().Contains($_.ToLower() + '\') }).Count) { Add-Finding 'WARN' 'processes' $id "Cursor worker running from the LEGACY toolkit folder; stop it (old Stop Cursor workers) and start it from $BridgeDir after install: $cl" }
+      else { Add-Finding 'WARN' 'processes' $id "Cursor worker running from another toolkit folder; stop it with that toolkit's Stop Cursor workers before using this one: $cl" }
     }
     elseif ($cl -match $OurScriptRx) { $hits++; Add-Finding 'OK' 'processes' $id "short-lived package script running now: $cl" }
   }
@@ -659,7 +659,7 @@ else { Add-Finding 'OK' 'memory' 'memory stores' $(if ($roots.Count) { "one stor
 if (Test-Path -LiteralPath $BridgeDir) { Add-Finding 'OK' 'toolkit' $BridgeDir 'toolkit runs straight from this package (install copies nothing under the Projects root)' }
 else { Add-Finding 'CONFLICT' 'toolkit' $BridgeDir 'toolkit folder missing from this package; run install from a complete workstation repo clone' }
 foreach ($ld in $LegacyDirs) {
-  if (Test-Path -LiteralPath $ld) { Add-Finding 'WARN' 'toolkit' $ld "OLD installed toolkit copy. The toolkit now runs from $BridgeDir; install leaves this folder in place. Stop its workers (Workers Stop), re-point anything that still uses it, then archive it." }
+  if (Test-Path -LiteralPath $ld) { Add-Finding 'WARN' 'toolkit' $ld "OLD installed toolkit copy. The toolkit now runs from $BridgeDir; install leaves this folder in place. Stop its workers (Stop Cursor workers), re-point anything that still uses it, then archive it." }
 }
 # Empty names are dropped: PullScript is '' now, and an empty marker matched EVERY file (false "another toolkit copy" WARNs).
 $markers = @(@($TK.PullScript, $TK.CommonScript) + @($legacyLeaves | Where-Object { $_ -match '(?i)common|pull' } | ForEach-Object { $_ }) | Where-Object { $_ } | Select-Object -Unique)

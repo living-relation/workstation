@@ -17,7 +17,7 @@ if (-not $ActiveDir -or -not $LinkDir) {
 }
 
 Write-Host ''
-Write-Host "==== Generate RC shortcuts ====  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Cyan
+Write-Host "==== Make Claude remote shortcuts ====  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Cyan
 Write-Host "  projects: $ActiveDir"
 Write-Host "  links:    $LinkDir"
 Write-Host ''
@@ -30,7 +30,7 @@ if ($r.Ok) {
     Write-Host "  [ OK ] $($r.Projects) project folder(s); $($r.Created) created, $($r.Updated) updated, $($r.Removed) removed" -ForegroundColor Green
 }
 Write-Host ''
-Write-Host 'Open a project with its RC shortcut. Close RC stops that session by folder and name, not by session id.' -ForegroundColor DarkGray
+Write-Host "Start a project with its 'Start Claude remote - <folder>' shortcut. 'Stop Claude remote - <folder>' stops that session by folder and name, not by session id." -ForegroundColor DarkGray
 if (-not $NoPause) {
     Write-Host ''
     Write-Host 'Press any key to close...' -ForegroundColor DarkGray

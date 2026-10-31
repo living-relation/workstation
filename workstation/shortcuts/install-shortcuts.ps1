@@ -136,6 +136,23 @@ if (-not $NoStartup -and @($TK.StartupLinks).Count) {
     }
 }
 
+# Old-named links in this folder (toolkit.psd1 RenamedShortcuts): deleted only when they still run the same script
+# (and the same arguments when the entry lists them), so a link the user made under an old name stays.
+foreach ($r in @($TK.RenamedShortcuts)) {
+    if (-not $r) { continue }
+    $lp = Join-Path $linkDir ([string]$r.Old + '.lnk')
+    if (-not (Test-Path -LiteralPath $lp)) { continue }
+    try {
+        $old = $wsh.CreateShortcut($lp)
+        $runs = $old.TargetPath -match 'powershell\.exe$' -and $old.Arguments -match [regex]::Escape([string]$r.Script)
+        if ($runs -and $r.Args) { $runs = $old.Arguments.TrimEnd().EndsWith([string]$r.Args) }
+        if ($runs) {
+            Remove-Item -LiteralPath $lp -Force
+            Write-Host "  [ OK ] removed old-named link $($r.Old).lnk" -ForegroundColor Green
+        } else { Write-Host "  [WARN] left $lp alone: it does not run $($r.Script) $($r.Args)" -ForegroundColor Yellow }
+    } catch { Write-Host "  [WARN] could not check/remove $lp : $($_.Exception.Message)" -ForegroundColor Yellow }
+}
+
 # Remove old copies (loose on the desktop, or pre-rename names/folder), but only links that run one of these scripts.
 $oldNames = @{ 'workers-start.ps1' = 'Bridge Start'; 'workers-stop.ps1' = 'Bridge Stop'; 'workstation-status.ps1' = 'Bridge Status' }  # pull/push batch-git archived 2026-10-17
 $oldPaths = @()

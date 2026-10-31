@@ -88,9 +88,9 @@ deletes a project or repo; Dan decides.
 
 ## Step 3: retire `_bridge` and `_workstation` (old toolkit copies, not projects)
 
-Do this only after old automations are off and Workers Start works from the workstation repo clone
-(`active\workstation\shortcuts\`). For `_workstation`, first run Workers Stop so no worker runs from it, and
-re-point anything that still names it (Workstation Status and preflight list what is left). The steps below use
+Do this only after old automations are off and Start Cursor workers works from the workstation repo clone
+(`active\workstation\shortcuts\`). For `_workstation`, first run Stop Cursor workers so no worker runs from it, and
+re-point anything that still names it (Health check and preflight list what is left). The steps below use
 `_bridge`; for `_workstation` move it to `_archive\<yyyy-MM-dd>\_workstation` instead (Dan's yes first).
 
 1. Copy the live `_bridge` folder to `_scratch\bridge-retired-<yyyyMMdd>` as a record only.

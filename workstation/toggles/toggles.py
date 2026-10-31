@@ -312,6 +312,102 @@ def _is_claude_print_cmd(cmd: str) -> bool:
     return bool(_CLAUDE_PRINT_FLAG.search(cmd))
 
 
+# ---------------------------------------------------------------- human-readable process labels
+# Read-only: these only name a process for the report; they never change what counts as a problem.
+_NAME_ARG = re.compile(r"(?:^|\s)--name(?:=|\s+)(\"[^\"]+\"|\S+)", re.IGNORECASE)
+_SESSION_ARG = re.compile(r"(?:^|\s)(?:--session-id|--resume|-r)(?:=|\s+)([0-9a-fA-F-]{8,})", re.IGNORECASE)
+_ACTIVE_DIR = re.compile(r"[\\/]active[\\/]([^\\/\"'\s]+)", re.IGNORECASE)
+_TITLE_CACHE: dict[str, str] = {}
+
+
+def _session_title(session_id: str, projects_dir: Path | None = None) -> str:
+    """Title of a Claude Code session from ~/.claude/projects/*/<id>.jsonl (customTitle or summary)."""
+    if not session_id:
+        return ""
+    if session_id in _TITLE_CACHE:
+        return _TITLE_CACHE[session_id]
+    root = projects_dir or Path(os.environ.get("USERPROFILE") or Path.home()) / ".claude" / "projects"
+    title = ""
+    try:
+        for path in root.glob(f"*/{session_id}*.jsonl"):
+            for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+                if '"customTitle"' not in line and '"summary"' not in line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                title = str(row.get("customTitle") or row.get("summary") or title or "")
+            if title:
+                break
+    except OSError:
+        title = ""
+    _TITLE_CACHE[session_id] = title.strip()[:80]
+    return _TITLE_CACHE[session_id]
+
+
+def describe_process(chain: list[dict], started_by: str = "", projects_dir: Path | None = None) -> str:
+    """Plain label for a Claude, Cursor or MCP process: what it is, which repo or folder, which session, who started it.
+
+    chain = the process, then its descendants (any order); the first one is the process itself.
+    """
+    cmds = [str(p.get("cmd") or "") for p in chain]
+    text = " ".join(cmds)
+    low = text.lower()
+    name = ""
+    for c in cmds:
+        m = _NAME_ARG.search(c)
+        if m:
+            name = m.group(1).strip('"')
+            break
+    folder = ""
+    if name.startswith("rc-"):
+        folder = name[3:]
+    if not folder:
+        m = _ACTIVE_DIR.search(text)
+        if m:
+            folder = m.group(1)
+    title = ""
+    for c in cmds:
+        m = _SESSION_ARG.search(c)
+        if m:
+            title = _session_title(m.group(1), projects_dir)
+            break
+    if _is_claude_print_cmd(text):
+        what, by = "Claude background job (claude -p)", started_by or "a bot's background job"
+    elif "--remote-control" in low and name == "workstation-remote-control":
+        what, by = "Claude remote control (projects root)", "Start Cursor workers / Start phone access"
+    elif "--remote-control" in low:
+        what, by = "Claude remote", f"'Start Claude remote - {folder}' shortcut" if folder else (started_by or "")
+    elif "desktop-commander" in low and re.search(r"\bremote\b", low):
+        what, by = "Desktop Commander remote", "Start phone access / Start Desktop Commander"
+    elif "desktop-commander" in low:
+        what, by = "Desktop Commander MCP", started_by
+    elif "kapture" in low:
+        what, by = "Kapture MCP (shared)", started_by
+    elif re.search(r"(?:^|[\s\\/])agent(?:\.cmd|\.exe)?\s+worker\b", low) or "cursor-worker" in low:
+        what, by = "Cursor worker", "Start Cursor workers / Start phone access"
+    elif "mcp" in low:
+        key = _mcp_key(text)
+        what, by = f"MCP server {key[:60]}" if key else "MCP server", started_by
+    elif "claude" in low:
+        what, by = "Claude", started_by
+    elif "cursor" in low:
+        what, by = "Cursor", started_by
+    else:
+        what, by = str(chain[0].get("name") or "process") if chain else "process", started_by
+    bits = [what]
+    if folder:
+        bits.append(f"in {folder}")
+    if name and not name.startswith("rc-") and name != "workstation-remote-control":
+        bits.append(f"session '{name}'")
+    if title:
+        bits.append(f"'{title}'")
+    if by:
+        bits.append(f"started by {by}")
+    return ", ".join(bits)
+
+
 def _is_desktop_commander_remote(cmd: str, key: str = "") -> bool:
     return bool(re.search(r"\bremote\b", f"{key} {cmd}", re.IGNORECASE))
 
@@ -397,6 +493,8 @@ def analyze(
         orphans.append(
             {
                 "pid": int(p.get("pid") or 0),
+                "who": describe_process(tree, "an app that has since closed"),
+                "ageHours": (lambda a: None if a is None else round(a, 1))(_age_hours(str(p.get("created") or ""), clock)),
                 "name": p.get("name"),
                 "cmd": _short(cmd),
                 "processes": len(tree),
@@ -462,6 +560,16 @@ def analyze(
             "count": len(rows),
             "mb": round(sum(int(r.get("mem") or 0) for r in rows) / 1_048_576, 1),
             "pids": [int(r.get("pid") or 0) for r in rows],
+            "who": [
+                {
+                    "pid": int(r.get("pid") or 0),
+                    "label": describe_process(
+                        [r] + [c for c in procs if int(c.get("ppid") or 0) == int(r.get("pid") or 0)],
+                        f"{owner(r)} window" if owner(r) not in ("orphan", "other") else "",
+                    ),
+                }
+                for r in rows
+            ],
         }
         for key, rows in sorted(groups.items(), key=lambda kv: -len(kv[1]))
         if len(rows) > 1
@@ -489,6 +597,18 @@ def analyze(
         "problems": problems,
         "checkedAt": datetime.now().isoformat(timespec="seconds"),
     }
+
+
+RESTART_REMOTES_SCRIPT = TOOLKIT / "shortcuts" / "rc-restart-all.ps1"
+
+
+def restart_claude_remotes() -> dict:
+    """Stop and start all Claude remotes: the same script as the shortcut of that name.
+
+    Only per-project remotes that are running (rc-<folder>) are stopped and started again; nothing else.
+    """
+    code, text = run_ps(f"& '{RESTART_REMOTES_SCRIPT}' -NoPause", timeout=900, limit=8000)
+    return {"ok": code == 0, "output": text}
 
 
 def process_check() -> dict:

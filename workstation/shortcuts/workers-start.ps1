@@ -1,10 +1,10 @@
 #Requires -Version 5.1
-# Workers Start: clear the stop flag, start the Cursor worker supervisor (hidden) and Claude
+# Start Cursor workers: clear the stop flag, start the Cursor worker supervisor (hidden) and Claude
 # remote control if they are not running. Never starts watch-pull.
 param([switch]$NoPause)
 . (Join-Path $PSScriptRoot 'workstation-common.ps1')
 
-Write-Title 'Workers Start'
+Write-Title 'Start Cursor workers'
 
 if (Test-Path -LiteralPath $BridgeStopFlag) {
     Remove-Item -LiteralPath $BridgeStopFlag -Force

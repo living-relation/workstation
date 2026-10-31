@@ -7,8 +7,8 @@
     powershell -NoProfile -ExecutionPolicy Bypass -File .\install-admin.ps1
   (No memory sync task any more: Cursor edits the live memory store. Older installs may still have
   task Claude-Memory-To-Cursor-Sync; preflight flags it as retired.)
-  The watcher is not a scheduled task any more: it is off by default and runs only from the Watcher On
-  shortcut (Watcher Off stops it).
+  The watcher is not a scheduled task any more: it is off by default and runs only from the Start phone alerts watcher
+  shortcut (Stop phone alerts watcher stops it).
   1. Adds the firewall rule that lets the tailnet reach the dashboard port (8791) on the Tailscale adapter only.
   This admin window must run as the same account that uses Claude / Cursor (checked below).
 
@@ -80,10 +80,10 @@ if ($oldSync -and "$($oldSync.State)" -eq 'Disabled') {
   Write-Host "Retired task Claude-Memory-To-Cursor-Sync is still ENABLED (blocks preflight). Disable it: Disable-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' (or remove it: Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false)" -ForegroundColor Yellow
 }
 
-# Retired: the old Workstation-Watcher task (the watcher is now the manual Watcher On / Off shortcuts).
+# Retired: the old Workstation-Watcher task (the watcher is now the manual Start phone alerts watcher / Stop phone alerts watcher shortcuts).
 if (Get-ScheduledTask -TaskName 'Workstation-Watcher' -ErrorAction SilentlyContinue) {
   Unregister-ScheduledTask -TaskName 'Workstation-Watcher' -Confirm:$false
-  Write-Host 'Removed the retired task Workstation-Watcher (use the Watcher On shortcut instead).' -ForegroundColor Green
+  Write-Host 'Removed the retired task Workstation-Watcher (use the Start phone alerts watcher shortcut instead).' -ForegroundColor Green
 }
 
 # 1. Dashboard tailnet firewall rule (Tailscale adapter only; never the public internet).

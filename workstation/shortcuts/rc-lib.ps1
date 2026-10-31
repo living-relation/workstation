@@ -22,8 +22,11 @@ function Get-RcSessionName([string]$FolderName) {
     return "rc-$slug"
 }
 
-function Get-RcOpenLinkName([string]$FolderName) { "RC $(Get-RcSafeFilePart $FolderName).lnk" }
-function Get-RcCloseLinkName([string]$FolderName) { "Close RC $(Get-RcSafeFilePart $FolderName).lnk" }
+function Get-RcOpenLinkName([string]$FolderName) { "Start Claude remote - $(Get-RcSafeFilePart $FolderName).lnk" }
+function Get-RcCloseLinkName([string]$FolderName) { "Stop Claude remote - $(Get-RcSafeFilePart $FolderName).lnk" }
+# Link names this generator writes now, and the old names it wrote before 2026-10-31 ("RC <folder>", "Close RC <folder>").
+$script:RcLinkPattern = '^(Start|Stop) Claude remote - .+\.lnk$'
+$script:RcOldLinkPattern = '^(Close )?RC .+\.lnk$'
 
 function Normalize-RcPath([string]$Path) {
     if (-not $Path) { return '' }
@@ -128,7 +131,8 @@ function Get-RcKillRoots($Procs) {
     @($Procs | Where-Object { $ids -notcontains [int]$_.ParentProcessId })
 }
 
-# Write one open link and one close link per project folder. Remove RC links whose folder is gone.
+# Write one start link and one stop link per project folder. Remove our links whose folder is gone, and the
+# old-named "RC <folder>" / "Close RC <folder>" links this generator wrote before the rename.
 # Leaves any other file in LinkDir alone. Returns a hashtable: Ok, Projects, Created, Updated, Removed, Errors.
 function Write-RcShortcuts {
     param(
@@ -179,7 +183,7 @@ function Write-RcShortcuts {
     }
     foreach ($f in @(Get-ChildItem -LiteralPath $LinkDir -Filter *.lnk -File -ErrorAction SilentlyContinue)) {
         if ($expected.ContainsKey($f.Name.ToLower())) { continue }
-        if ($f.Name -notmatch '^(Close )?RC .+\.lnk$') { continue }
+        if ($f.Name -notmatch $script:RcLinkPattern -and $f.Name -notmatch $script:RcOldLinkPattern) { continue }
         Remove-Item -LiteralPath $f.FullName -Force
         $result.Removed++
     }
@@ -196,7 +200,7 @@ function Get-RcCommandValue([string]$Cmd, [string]$Flag) {
 }
 
 # Folder name for a remote-control session. A cwd under active\<folder> wins.
-# The Workers Start session lives in the projects root.
+# The Start Cursor workers session lives in the projects root.
 function Get-RcRepoLabel([string]$Cwd, [string]$SessionName, [string]$ProjectsRoot) {
     $path = Normalize-RcPath $Cwd
     $root = Normalize-RcPath $ProjectsRoot
@@ -267,7 +271,7 @@ function Get-RcStatusRows($Sessions, $Procs, [string]$ProjectsRoot) {
     return @($rows | Sort-Object Label, Detail)
 }
 
-# The projects-root session Workers Start owns. Per-project sessions are named rc-<folder>.
+# The projects-root session Start Cursor workers owns. Per-project sessions are named rc-<folder>.
 function Select-ProjectsRootRcSessions($Sessions, [string]$SavedId) {
     $name = 'workstation-remote-control'
     @($Sessions | Where-Object {

@@ -3,8 +3,8 @@
 # - Worker health URL failing   -> after 2 failed checks in a row, restart everything.
 . "$PSScriptRoot\config.ps1"
 
-# Workers Stop writes the stop flag (%LOCALAPPDATA%\<StateFolder>\workers-stopped.flag, $WsStopFlag from paths.ps1).
-# While it exists, do nothing: no revive, no restart. Workers Start removes the flag.
+# Stop Cursor workers writes the stop flag (%LOCALAPPDATA%\<StateFolder>\workers-stopped.flag, $WsStopFlag from paths.ps1).
+# While it exists, do nothing: no revive, no restart. Start Cursor workers removes the flag.
 $BridgeStopFlag = $WsStopFlag
 if (Test-Path -LiteralPath $BridgeStopFlag) {
     Write-Log 'bridge stop flag present -> skipping health check' $HealthLog

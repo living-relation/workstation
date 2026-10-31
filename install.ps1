@@ -28,7 +28,7 @@
   - Does NOT copy the toolkit anywhere: it runs from this package's toolkit folder (PackageFolder in toolkit.psd1,
     e.g. <clone>\workstation\). Writes %LOCALAPPDATA%\<StateFolder>\<ConfigFile> (projectsRoot) so the scripts find
     the Projects root; runtime files (stop flag, worker logs/state) also go under %LOCALAPPDATA%\<StateFolder>\,
-    never into the clone. Then runs the toolkit's shortcuts installer (Workers Start / Workers Stop / Workstation
+    never into the clone. Then runs the toolkit's shortcuts installer (Start Cursor workers / Stop Cursor workers / Workstation
     Status links in this package's shortcuts\ folder, gitignored, + prerequisite checks).
     An old installed copy (<Projects>\_workstation or _bridge, LegacyFolders) is only reported, never moved.
   - Creates the junction ~\.claude\working-memory -> the memory store (the same path on every PC;
@@ -49,13 +49,13 @@
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
   - Does NOT migrate old memory. See MIGRATION.md.
   Scheduled tasks need admin: run install-admin.ps1 afterwards in an elevated PowerShell.
-  - Ends by running Workstation Status (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts,
+  - Ends by running Health check (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts,
     then a Windows popup reminding you to upload skills\*.zip to the Claude desktop app for each Claude account
     (Settings > Capabilities > Skills). Click OK to open skills\ in Explorer. The popup is skipped for -NoPopup
     (alias -Quiet), -WhatIf, -UserHome (tests), and CI. Changed zip names since last install are tracked in
     %LOCALAPPDATA%\<StateFolder>\skill-zips.json; if that file is missing, the popup lists every zip.
     The manual steps (admin command, the two instruction pastes, sign-ins) are walked through by the
-    installing agent from SETUP-PROMPT.txt. Setup is finished only when Workstation Status shows 0 FAIL, 0 WARN.
+    installing agent from SETUP-PROMPT.txt. Setup is finished only when Health check shows 0 FAIL, 0 WARN.
 
 .PARAMETER ProjectsRoot
   Projects root folder. Default: the projectsRoot saved by the last install, else %USERPROFILE%\Projects,
@@ -489,31 +489,31 @@ function Merge-AutoModeAllow($Settings, [string]$Rule, [System.Collections.Gener
   })
 }
 
-# ---------------------------------------------------------------- final Workstation Status check
-# Runs Workstation Status -NoPause (read-only, never prompts) and reports the FAIL / WARN counts.
+# ---------------------------------------------------------------- final Health check
+# Runs Health check -NoPause (read-only, never prompts) and reports the FAIL / WARN counts.
 # The manual steps (admin command, the two pastes, sign-ins) are walked through by the installing
 # agent from SETUP-PROMPT.txt; install does not list or confirm them. Setup is finished only when
-# Workstation Status shows 0 FAIL and 0 WARN (SETUP-PROMPT.txt last check).
+# Health check shows 0 FAIL and 0 WARN (SETUP-PROMPT.txt last check).
 function Invoke-StatusCheck {
   $ErrorActionPreference = 'Continue'  # PS 5.1: native stderr with 2>&1 must not stop the script
   if ($testMode -or $WhatIf) {
     Write-Host ''
-    Write-Host ('  ' + $(if ($WhatIf) { 'Dry run' } else { 'Test mode (-UserHome)' }) + ': not running Workstation Status.') -ForegroundColor Cyan
+    Write-Host ('  ' + $(if ($WhatIf) { 'Dry run' } else { 'Test mode (-UserHome)' }) + ': not running Health check.') -ForegroundColor Cyan
     return
   }
-  $statusRel = @($TK.Shortcuts | Where-Object { $_.Name -eq 'Workstation Status' } | ForEach-Object { $_.Script }) | Select-Object -First 1
+  $statusRel = @($TK.Shortcuts | Where-Object { $_.Name -eq 'Health check' } | ForEach-Object { $_.Script }) | Select-Object -First 1
   if (-not $statusRel) { $statusRel = 'shortcuts\workstation-status.ps1' }
   $statusPs = Join-Path $BridgeDir $statusRel
   Write-Host ''
-  Write-Host "Workstation Status check: $statusPs -NoPause" -ForegroundColor White
-  if (-not (Test-Path -LiteralPath $statusPs)) { Write-Host "  [FAIL] Workstation Status script not found: $statusPs" -ForegroundColor Red; return }
+  Write-Host "Health check: $statusPs -NoPause" -ForegroundColor White
+  if (-not (Test-Path -LiteralPath $statusPs)) { Write-Host "  [FAIL] Health check script not found: $statusPs" -ForegroundColor Red; return }
   $out = @(& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $statusPs -NoPause 2>&1 | ForEach-Object { [string]$_ })
   foreach ($l in $out) { Write-Host $l }
   $fails = @($out | Where-Object { $_ -match '\[FAIL\]' }).Count
   $warns = @($out | Where-Object { $_ -match '\[WARN\]' }).Count
-  Write-Host ("  Workstation Status: {0} FAIL, {1} WARN" -f $fails, $warns) -ForegroundColor White
+  Write-Host ("  Health check: {0} FAIL, {1} WARN" -f $fails, $warns) -ForegroundColor White
   if ($fails -or $warns) { Write-Host '  Setup is finished only at 0 FAIL and 0 WARN. The remaining SETUP-PROMPT.txt steps usually clear these.' -ForegroundColor Yellow }
-  else { Write-Host '  Workstation Status: 0 FAIL, 0 WARN.' -ForegroundColor Green }
+  else { Write-Host '  Health check: 0 FAIL, 0 WARN.' -ForegroundColor Green }
 }
 
 # End-of-install reminder: upload skills\<name>.zip in Claude desktop. Hashes of those zips are stored in
@@ -538,7 +538,7 @@ function Get-SkillZipHashes([string]$Dir) {
   return $h
 }
 # Notes + writes hashes before the summary so they show in the counts. Popup is shown after
-# Workstation Status (end of the run). $SkillZipPopup holds -Skip / -Message / -Dir.
+# Health check (end of the run). $SkillZipPopup holds -Skip / -Message / -Dir.
 $SkillZipPopup = $null
 function Update-SkillZipState {
   $skillsDir = Join-Path $PkgRoot 'skills'
@@ -1043,7 +1043,7 @@ else {
 # An old installed toolkit copy (LegacyFolders) is never moved or deleted; it is only reported.
 foreach ($lf in @($TK.LegacyFolders | Where-Object { $_ })) {
   $lp = Join-Path $ProjectsRoot $lf
-  if (Test-Path -LiteralPath $lp) { Note 'WARN' "old toolkit copy left in place: $lp (the toolkit now runs from $BridgeDir). Stop its workers (Workers Stop), check nothing else uses it, then archive it by hand." }
+  if (Test-Path -LiteralPath $lp) { Note 'WARN' "old toolkit copy left in place: $lp (the toolkit now runs from $BridgeDir). Stop its workers (Stop Cursor workers), check nothing else uses it, then archive it by hand." }
 }
 
 # 9b. Cursor starts at sign-in: keep an existing entry (even if it is turned off), else add Cursor.lnk

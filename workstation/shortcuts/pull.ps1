@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # Fast-forward only pull of this workstation clone. One repo only; never touches other clones.
-# Wired as the Pull shortcut in toolkit.psd1 (install puts Pull.lnk in shortcuts\).
+# Wired as the Update from GitHub shortcut in toolkit.psd1 (install puts 'Update from GitHub.lnk' in shortcuts\).
 param([switch]$NoPause)
 $ErrorActionPreference = 'Continue'
 $repo = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>$null)

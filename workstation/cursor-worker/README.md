@@ -6,7 +6,7 @@ Pick this PC under My Machines; it is listed under the PC's host name (`$WorkerN
 ## How projects are found
 - Cursor matches a request to a folder by its **git remote**. `Projects` itself has no remote and is not a repo (by design).
 - So the worker registers every `active\<project>` folder that is a git repo **with an `origin` remote** (plus `Projects` as the root).
-- Projects without a git remote cannot be targeted; plain folders stay local-only, which is fine. If a project later gets an `origin` remote (the user's decision), click **Workers Stop** and **Workers Start** so the worker registers it (this ends any running session).
+- Projects without a git remote cannot be targeted; plain folders stay local-only, which is fine. If a project later gets an `origin` remote (the user's decision), click **Stop Cursor workers** and **Start Cursor workers** so the worker registers it (this ends any running session).
 - New projects follow the same rule. Only `active\` is scanned.
 
 ## Files
@@ -19,8 +19,8 @@ Pick this PC under My Machines; it is listed under the PC's host name (`$WorkerN
 
 ## Start and stop (manual)
 - No logon start and no scheduled tasks anymore: the Run entry `CursorWorker` and the tasks `Cursor-Worker` / `Cursor-Worker-Health` were removed 2026-10-07.
-- **Workers Start** (in the workstation repo's `shortcuts\` folder) starts the supervisor hidden; **Workers Stop** stops the supervisor and `agent worker`; **Workstation Status** shows both and `/healthz`.
-- Stop flag: while `%LOCALAPPDATA%\Workstation\workers-stopped.flag` exists (written by the **Workers Stop** shortcut, removed by **Workers Start**), `health-check.ps1` exits at once and revives nothing.
+- **Start Cursor workers** (in the workstation repo's `shortcuts\` folder) starts the supervisor hidden; **Stop Cursor workers** stops the supervisor and `agent worker`; **Health check** shows both and `/healthz`.
+- Stop flag: while `%LOCALAPPDATA%\Workstation\workers-stopped.flag` exists (written by the **Stop Cursor workers** shortcut, removed by **Start Cursor workers**), `health-check.ps1` exits at once and revives nothing.
 
 ## Status
 ```powershell
@@ -30,8 +30,8 @@ Get-Content $env:LOCALAPPDATA\Workstation\cursor-worker\logs\health.log -Tail 10
 `/readyz` returns 503 with `"claimed":true` while a session is running. That is normal.
 
 ## Gotchas
-- Runs only while the Windows user who owns `<Projects>` and the Cursor login is logged in (Cursor login lives in that profile). After a reboot, log in and click **Workers Start**.
-- A supervisor started by **Workers Start** can be stopped with **Workers Stop**. (The old task-launched copies hid their command line and could only be stopped through their task or an elevated shell.)
+- Runs only while the Windows user who owns `<Projects>` and the Cursor login is logged in (Cursor login lives in that profile). After a reboot, log in and click **Start Cursor workers**.
+- A supervisor started by **Start Cursor workers** can be stopped with **Stop Cursor workers**. (The old task-launched copies hid their command line and could only be stopped through their task or an elevated shell.)
 - `repair-sqlite.ps1` edits files inside `%LOCALAPPDATA%\cursor-agent\versions\...`; the original is saved as `better_sqlite3.node.orig`.
 - Cloud sessions assume Linux paths (`/home/ubuntu/...`); Cursor logs a harmless-looking read error on Windows. Watch for real failures in `worker.log`.
 

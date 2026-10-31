@@ -1,11 +1,11 @@
 #Requires -Version 5.1
-# Workers Stop: write the stop flag, then stop watch-pull, the Cursor worker supervisor + agent worker,
+# Stop Cursor workers: write the stop flag, then stop watch-pull, the Cursor worker supervisor + agent worker,
 # and Claude remote control. Only positively matched processes are stopped; the Cursor app
 # and other Claude sessions are never touched.
 param([switch]$NoPause)
 . (Join-Path $PSScriptRoot 'workstation-common.ps1')
 
-Write-Title 'Workers Stop'
+Write-Title 'Stop Cursor workers'
 
 Set-Content -LiteralPath $BridgeStopFlag -Value "stopped $(Get-Date -Format o) by workers-stop.ps1" -Encoding ASCII
 Write-Ok "stop flag written ($BridgeStopFlag)"

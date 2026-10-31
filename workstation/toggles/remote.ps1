@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-# Remote toggle: Desktop Commander Remote + Claude remote control + the Cursor workers, as one switch.
+# Phone access toggle: Desktop Commander Remote + Claude remote control + the Cursor workers, as one switch.
 # start/stop reuse the same scripts as the manual shortcuts (start-dc-remote.ps1, stop-dc-remote.ps1,
 # workers-start.ps1, workers-stop.ps1). status exits 0 when any part runs; health exits 0 only when all run.
 param([ValidateSet('start', 'stop', 'status', 'health')][string]$Action = 'status')

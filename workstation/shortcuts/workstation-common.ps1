@@ -117,12 +117,12 @@ function Get-AgentWorkerProcs($procs, $supIds) {
     })
 }
 
-# Claude Code remote control started by Workers Start (`claude --bg --remote-control`).
+# Claude Code remote control started by Start Cursor workers (`claude --bg --remote-control`).
 # Matches ONLY the --remote-control session processes and the `--bg-pty-host` that hosts one (its inner
 # command after ' -- ' is a --remote-control session, or a child of it is). Other `claude --bg` sessions,
 # their PTY hosts and the shared `claude.exe daemon run` never match, so Stop and Status don't touch them.
 function Test-RemoteControlArgs([string]$cmd) { $cmd -match '(^|\s)--remote-control(=|\s|$)' }
-# The session id Workers Start launched remote control with (state file; Stop and Status prefer it).
+# The session id Start Cursor workers launched remote control with (state file; Stop and Status prefer it).
 $RemoteControlStateFile = Join-Path $WsStateDir 'claude-remote-control.json'
 function Get-RemoteControlStateId { try { [string]((Get-Content -LiteralPath $RemoteControlStateFile -Raw -ErrorAction Stop | ConvertFrom-Json).sessionId) } catch { '' } }
 function Get-RemoteControlProcs($procs) {
@@ -139,7 +139,7 @@ function Get-RemoteControlProcs($procs) {
 }
 
 # Desktop Commander remote connector (`npx ... desktop-commander ... remote`).
-# Started by the dashboard's Remote toggle, Remote On, or the manual Start shortcut (not at sign-in).
+# Started by the dashboard's Phone access toggle, Start phone access, or the manual Start shortcut (not at sign-in).
 function Get-DesktopCommanderRemoteProcs($procs) {
     @($procs | Where-Object {
         $_.ProcessId -ne $PID -and
@@ -172,7 +172,7 @@ function Get-ClaudeBgSessions {
     }
     return $out
 }
-# Remote-control sessions, found by id, never by name: the session id Workers Start saved, or a session whose pid
+# Remote-control sessions, found by id, never by name: the session id Start Cursor workers saved, or a session whose pid
 # or sessionId belongs to the --remote-control process tree. Pass $Sessions to reuse a list already read.
 function Get-RemoteControlSessions($procs = $null, $Sessions = $null) {
     if ($null -eq $procs) { $procs = Get-ProcSnapshot }
@@ -237,7 +237,7 @@ function Show-BridgeStatus {
 
     # watch-pull (should be off; pulls are manual, one repo at a time)
     $wp = Get-WatchPullProcs $procs
-    if ($wp) { Write-Warn "watch-pull RUNNING (pid $(Format-Pids $wp)) - should be off; Workers Stop ends it" }
+    if ($wp) { Write-Warn "watch-pull RUNNING (pid $(Format-Pids $wp)) - should be off; Stop Cursor workers ends it" }
     else { Write-Ok 'watch-pull off (pulls are manual, one repo at a time)' }
 
     $dc = Get-DesktopCommanderRemoteProcs $procs
@@ -247,7 +247,7 @@ function Show-BridgeStatus {
     # Stop flag
     if (Test-Path -LiteralPath $BridgeStopFlag) {
         $since = (Get-Item -LiteralPath $BridgeStopFlag).LastWriteTime
-        Write-Warn "stop flag PRESENT since $($since.ToString('yyyy-MM-dd HH:mm')) (health check will not revive the worker; Workers Start clears it)"
+        Write-Warn "stop flag PRESENT since $($since.ToString('yyyy-MM-dd HH:mm')) (health check will not revive the worker; Start Cursor workers clears it)"
     } else { Write-Ok 'stop flag absent' }
 }
 
@@ -270,7 +270,7 @@ function Show-Prerequisites {
     else { Write-Ok 'execution policy: no Group Policy override (shortcuts pass -ExecutionPolicy Bypass)' }
 
     $git = Get-Command git -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($git) { Write-Ok "git: $((& git --version) 2>$null) ($($git.Source))" } else { Write-Bad 'git not found on PATH (per-repo pull/push and Workstation Status need it)' }
+    if ($git) { Write-Ok "git: $((& git --version) 2>$null) ($($git.Source))" } else { Write-Bad 'git not found on PATH (per-repo pull/push and Health check need it)' }
 
     if (Test-Path -LiteralPath $BridgeActive) {
         $withOrigin = @(); $other = @()
@@ -298,7 +298,7 @@ function Show-Prerequisites {
         if ($null -eq $out) { Write-Warn "Cursor CLI found ($agent) but 'agent status' timed out" }
         elseif ($out -match 'Logged in') { Write-Ok "Cursor CLI: $agent - $(($out -split "`n" | Where-Object { $_ -match 'Logged in' } | Select-Object -First 1).Trim())" }
         else { Write-Bad "Cursor CLI found ($agent) but not logged in: run 'agent login'" }
-    } else { Write-Bad "Cursor CLI 'agent' not found (Workers Start needs it for the Cursor worker)" }
+    } else { Write-Bad "Cursor CLI 'agent' not found (Start Cursor workers needs it for the Cursor worker)" }
 
     if ($ClaudeExe) {
         $out = Invoke-WithTimeout { param($c) & $c auth status } @($ClaudeExe) 40
@@ -311,7 +311,7 @@ function Show-Prerequisites {
                 default      { Write-Warn "Claude Code CLI found ($ClaudeExe) but auth status was not parseable ($($st.Hint))" }
             }
         }
-    } else { Write-Bad "Claude Code CLI (claude.exe) not found (Workers Start needs it for remote control)" }
+    } else { Write-Bad "Claude Code CLI (claude.exe) not found (Start Cursor workers needs it for remote control)" }
 
     try {
         $code = (Invoke-WebRequest -Uri 'https://github.com' -Method Head -UseBasicParsing -TimeoutSec 8).StatusCode
@@ -455,7 +455,7 @@ function Get-PackagedStartupState([string]$pkgName) {
 # Switched-off startup apps found by Show-Automations; Invoke-StartupFixOffer asks to turn each back on.
 $script:StartupOff = @()
 
-# Interactive only (Workstation Status without -NoPause). Asks per app; changes nothing on "n".
+# Interactive only (Health check without -NoPause). Asks per app; changes nothing on "n".
 function Invoke-StartupFixOffer {
     if (-not $script:StartupOff) { return }
     Write-Host ''
@@ -561,7 +561,7 @@ function Show-Automations {
     else { Write-Ok 'Projects root has no CLAUDE.md (AGENTS.md only)' }
 
     # 3. Startup apps: entries present AND their Settings > Apps > Startup switch on.
-    # Off switches are only reported here; Workstation Status (interactive) then offers to turn them on.
+    # Off switches are only reported here; Health check (interactive) then offers to turn them on.
     $script:StartupOff = @()
     $startup = [Environment]::GetFolderPath('Startup')
     $wsh = New-Object -ComObject WScript.Shell
@@ -595,16 +595,16 @@ function Show-Automations {
     $dcDir    = Join-Path $BridgeRoot 'desktop-commander-remote'
     $dcScript = Join-Path $dcDir 'start-dc-remote.ps1'
     $dcLnk    = Join-Path ([Environment]::GetFolderPath('Startup')) 'Desktop Commander Remote.lnk'
-    $dcManual = Join-Path (Split-Path $BridgeRoot -Parent) 'shortcuts\Desktop Commander Remote Start.lnk'
+    $dcManual = Join-Path (Split-Path $BridgeRoot -Parent) 'shortcuts\Start Desktop Commander.lnk'
     if (-not (Test-Path -LiteralPath $dcScript)) {
         Write-Off 'Desktop Commander remote not installed (no start-dc-remote.ps1)'
     } else {
-        # No longer a sign-in item: it runs only while the dashboard's Remote toggle (or a manual shortcut) has it on.
+        # No longer a sign-in item: it runs only while the dashboard's Phone access toggle (or a manual shortcut) has it on.
         if (Test-Path -LiteralPath $dcLnk) {
             Write-Warn "old Startup shortcut still starts Desktop Commander remote at sign-in ($dcLnk); re-run install.ps1 to remove it"
-        } else { Write-Ok 'Desktop Commander remote does not start at sign-in (dashboard Remote toggle controls it)' }
+        } else { Write-Ok 'Desktop Commander remote does not start at sign-in (dashboard Phone access toggle controls it)' }
         if (Test-Path -LiteralPath $dcManual) { Write-Ok "manual Start shortcut: $dcManual" }
-        else { Write-Off 'manual Desktop Commander Remote Start.lnk not in workstation\shortcuts' }
+        else { Write-Off 'manual Start Desktop Commander.lnk not in workstation\shortcuts' }
     }
 
     # 4. Retired items must stay gone

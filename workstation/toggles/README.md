@@ -2,7 +2,7 @@
 
 The top row of the dashboard is a row of switches. Each switch turns something on or off,
 has a **Health** button that works only while it is on, and the row ends with a
-**Process check** button. The same commands run from shortcuts (`toggle.ps1`) when the
+**Check for stray processes** and **Stop and start all Claude remotes** buttons. The same commands run from shortcuts (`toggle.ps1`) when the
 dashboard is not open, and from the background watcher.
 
 ## Where toggles come from
@@ -41,11 +41,13 @@ Add an entry to `%LOCALAPPDATA%\Workstation\toggles.json` and reload the dashboa
 - Remove a toggle: delete its entry (or set `"hidden": true` for a package one).
 - Full example: `toggles.local.example.json`.
 
-## Process check
+## Check for stray processes
 
 Shows `node.exe` processes and RAM by owning app (Claude, Cursor, ...) for information, lists orphaned
 process trees (their parent process is gone) and duplicate MCP/server processes. A problem (and a watcher
-warning) is an orphan that is not expected; the node count alone never warns. Orphans that are normal
+warning) is an orphan that is not expected. Each process is shown with a plain label (what it is, its repo or
+folder, its Claude session name or title when one can be found, and what started it), with pid and age as small
+details; the labels never change what counts as a problem; the node count alone never warns. Orphans that are normal
 because a hidden launcher exits on purpose are listed under `expected`, with how many copies are fine:
 
 ```json
@@ -66,16 +68,16 @@ One copy per Claude window is fine. Other MCP servers are still counted across t
 ## Shortcuts and CLI
 
 `toggle.ps1 -Id <id> -Action on|off|status|health`, `toggle.ps1 -Action process-check`.
-The installer adds **Remote On**, **Remote Off**, **Process Check**, **Watcher On** and **Watcher Off** shortcuts; the existing
+The installer adds **Stop and start all Claude remotes**, **Start phone access**, **Stop phone access**, **Check for stray processes**, **Start phone alerts watcher** and **Stop phone alerts watcher** shortcuts; the existing
 Workers and Desktop Commander shortcuts keep working and run the same scripts.
 
 ## Watcher
 
-Off by default and manual only (no scheduled task). The **Watcher On** shortcut (`watcher.ps1 -Action on`)
+Off by default and manual only (no scheduled task). The **Start phone alerts watcher** shortcut (`watcher.ps1 -Action on`)
 starts `watcher.py --loop 15` hidden: every 15 minutes it health-checks the toggles that are on,
 runs the process check and shows a Windows toast when something is wrong. The same problems are not
 repeated for 4 hours. Last result: `%LOCALAPPDATA%\Workstation\dashboard\watcher.json`.
-Stop it with the **Watcher Off** shortcut (`watcher.ps1 -Action off`); sign-out stops it too. Watcher Off also removes the old Workstation-Watcher task an older install may have left.
+Stop it with the **Stop phone alerts watcher** shortcut (`watcher.ps1 -Action off`); sign-out stops it too. Stop phone alerts watcher also removes the old Workstation-Watcher task an older install may have left.
 
 ## Access
 

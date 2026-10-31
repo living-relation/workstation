@@ -559,6 +559,23 @@ if (-not $testMode) {
   }
 }
 
+# 6a. Old-named links (toolkit.psd1 RenamedShortcuts) an older install made in the shortcuts folder: removed only
+# while they still run the same script (and arguments, when listed).
+if (-not $testMode) {
+  $scDirOld = Join-Path $PkgRoot $TK.ShortcutFolder
+  foreach ($r in @($TK.RenamedShortcuts)) {
+    if (-not $r) { continue }
+    $lp = Join-Path $scDirOld ([string]$r.Old + '.lnk')
+    if (-not (Test-Path -LiteralPath $lp)) { continue }
+    if (-not $wsh) { $wsh = New-Object -ComObject WScript.Shell }
+    $sc = $wsh.CreateShortcut($lp)
+    $runs = $sc.TargetPath -match 'powershell\.exe$' -and $sc.Arguments -match [regex]::Escape([string]$r.Script)
+    if ($runs -and $r.Args) { $runs = $sc.Arguments.TrimEnd().EndsWith([string]$r.Args) }
+    if ($runs) { Invoke-Change "remove old-named shortcut (added by an older install): $lp" { Backup-File $lp; Remove-Item -LiteralPath $lp -Force } }
+    else { Note 'OK' "not installed by this package, left alone: $lp" }
+  }
+}
+
 # 6b. Workstation-Watcher task (registered by install-admin.ps1): removed here when this window may, else printed below.
 if (-not $testMode) {
   if (Get-ScheduledTask -TaskName 'Workstation-Watcher' -ErrorAction SilentlyContinue) {
