@@ -50,7 +50,12 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
   appends to the built-in list. After merge: Pull on both PCs (the Dashboard shortcut already
   fast-forwards this clone).
 
-**Last added:** 2026-10-30 process-check false alarms (Kapture, claude -p jobs, Desktop Commander per window).
+- 2026-10-31: install section 7 merges a Claude Code `autoMode.allow` rule so auto mode may merge PRs
+  in living-relation/* when required checks have passed or are queued via `gh pr merge --auto`.
+  Existing `autoMode` keys and allow entries stay; `"$defaults"` is put first. No
+  `permissions.allow` `Bash(gh pr merge*)` rule. After merge: Pull + Install on both PCs.
+
+**Last added:** 2026-10-31 Claude Code autoMode.allow PR-merge rule (install settings merge).
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27

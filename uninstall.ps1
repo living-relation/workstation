@@ -17,7 +17,8 @@
     entries (a re-pointed entry gets its old command back); the statusLine while it is still the one install set;
     pluginConfigs > <agents-md plugin> > options.instructionFiles put back to its value before install (or removed,
     with the empty parent objects install created; left alone if it changed since); the PostToolUse pr-closeout-nudge
-    hook install added,
+    hook install added; the autoMode.allow living-relation PR-merge rule (and "$defaults" / autoMode object only
+    if install created them and nothing else remains),
   - in ~\.claude.json: MCP servers install added, only while they still match the fingerprint install recorded
     (a server the user changed is left alone); servers install did not add stay,
   - Claude Code plugins install newly installed (claude plugin uninstall); ones that were already there stay,
@@ -298,6 +299,50 @@ if (Test-Path -LiteralPath $SettingsPath) {
       elseif ($m.kind -eq 'statusline') { Note 'WARN' "statusLine changed since install; left alone: $cur" }
     }
     if ($s.PSObject.Properties['hooks'] -and $s.hooks -and @($s.hooks.PSObject.Properties).Count -eq 0 -and $changes.Count) { $s.PSObject.Properties.Remove('hooks') }
+    # autoMode.allow: remove only the exact PR-merge rule install added. Other allow entries and
+    # keys (environment, soft_deny, hard_deny) stay. "$defaults" / allow / autoMode are removed
+    # only when install created them and they are empty after the rule is gone.
+    foreach ($amr in @($ManifestJson | Where-Object { $_.kind -eq 'automode-allow' })) {
+      if (-not $s.PSObject.Properties['autoMode'] -or -not $s.autoMode) { Note 'INFO' 'autoMode already removed'; continue }
+      $am = $s.autoMode
+      if (-not $am.PSObject.Properties['allow'] -or $null -eq $am.allow) {
+        if ($amr.createdAutoMode -and @($am.PSObject.Properties).Count -eq 0) { $s.PSObject.Properties.Remove('autoMode'); $changes += 'remove empty autoMode (install created it)' }
+        else { Note 'INFO' 'autoMode.allow already removed' }
+        continue
+      }
+      $allow = New-Object System.Collections.Generic.List[string]
+      foreach ($e in @($am.allow)) { if ($null -ne $e) { [void]$allow.Add([string]$e) } }
+      $rule = [string]$amr.rule
+      $removed = $false
+      for ($i = $allow.Count - 1; $i -ge 0; $i--) {
+        if ($allow[$i] -ceq $rule) { $allow.RemoveAt($i); $removed = $true; break }
+      }
+      if ($amr.addedRule) {
+        if ($removed) { $changes += 'remove autoMode.allow living-relation PR-merge rule' }
+        else { Note 'WARN' 'autoMode.allow PR-merge rule changed since install; left alone' }
+      }
+      if ($amr.addedDefaults) {
+        $onlyDefaults = ($allow.Count -eq 1 -and $allow[0] -ceq '$defaults')
+        if ($onlyDefaults -or $allow.Count -eq 0) {
+          $allow.Clear()
+          $changes += 'remove autoMode.allow $defaults (install added it)'
+        }
+      }
+      if ($allow.Count -eq 0) {
+        if ($amr.createdAllow) {
+          $am.PSObject.Properties.Remove('allow')
+          $changes += 'remove autoMode.allow (there was none before install)'
+        } else { $am.allow = [string[]]@() }
+      } else {
+        $am.allow = [string[]]$allow.ToArray()
+      }
+      if ($amr.createdAutoMode -and @($am.PSObject.Properties).Count -eq 0) {
+        $s.PSObject.Properties.Remove('autoMode'); $changes += 'remove autoMode (there was none before install)'
+      }
+    }
+    if (@($ManifestJson | Where-Object { $_.kind -eq 'automode-allow-preexisting' }).Count -and -not @($ManifestJson | Where-Object { $_.kind -eq 'automode-allow' }).Count) {
+      Note 'OK' 'autoMode.allow PR-merge rule was already set before install; left as is'
+    }
     if ($changes.Count) {
       $bak = Get-FreePath "$SettingsPath.bak-$Stamp"
       Invoke-Change ("update $SettingsPath (" + ($changes -join '; ') + "; backup $bak)") { Write-JsonChecked $SettingsPath $s $rawS $bak }

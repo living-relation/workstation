@@ -64,5 +64,8 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   `plugins.json` is the source of truth for plugins installed from Anthropic's
   official marketplace at user scope. `handoff/claude/pr-closeout-nudge.ps1` is copied into `~/.claude/hooks` and
   wired as a PostToolUse hook in `~/.claude/settings.json` next to context-guard and memory-link-guard.
+  Section 7 also merges `autoMode.allow` there (keeps existing `autoMode` keys such as `environment` and
+  existing allow entries; puts `"$defaults"` first; adds the living-relation PR-merge rule only when that
+  exact string is missing). It does not add a `permissions.allow` `Bash(gh pr merge*)` rule.
 - `agents/projects-AGENTS.md` - the shared agent rules file for a projects root.
 - `install.ps1`, `preflight.ps1`, `uninstall.ps1`, `toolkit.psd1` - imported as they were; they are rewritten to read the pin file in a later PR.

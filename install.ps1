@@ -19,6 +19,10 @@
   - Sets Claude Code's Project instructions to claude-md-and-agents-md (read CLAUDE.md AND AGENTS.md) in
     ~\.claude\settings.json > pluginConfigs (plugin cc-plugin-agents-md@builtin, or agents-md@builtin before
     Claude Code 2.1.285). WARN if Claude Code is older than 2.1.281. uninstall.ps1 reverts only that key.
+  - Merges Claude Code autoMode.allow in ~\.claude\settings.json (user-scope only; project autoMode is ignored):
+    keeps existing autoMode keys (e.g. environment) and existing allow entries; puts "$defaults" first;
+    adds the living-relation PR-merge allow rule only when that exact string is missing. Never removes
+    or overwrites autoMode entries. Does not add a permissions.allow Bash(gh pr merge*) rule.
   - The Projects root guide is AGENTS.md (memory section appended there). A root CLAUDE.md is merged into it
     by hand (REORGANIZE.md step 5), never by install.
   - Does NOT copy the toolkit anywhere: it runs from this package's toolkit folder (PackageFolder in toolkit.psd1,
@@ -417,6 +421,74 @@ function Merge-HookCommand($Container, [string]$Event, [string]$Leaf, [string]$C
   $Changes.Value += "$Event += $Leaf"
 }
 
+# Claude Code auto-mode classifier rule (https://code.claude.com/docs/en/auto-mode-config).
+# "$defaults" must stay in the list or the built-in allow rules are replaced. Prose, not a tool pattern.
+$AutoModeDefaultsToken = '$defaults'
+$AutoModePrMergeAllow = 'Merging pull requests in Daniel''s own GitHub repos (github.com/living-relation/*) is allowed without the user typing an explicit merge instruction, as long as the PR''s required checks have passed or are queued via gh pr merge --auto (via gh pr merge or the GitHub MCP merge tool). This does NOT allow --admin, bypassing branch protection or required checks, force-pushing, --no-verify, or deleting anything other than the merged PR''s own head branch.'
+
+# Add-only merge of autoMode.allow. Keeps every other autoMode key and every existing allow entry.
+# Puts "$defaults" first (insert or move); appends $Rule only when that exact string is missing.
+function Merge-AutoModeAllow($Settings, [string]$Rule, [System.Collections.Generic.List[object]]$Pending, [ref]$Changes, [bool]$FirstInstall) {
+  $token = $AutoModeDefaultsToken
+  $createdAutoMode = $false
+  $hadAM = [bool]($Settings.PSObject.Properties['autoMode'] -and $Settings.autoMode)
+  if (-not $hadAM) {
+    if ($Settings.PSObject.Properties['autoMode']) { $Settings.autoMode = New-Object psobject }
+    else { $Settings | Add-Member -NotePropertyName autoMode -NotePropertyValue (New-Object psobject) }
+    $createdAutoMode = $true
+  }
+  $am = $Settings.autoMode
+  $hadAllow = [bool]$am.PSObject.Properties['allow']
+  $createdAllow = -not $hadAllow
+  $allow = New-Object System.Collections.Generic.List[string]
+  if ($hadAllow -and $null -ne $am.allow) {
+    foreach ($e in @($am.allow)) { if ($null -ne $e) { [void]$allow.Add([string]$e) } }
+  }
+
+  $addedDefaults = $false
+  $movedDefaults = $false
+  $idx = -1
+  for ($i = 0; $i -lt $allow.Count; $i++) { if ($allow[$i] -ceq $token) { $idx = $i; break } }
+  if ($idx -lt 0) {
+    $allow.Insert(0, $token)
+    $addedDefaults = $true
+  } elseif ($idx -gt 0) {
+    $allow.RemoveAt($idx)
+    $allow.Insert(0, $token)
+    $movedDefaults = $true
+  }
+
+  $addedRule = $false
+  $hasRule = $false
+  foreach ($e in $allow) { if ($e -ceq $Rule) { $hasRule = $true; break } }
+  if (-not $hasRule) { [void]$allow.Add($Rule); $addedRule = $true }
+
+  if (-not $addedDefaults -and -not $movedDefaults -and -not $addedRule) {
+    Note 'OK' 'autoMode.allow already has $defaults first and the living-relation PR-merge rule'
+    if ($FirstInstall) { Add-ManifestJson @{ kind = 'automode-allow-preexisting'; target = 'claude'; rule = $Rule } }
+    return
+  }
+
+  $arr = [string[]]$allow.ToArray()
+  if ($hadAllow) { $am.allow = $arr } else { $am | Add-Member -NotePropertyName allow -NotePropertyValue $arr }
+
+  $bits = @()
+  if ($addedDefaults) { $bits += '$defaults first' }
+  elseif ($movedDefaults) { $bits += 'move $defaults first' }
+  if ($addedRule) { $bits += 'living-relation PR-merge rule' }
+  $Changes.Value += ('autoMode.allow += ' + ($bits -join ', '))
+  $Pending.Add(@{
+    kind = 'automode-allow'
+    target = 'claude'
+    rule = $Rule
+    addedDefaults = $addedDefaults
+    movedDefaults = $movedDefaults
+    addedRule = $addedRule
+    createdAutoMode = $createdAutoMode
+    createdAllow = $createdAllow
+  })
+}
+
 # ---------------------------------------------------------------- final Workstation Status check
 # Runs Workstation Status -NoPause (read-only, never prompts) and reports the FAIL / WARN counts.
 # The manual steps (admin command, the two pastes, sign-ins) are walked through by the installing
@@ -671,7 +743,7 @@ if ($CursorHookOk) { Copy-HomeFile (Join-Path $HandoffPkg 'cursor\handoff-at-80.
 else { Note 'WARN' "py -3 (Python 3.7+) not available: Cursor 80% handoff hook skipped ($CursorHookDest, $CursorHooksJson unchanged). Install Python 3, then re-run install.ps1." }
 # The skill the hooks trigger is agent-handoff-pack (skills\), linked by default in section 9b.
 
-# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart/PreToolUse guard hook + handoff hooks/statusLine + PostToolUse pr-closeout-nudge), keep everything else
+# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart/PreToolUse guard hook + handoff hooks/statusLine + PostToolUse pr-closeout-nudge + autoMode.allow PR-merge rule), keep everything else
 $settings = $null; $settingsOk = $true; $settingsExisted = Test-Path -LiteralPath $SettingsPath
 if ($AutoMemAtStore) {
   $settingsOk = $false
@@ -797,6 +869,11 @@ if ($settingsOk) {
     # uninstall reverts exactly this key (prior value, or no key, plus the parent objects install created)
     $pendingS.Add(@{ kind = 'plugin-config'; target = 'claude'; plugin = $ap; value = $ReadBoth; hadPrior = $hadIF; prior = $(if ($hadIF) { $curIF } else { $null }); createdPluginConfigs = (-not $hadPC); createdPlugin = (-not $hadP); createdOptions = (-not $hadO) })
   }
+
+  # autoMode.allow: add-only. Keep environment / other keys and existing allow entries.
+  # "$defaults" first; living-relation PR-merge rule only if that exact string is missing.
+  # Does not add permissions.allow (no Bash(gh pr merge*) rule).
+  Merge-AutoModeAllow $settings $AutoModePrMergeAllow $pendingS ([ref]$changes) $firstInstall
 
   if ($changes.Count -gt 0) {
     $bak = Get-FreePath "$SettingsPath.bak-$Stamp"
