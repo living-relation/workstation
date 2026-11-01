@@ -2,7 +2,7 @@
 # Stop and start all Claude remotes: for every project folder in active\ whose per-project Claude remote
 # (session rc-<folder>, started by 'Start Claude remote - <folder>') is running, stop it with rc-close.ps1,
 # then start a fresh one with rc-open.ps1. Folders whose remote is not running are left alone, and nothing
-# else is touched (the projects-root session from Start Cursor workers is not a per-project remote).
+# else is touched (the projects-root session from Phone access is not a per-project remote).
 # Click only: the shortcut and the dashboard button run it; no scheduled or sign-in task.
 # Use it after a Claude Code update so the remotes run the new version.
 param([string]$ActiveDir, [switch]$NoPause)

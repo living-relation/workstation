@@ -18,7 +18,8 @@
     pluginConfigs > <agents-md plugin> > options.instructionFiles put back to its value before install (or removed,
     with the empty parent objects install created; left alone if it changed since); the PostToolUse pr-closeout-nudge
     hook install added; the autoMode.allow living-relation PR-merge rule (and "$defaults" / autoMode object only
-    if install created them and nothing else remains),
+    if install created them and nothing else remains); remoteControlAtStartup put back to its value before install
+    (or removed if there was none; left alone if it is no longer false),
   - in ~\.claude.json: MCP servers install added, only while they still match the fingerprint install recorded
     (a server the user changed is left alone); servers install did not add stay,
   - Claude Code plugins install newly installed (claude plugin uninstall); ones that were already there stay,
@@ -340,6 +341,16 @@ if (Test-Path -LiteralPath $SettingsPath) {
         $s.PSObject.Properties.Remove('autoMode'); $changes += 'remove autoMode (there was none before install)'
       }
     }
+    # remoteControlAtStartup: put back what was there before install (true, or no key), only while it is still false.
+    foreach ($rm in @($ManifestJson | Where-Object { $_.kind -eq 'rc-startup' })) {
+      if (-not $s.PSObject.Properties['remoteControlAtStartup']) { Note 'INFO' 'remoteControlAtStartup already removed'; continue }
+      if (-not ($s.remoteControlAtStartup -is [bool]) -or $s.remoteControlAtStartup) { Note 'WARN' 'remoteControlAtStartup changed since install; left alone'; continue }
+      if ($rm.hadPrior) { $s.remoteControlAtStartup = $rm.prior; $changes += "restore remoteControlAtStartup = $($rm.prior)" }
+      else { $s.PSObject.Properties.Remove('remoteControlAtStartup'); $changes += 'remove remoteControlAtStartup (there was none before install)' }
+    }
+    if (@($ManifestJson | Where-Object { $_.kind -eq 'rc-startup-preexisting' }).Count -and -not @($ManifestJson | Where-Object { $_.kind -eq 'rc-startup' }).Count) {
+      Note 'OK' 'remoteControlAtStartup was already false before install; left as is'
+    }
     if (@($ManifestJson | Where-Object { $_.kind -eq 'automode-allow-preexisting' }).Count -and -not @($ManifestJson | Where-Object { $_.kind -eq 'automode-allow' }).Count) {
       Note 'OK' 'autoMode.allow PR-merge rule was already set before install; left as is'
     }
@@ -559,11 +570,11 @@ if (-not $testMode) {
   }
 }
 
-# 6a. Old-named links (toolkit.psd1 RenamedShortcuts) an older install made in the shortcuts folder: removed only
+# 6a. Old-named and retired links (toolkit.psd1 RenamedShortcuts, RetiredShortcuts) an older install made in the shortcuts folder: removed only
 # while they still run the same script (and arguments, when listed).
 if (-not $testMode) {
   $scDirOld = Join-Path $PkgRoot $TK.ShortcutFolder
-  foreach ($r in @($TK.RenamedShortcuts)) {
+  foreach ($r in @(@($TK.RenamedShortcuts) + @($TK.RetiredShortcuts))) {
     if (-not $r) { continue }
     $lp = Join-Path $scDirOld ([string]$r.Old + '.lnk')
     if (-not (Test-Path -LiteralPath $lp)) { continue }

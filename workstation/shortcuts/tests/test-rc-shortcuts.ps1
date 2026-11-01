@@ -106,7 +106,7 @@ $root = 'C:\rc-status-test'
 Check 'repo from cwd' (Get-RcRepoLabel 'C:\rc-status-test\active\st185-link-ecu-config' 'rc-st185-link-ecu-config' $root) 'st185-link-ecu-config'
 Check 'projects root from cwd' (Get-RcRepoLabel 'C:\rc-status-test' 'workstation-remote-control' $root) 'projects root'
 Check 'repo from rc name' (Get-RcRepoLabel '' 'rc-handbuilt-cad' $root) 'handbuilt-cad'
-Check 'workers name is projects root' (Get-RcRepoLabel '' 'workstation-remote-control' $root) 'projects root'
+Check 'Phone access session name is projects root' (Get-RcRepoLabel '' 'workstation-remote-control' $root) 'projects root'
 Check 'active-other is not under active' (Get-RcRepoLabel 'C:\rc-status-test\active-other' '' $root) 'active-other'
 $sessions = @(
     [pscustomobject]@{ id='aaa11111'; sessionId='aaa11111-1111-1111-1111-111111111111'; name='rc-st185-link-ecu-config'; cwd='C:\rc-status-test\active\st185-link-ecu-config'; state='blocked' }

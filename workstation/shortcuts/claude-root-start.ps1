@@ -1,34 +1,14 @@
 #Requires -Version 5.1
-# Start Cursor workers: clear the stop flag, start the Cursor worker supervisor (hidden) and Claude
-# remote control if they are not running. Never starts watch-pull.
+# Projects-root Claude remote control (part of the Phone access toggle): start `claude --bg --remote-control`
+# in the projects root if it is not running. Starts nothing else (Cursor's own Remote Control covers Cursor).
 param([switch]$NoPause)
 . (Join-Path $PSScriptRoot 'workstation-common.ps1')
 
-Write-Title 'Start Cursor workers'
-
-if (Test-Path -LiteralPath $BridgeStopFlag) {
-    Remove-Item -LiteralPath $BridgeStopFlag -Force
-    Write-Ok 'stop flag removed'
-} else { Write-Off 'no stop flag to remove' }
+Write-Title 'Start Claude remote - projects root'
 
 $procs = Get-ProcSnapshot
 
-# 1. Cursor worker supervisor (mutex Local\CursorWorkerSupervisor also prevents a second copy)
-$sup = Get-SupervisorProcs $procs
-if ($sup) {
-    Write-Ok "Cursor worker supervisor already running (pid $(Format-Pids $sup))"
-} else {
-    if (-not (Test-Path -LiteralPath $AgentPs1)) { Write-Warn "Cursor CLI not found at $AgentPs1 - the worker will fail to start (install Cursor CLI and run 'agent login')" }
-    $vbs = Join-Path $BridgeWorkerDir 'run-hidden.vbs'
-    $rw  = Join-Path $BridgeWorkerDir 'run-worker.ps1'
-    try {
-        Start-Process -FilePath 'wscript.exe' -WorkingDirectory $BridgeWorkerDir -ErrorAction Stop `
-            -ArgumentList @('//B', '//Nologo', "`"$vbs`"", "`"$rw`"")
-        Write-Ok 'started Cursor worker supervisor (hidden, via cursor-worker\run-hidden.vbs)'
-    } catch { Write-Bad "could not start supervisor: $($_.Exception.Message)" }
-}
-
-# 2. Claude remote control for the projects root. A per-project session is named rc-<folder>
+# Claude remote control for the projects root. A per-project session is named rc-<folder>
 # and must not count as this one.
 $rc  = @(Select-RcProcs $procs 'workstation-remote-control')
 $rcs = @(Select-ProjectsRootRcSessions (Get-RemoteControlSessions $procs) (Get-RemoteControlStateId))
@@ -37,8 +17,8 @@ if ($rc -or $rcs) {
 } elseif (-not $ClaudeExe) {
     Write-Bad 'Claude Code CLI (claude.exe) not found on PATH or in the usual install folders'
 } else {
-    $outFile = Join-Path $env:TEMP 'workers-start-claude.out.txt'
-    $errFile = Join-Path $env:TEMP 'workers-start-claude.err.txt'
+    $outFile = Join-Path $env:TEMP 'claude-root-start.out.txt'
+    $errFile = Join-Path $env:TEMP 'claude-root-start.err.txt'
     try {
         # A fixed session id and a name, saved to the state file, so Stop finds exactly this session.
         $sid = [guid]::NewGuid().ToString()

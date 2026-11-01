@@ -4,12 +4,10 @@ $ErrorActionPreference = 'Continue'
 
 $BridgeShortcuts = $PSScriptRoot
 $BridgeRoot      = Split-Path -Parent $BridgeShortcuts   # the toolkit folder inside the workstation repo clone
-# Toolkit paths: $WsProjectsRoot, $WsStateDir, $WsStopFlag, $WsLegacyFolders (runtime files never go in the clone).
+# Toolkit paths: $WsProjectsRoot, $WsStateDir, $WsLegacyFolders (runtime files never go in the clone).
 . (Join-Path $BridgeRoot 'paths.ps1')
 $BridgeProjects  = $WsProjectsRoot
 $BridgeActive    = Join-Path $BridgeProjects 'active'
-$BridgeWorkerDir = Join-Path $BridgeRoot 'cursor-worker'
-$BridgeStopFlag  = $WsStopFlag
 . (Join-Path $BridgeShortcuts 'rc-lib.ps1')
 
 # Claude Code CLI: PATH first (skipping the Claude desktop app's WindowsApps alias), then usual install spots.
@@ -42,8 +40,10 @@ function Find-AgentCli {
 
 $ClaudeExe = Find-ClaudeExe
 
-# Cursor worker settings: $PidFile, $HealthUrl, $MgmtAddr, Get-SupervisorProcess, ...
-. (Join-Path $BridgeWorkerDir 'config.ps1')
+# Retired Cursor worker (removed 2026-10-31: Cursor's built-in Remote Control replaces it). Its runtime folder and
+# stop flag; used only to find and stop a leftover copy (retire-cursor-worker.ps1, Health check).
+$RetiredWorkerRunDir = Join-Path $WsStateDir 'cursor-worker'
+$RetiredWorkerPidFile = Join-Path $RetiredWorkerRunDir 'state\supervisor.pid'
 
 # Branch helpers (base-branch detection, failure reasons).
 . (Join-Path $BridgeRoot 'repo-branch.ps1')
@@ -89,12 +89,20 @@ function Get-WatchPullProcs($procs) {
     })
 }
 
-# Cursor worker supervisor (run-worker.ps1). Copies started by the old scheduled task hide their
-# command line, so the PID-file check from config.ps1 (name + start time) is used as well.
+# RETIRED Cursor worker supervisor (cursor-worker\run-worker.ps1, started by the old Start Cursor workers / Phone access).
+# Matched by command line, plus the PID file it wrote when that process is still a powershell started just before it.
 function Get-SupervisorProcs($procs) {
     $ids = @()
-    $sup = Get-SupervisorProcess
-    if ($sup) { $ids += $sup.Id }
+    try {
+        if (Test-Path -LiteralPath $RetiredWorkerPidFile) {
+            $id = [int](Get-Content -LiteralPath $RetiredWorkerPidFile -ErrorAction Stop | Select-Object -First 1)
+            $proc = Get-Process -Id $id -ErrorAction SilentlyContinue
+            if ($proc -and $proc.ProcessName -eq 'powershell') {
+                $delta = ((Get-Item -LiteralPath $RetiredWorkerPidFile).LastWriteTime - $proc.StartTime).TotalSeconds
+                if ($delta -ge -5 -and $delta -le 120) { $ids += $id }
+            }
+        }
+    } catch { }
     $ids += @($procs | Where-Object {
         $_.Name -in @('powershell.exe', 'pwsh.exe') -and "$($_.CommandLine)" -match 'cursor-worker\\run-worker\.ps1'
     } | ForEach-Object { $_.ProcessId })
@@ -102,12 +110,12 @@ function Get-SupervisorProcs($procs) {
     @($procs | Where-Object { $ids -contains $_.ProcessId })
 }
 
-# Hidden wscript launcher that waits on run-worker.ps1 (exists only when started via run-hidden.vbs).
+# Hidden wscript launcher that waits on run-worker.ps1 (retired).
 function Get-SupervisorLaunchers($procs) {
     @($procs | Where-Object { $_.Name -eq 'wscript.exe' -and "$($_.CommandLine)" -match 'run-worker\.ps1' })
 }
 
-# `agent worker`: node.exe started by the supervisor through %LOCALAPPDATA%\cursor-agent\agent.ps1.
+# `agent worker` node.exe the retired supervisor started (child of it, or the toolkit's --management-addr worker).
 function Get-AgentWorkerProcs($procs, $supIds) {
     @($procs | Where-Object {
         $_.Name -eq 'node.exe' -and (
@@ -117,12 +125,12 @@ function Get-AgentWorkerProcs($procs, $supIds) {
     })
 }
 
-# Claude Code remote control started by Start Cursor workers (`claude --bg --remote-control`).
+# Claude Code remote control (`claude --bg --remote-control`): the projects-root session and the per-project ones.
 # Matches ONLY the --remote-control session processes and the `--bg-pty-host` that hosts one (its inner
 # command after ' -- ' is a --remote-control session, or a child of it is). Other `claude --bg` sessions,
 # their PTY hosts and the shared `claude.exe daemon run` never match, so Stop and Status don't touch them.
 function Test-RemoteControlArgs([string]$cmd) { $cmd -match '(^|\s)--remote-control(=|\s|$)' }
-# The session id Start Cursor workers launched remote control with (state file; Stop and Status prefer it).
+# The session id claude-root-start.ps1 (Phone access) launched the projects-root remote control with (state file; Stop and Status prefer it).
 $RemoteControlStateFile = Join-Path $WsStateDir 'claude-remote-control.json'
 function Get-RemoteControlStateId { try { [string]((Get-Content -LiteralPath $RemoteControlStateFile -Raw -ErrorAction Stop | ConvertFrom-Json).sessionId) } catch { '' } }
 function Get-RemoteControlProcs($procs) {
@@ -172,7 +180,7 @@ function Get-ClaudeBgSessions {
     }
     return $out
 }
-# Remote-control sessions, found by id, never by name: the session id Start Cursor workers saved, or a session whose pid
+# Remote-control sessions, found by id, never by name: the session id claude-root-start.ps1 saved, or a session whose pid
 # or sessionId belongs to the --remote-control process tree. Pass $Sessions to reuse a list already read.
 function Get-RemoteControlSessions($procs = $null, $Sessions = $null) {
     if ($null -eq $procs) { $procs = Get-ProcSnapshot }
@@ -188,35 +196,14 @@ function Get-RemoteControlSessions($procs = $null, $Sessions = $null) {
     })
 }
 
-function Test-WorkerHealth {
-    try {
-        $r = Invoke-WebRequest -Uri $HealthUrl -UseBasicParsing -TimeoutSec 3
-        return "HTTP $($r.StatusCode)"
-    } catch {
-        return "not answering ($($_.Exception.Message))"
-    }
-}
-
 function Show-BridgeStatus {
     $procs = Get-ProcSnapshot
 
-    # Cursor worker
-    $sup = Get-SupervisorProcs $procs
-    $supIds = @($sup | ForEach-Object { $_.ProcessId })
-    $agents = Get-AgentWorkerProcs $procs $supIds
-    if ($sup) {
-        $up = ''
-        try { $up = ', up ' + (Format-Age ((Get-Date) - (Get-Process -Id $supIds[0]).StartTime)) } catch { }
-        Write-Ok "Cursor worker supervisor running (pid $(Format-Pids $sup)$up)"
-    } else { Write-Off 'Cursor worker supervisor not running' }
-    $health = Test-WorkerHealth
-    if ($agents) {
-        if ($health -eq 'HTTP 200') { Write-Ok "agent worker running (pid $(Format-Pids $agents)); $HealthUrl -> $health" }
-        else { Write-Warn "agent worker running (pid $(Format-Pids $agents)); $HealthUrl -> $health" }
-    } else {
-        if ($health -like 'HTTP*') { Write-Warn "agent worker process not matched, but $HealthUrl -> $health" }
-        else { Write-Off "agent worker not running; $HealthUrl $health" }
-    }
+    # Retired Cursor worker: should be gone (Cursor's built-in Remote Control replaces it; Install stops a leftover copy)
+    $sup = @(Get-SupervisorProcs $procs)
+    $agents = @(Get-AgentWorkerProcs $procs @($sup | ForEach-Object { $_.ProcessId }))
+    if ($sup -or $agents) { Write-Warn "retired Cursor worker still running (pid $(Format-Pids (@($sup) + @($agents)))); run Install to stop it (Cursor's own Remote Control replaces it)" }
+    else { Write-Ok "retired Cursor worker not running (Cursor's built-in Remote Control handles Cursor)" }
 
     # Claude remote control, one line per session, labeled by repo.
     $rc = @(Get-RemoteControlProcs $procs)
@@ -237,18 +224,13 @@ function Show-BridgeStatus {
 
     # watch-pull (should be off; pulls are manual, one repo at a time)
     $wp = Get-WatchPullProcs $procs
-    if ($wp) { Write-Warn "watch-pull RUNNING (pid $(Format-Pids $wp)) - should be off; Stop Cursor workers ends it" }
+    if ($wp) { Write-Warn "watch-pull RUNNING (pid $(Format-Pids $wp)) - should be off; stop it by hand" }
     else { Write-Ok 'watch-pull off (pulls are manual, one repo at a time)' }
 
     $dc = Get-DesktopCommanderRemoteProcs $procs
     if ($dc) { Write-Ok "Desktop Commander remote running (pid $(Format-Pids $dc))" }
     else { Write-Off 'Desktop Commander remote not running' }
 
-    # Stop flag
-    if (Test-Path -LiteralPath $BridgeStopFlag) {
-        $since = (Get-Item -LiteralPath $BridgeStopFlag).LastWriteTime
-        Write-Warn "stop flag PRESENT since $($since.ToString('yyyy-MM-dd HH:mm')) (health check will not revive the worker; Start Cursor workers clears it)"
-    } else { Write-Ok 'stop flag absent' }
 }
 
 # Run a command in a background job with a timeout; returns its text output or $null on timeout.
@@ -292,14 +274,6 @@ function Show-Prerequisites {
         }
     } else { Write-Bad "active folder not found: $BridgeActive" }
 
-    $agent = Find-AgentCli
-    if ($agent) {
-        $out = Invoke-WithTimeout { param($a) & $a status } @($agent) 40
-        if ($null -eq $out) { Write-Warn "Cursor CLI found ($agent) but 'agent status' timed out" }
-        elseif ($out -match 'Logged in') { Write-Ok "Cursor CLI: $agent - $(($out -split "`n" | Where-Object { $_ -match 'Logged in' } | Select-Object -First 1).Trim())" }
-        else { Write-Bad "Cursor CLI found ($agent) but not logged in: run 'agent login'" }
-    } else { Write-Bad "Cursor CLI 'agent' not found (Start Cursor workers needs it for the Cursor worker)" }
-
     if ($ClaudeExe) {
         $out = Invoke-WithTimeout { param($c) & $c auth status } @($ClaudeExe) 40
         if ($null -eq $out) { Write-Warn "Claude Code CLI found ($ClaudeExe) but auth status timed out" }
@@ -311,7 +285,7 @@ function Show-Prerequisites {
                 default      { Write-Warn "Claude Code CLI found ($ClaudeExe) but auth status was not parseable ($($st.Hint))" }
             }
         }
-    } else { Write-Bad "Claude Code CLI (claude.exe) not found (Start Cursor workers needs it for remote control)" }
+    } else { Write-Bad "Claude Code CLI (claude.exe) not found (the Claude remote shortcuts and Phone access need it)" }
 
     try {
         $code = (Invoke-WebRequest -Uri 'https://github.com' -Method Head -UseBasicParsing -TimeoutSec 8).StatusCode

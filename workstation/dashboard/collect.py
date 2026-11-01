@@ -21,7 +21,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 PORT = int(os.environ.get("DASHBOARD_PORT") or 8791)
-WORKER_HEALTH = "http://127.0.0.1:8787/readyz"
 SKIP_WALK = {
     ".git",
     "node_modules",
@@ -1207,21 +1206,6 @@ def _usage_limits() -> dict:
     }
 
 
-def _worker() -> dict:
-    code, out, err = _run(
-        [
-            "powershell",
-            "-NoProfile",
-            "-Command",
-            "try { (Invoke-WebRequest -Uri 'http://127.0.0.1:8787/readyz' -UseBasicParsing -TimeoutSec 3).StatusCode } catch { if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 } }",
-        ],
-        timeout=12,
-    )
-    text = (out or err).strip()
-    status = int(text) if text.isdigit() else 0
-    return {"up": status in {200, 503}, "status": status}
-
-
 def _claude_remote(agents: list[dict]) -> dict:
     live = [
         agent
@@ -1316,11 +1300,8 @@ def build_snapshot(lite: bool = False) -> dict:
                         }
                     )
     projects.sort(key=lambda item: item.get("name", "").lower())
-    worker = _worker()
     remote = _claude_remote(_agent_rows())
     alerts: list[dict] = []
-    if not worker["up"]:
-        alerts.append({"level": "warning", "text": "Cursor worker is not answering on 127.0.0.1:8787."})
     if not remote["up"]:
         alerts.append({"level": "warning", "text": "Claude remote control is not running."})
     for project in projects:

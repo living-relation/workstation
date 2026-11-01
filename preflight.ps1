@@ -313,7 +313,7 @@ foreach ($a in $autostarts) {
     Add-Finding 'CONFLICT' 'autostart' $id "starts one of this package's scripts at sign-in (they are manual or run by tasks): $($a.Command)"
   }
 }
-# ---------------------------------------------------------------- 4. Cursor autostart (install.ps1 makes sure there is exactly one)
+# ---------------------------------------------------------------- 4. Cursor autostart (reported only; install.ps1 never adds one since 2026-10-31)
 function Find-CursorExe {
   $c = @()
   if ($env:LOCALAPPDATA) { $c += (Join-Path $env:LOCALAPPDATA 'Programs\cursor\Cursor.exe') }
@@ -333,14 +333,12 @@ $CursorStartup = @($cursorEntries | ForEach-Object {
   [pscustomobject]@{ Kind = $_.Kind; Path = $(if ($_.Kind -eq 'StartupFolder') { $_.FullWhere } else { "$($_.FullWhere)\$($_.Name)" }); Name = $_.Name; Command = $_.Command; Toggle = $_.Toggle }
 })
 if ($CursorStartup.Count -eq 0) {
-  if ($CursorExe) { Add-Finding 'OK' 'cursor-autostart' 'Cursor start at sign-in' "no entry yet; install.ps1 adds Cursor.lnk to $StartupFolder (target $CursorExe)" }
-  else { Add-Finding 'WARN' 'cursor-autostart' 'Cursor start at sign-in' 'Cursor.exe not found (not installed?). install.ps1 skips the Cursor autostart.' }
+  Add-Finding 'OK' 'cursor-autostart' 'Cursor start at sign-in' 'none (nothing starts at sign-in; install.ps1 does not add one)'
 } elseif ($CursorStartup.Count -eq 1) {
   $e = $CursorStartup[0]
-  if ($e.Toggle -like 'OFF*') { Add-Finding 'WARN' 'cursor-autostart' $e.Path "already present but turned OFF in Startup apps (left as is; turn it on in Task Manager > Startup apps if wanted): $($e.Command)" }
-  else { Add-Finding 'ALREADY-INSTALLED' 'cursor-autostart' $e.Path "$($e.Command) [$($e.Toggle)]" }
+  Add-Finding 'WARN' 'cursor-autostart' $e.Path "Cursor starts at sign-in (not added by install; left as is, remove it by hand if unwanted): $($e.Command) [$($e.Toggle)]"
 } else {
-  foreach ($e in $CursorStartup) { Add-Finding 'CONFLICT' 'cursor-autostart' $e.Path "one of $($CursorStartup.Count) Cursor start-at-sign-in entries (duplicate launch); keep one: $($e.Command) [$($e.Toggle)]" }
+  foreach ($e in $CursorStartup) { Add-Finding 'WARN' 'cursor-autostart' $e.Path "one of $($CursorStartup.Count) Cursor start-at-sign-in entries (not added by install; remove by hand if unwanted): $($e.Command) [$($e.Toggle)]" }
 }
 
 # ---------------------------------------------------------------- 5. running processes
@@ -353,12 +351,12 @@ if ($null -ne $procs) {
     $cl = [string]$p.CommandLine
     if (-not $cl -or $p.ProcessId -eq $PID) { continue }
     $id = "$($p.Name) pid $($p.ProcessId)"
-    if ($cl -match '(?i)watch-pull') { $hits++; Add-Finding 'CONFLICT' 'processes' $id "retired watch-pull loop is running (Stop Cursor workers ends it): $cl" }
+    if ($cl -match '(?i)watch-pull') { $hits++; Add-Finding 'CONFLICT' 'processes' $id "retired watch-pull loop is running (stop it by hand): $cl" }
     elseif ($cl -match '(?i)cursor-worker\\run-worker\.ps1|run-worker\.ps1') {
       $hits++
-      if ($cl.ToLower().Contains((Join-Path $BridgeDir $TK.WorkerFolder).ToLower())) { Add-Finding 'OK' 'processes' $id 'Cursor worker supervisor from this toolkit (started by Start Cursor workers; Stop Cursor workers ends it)' }
-      elseif (@($LegacyDirs | Where-Object { $cl.ToLower().Contains($_.ToLower() + '\') }).Count) { Add-Finding 'WARN' 'processes' $id "Cursor worker running from the LEGACY toolkit folder; stop it (old Stop Cursor workers) and start it from $BridgeDir after install: $cl" }
-      else { Add-Finding 'WARN' 'processes' $id "Cursor worker running from another toolkit folder; stop it with that toolkit's Stop Cursor workers before using this one: $cl" }
+      if ($cl.ToLower().Contains((Join-Path $BridgeDir $TK.WorkerFolder).ToLower())) { Add-Finding 'WARN' 'processes' $id "retired Cursor worker from this toolkit is still running; install.ps1 stops it (Cursor's built-in Remote Control replaces it): $cl" }
+      elseif (@($LegacyDirs | Where-Object { $cl.ToLower().Contains($_.ToLower() + '\') }).Count) { Add-Finding 'WARN' 'processes' $id "Cursor worker running from the LEGACY toolkit folder; stop it (old Stop Cursor workers); the Cursor worker is retired, Cursor's built-in Remote Control replaces it: $cl" }
+      else { Add-Finding 'WARN' 'processes' $id "Cursor worker running from another toolkit folder; stop it with that toolkit's Stop Cursor workers (the Cursor worker is retired here): $cl" }
     }
     elseif ($cl -match $OurScriptRx) { $hits++; Add-Finding 'OK' 'processes' $id "short-lived package script running now: $cl" }
   }
@@ -659,7 +657,7 @@ else { Add-Finding 'OK' 'memory' 'memory stores' $(if ($roots.Count) { "one stor
 if (Test-Path -LiteralPath $BridgeDir) { Add-Finding 'OK' 'toolkit' $BridgeDir 'toolkit runs straight from this package (install copies nothing under the Projects root)' }
 else { Add-Finding 'CONFLICT' 'toolkit' $BridgeDir 'toolkit folder missing from this package; run install from a complete workstation repo clone' }
 foreach ($ld in $LegacyDirs) {
-  if (Test-Path -LiteralPath $ld) { Add-Finding 'WARN' 'toolkit' $ld "OLD installed toolkit copy. The toolkit now runs from $BridgeDir; install leaves this folder in place. Stop its workers (Stop Cursor workers), re-point anything that still uses it, then archive it." }
+  if (Test-Path -LiteralPath $ld) { Add-Finding 'WARN' 'toolkit' $ld "OLD installed toolkit copy. The toolkit now runs from $BridgeDir; install leaves this folder in place. Stop anything still running from it, re-point anything that still uses it, then archive it." }
 }
 # Empty names are dropped: PullScript is '' now, and an empty marker matched EVERY file (false "another toolkit copy" WARNs).
 $markers = @(@($TK.PullScript, $TK.CommonScript) + @($legacyLeaves | Where-Object { $_ -match '(?i)common|pull' } | ForEach-Object { $_ }) | Where-Object { $_ } | Select-Object -Unique)

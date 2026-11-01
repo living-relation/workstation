@@ -5,7 +5,7 @@ A page on this PC that reads the projects under the workstation projects root
 Cursor processes that are already running. It starts or stops things only
 when you flip a toggle (see Toggles below). It does not start at sign-in: only the Dashboard shortcut starts it.
 
-The Cursor worker health port is 8787. This page uses 8791.
+This page uses port 8791.
 
 ## Run
 

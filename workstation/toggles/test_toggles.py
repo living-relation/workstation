@@ -242,9 +242,33 @@ class RunPsTests(unittest.TestCase):
 
     def test_toggle_scripts_never_prompt(self):
         text = (toggles.HERE / "remote.ps1").read_text(encoding="utf-8")
-        for name in ("start-dc-remote.ps1", "stop-dc-remote.ps1", "workers-start.ps1", "workers-stop.ps1"):
+        for name in ("start-dc-remote.ps1", "stop-dc-remote.ps1", "claude-root-start.ps1", "claude-root-stop.ps1"):
             line = next(ln for ln in text.splitlines() if name in ln and ln.strip().startswith("&"))
             self.assertIn("-NoPause", line, name)
+
+
+class CursorWorkersRemovedTests(unittest.TestCase):
+    def test_phone_access_toggle_name_and_parts(self):
+        cfg = json.loads((toggles.HERE / "toggles.json").read_text(encoding="utf-8"))
+        remote = next(t for t in cfg["toggles"] if t["id"] == "remote")
+        self.assertEqual(remote["name"], "Phone access (Desktop Commander + Claude)")
+        text = (toggles.HERE / "remote.ps1").read_text(encoding="utf-8")
+        self.assertNotIn("workers-", text)
+        self.assertNotIn("Get-SupervisorProcs", text)
+        self.assertNotIn("Test-WorkerHealth", text)
+
+    def test_root_stop_never_uses_generic_remote_control_matchers(self):
+        # Per-project rc-<folder> remotes also run --remote-control; Stop phone access must not stop them.
+        text = (toggles.HERE.parent / "shortcuts" / "claude-root-stop.ps1").read_text(encoding="utf-8")
+        code = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
+        self.assertNotIn("Get-RemoteControlProcs", code)
+        self.assertNotIn("Get-RemoteControlSessions", code)
+        self.assertIn("Select-ProjectsRootRcSessions", code)
+        self.assertNotIn("watch-pull", code.lower())
+
+    def test_old_worker_label(self):
+        cmd = r"powershell.exe -File C:\p\active\workstation\workstation\cursor-worker\run-worker.ps1"
+        self.assertIn("Old Cursor worker", toggles.describe_process([proc(1, 0, "powershell.exe", cmd)]))
 
 
 class LabelTests(unittest.TestCase):

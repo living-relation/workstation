@@ -10,7 +10,7 @@
   LegacyFolders      = @('_bridge', '_workstation')
 
   # Per-user runtime folder under %LOCALAPPDATA% (never inside the clone): the config file install.ps1 writes
-  # (ConfigFile: projectsRoot), the stop flag that Stop Cursor workers writes and the Cursor worker's logs, state and sqlite cache.
+  # (ConfigFile: projectsRoot), the Claude remote state file, and the retired Cursor worker's old logs.
   StateFolder        = 'Workstation'
   ConfigFile         = 'workstation.json'
 
@@ -19,6 +19,7 @@
   CommonScript       = 'shortcuts\workstation-common.ps1'
   PullScript         = 'shortcuts\pull.ps1'  # this clone only; never recreate batch pull-all
   StatusScript       = 'repo-status.ps1'
+  # Folder of the RETIRED Cursor worker (removed 2026-10-31). Preflight uses it only to recognize a leftover copy.
   WorkerFolder       = 'cursor-worker'
 
   # Shortcuts that ShortcutsInstaller creates (link name -> script). ShortcutFolder is a folder INSIDE this package
@@ -27,8 +28,6 @@
   ShortcutFolder     = 'shortcuts'
   # Icon = index in shell32.dll; Args = extra arguments after -File <script>.
   Shortcuts          = @(
-    @{ Name = 'Start Cursor workers';      Script = 'shortcuts\workers-start.ps1';      Icon = 137 }
-    @{ Name = 'Stop Cursor workers';       Script = 'shortcuts\workers-stop.ps1';       Icon = 131 }
     @{ Name = 'Health check'; Script = 'shortcuts\workstation-status.ps1'; Icon = 23 }
     @{ Name = 'Dashboard';          Script = 'shortcuts\dashboard.ps1';          Icon = 13 }
     @{ Name = 'Update from GitHub'; Script = 'shortcuts\pull.ps1';               Icon = 238 }
@@ -53,8 +52,6 @@
   # ShortcutFolder only when it still runs Script (with Args when given), so only links this toolkit made go.
   # uninstall.ps1 does the same. Per-project links in shortcuts\rc\ have their own rename in rc-lib.ps1.
   RenamedShortcuts   = @(
-    @{ Old = 'Workers Start';      Script = 'workers-start.ps1' }
-    @{ Old = 'Workers Stop';       Script = 'workers-stop.ps1' }
     @{ Old = 'Workstation Status'; Script = 'workstation-status.ps1' }
     @{ Old = 'Pull';               Script = 'pull.ps1' }
     @{ Old = 'Desktop Commander Remote Start'; Script = 'start-dc-remote.ps1' }
@@ -65,6 +62,16 @@
     @{ Old = 'Watcher On';     Script = 'watcher.ps1'; Args = '-Action on' }
     @{ Old = 'Watcher Off';    Script = 'watcher.ps1'; Args = '-Action off' }
     @{ Old = 'Generate RC shortcuts'; Script = 'rc-generate.ps1' }
+  )
+
+  # Shortcuts this toolkit made for a feature that is gone. The shortcuts installer and uninstall.ps1 delete such a link
+  # in ShortcutFolder only when it still runs Script, so only links this toolkit made go. The Cursor workers feature was
+  # removed 2026-10-31 (Cursor's built-in Remote Control replaces it); install.ps1 also stops the old worker it started.
+  RetiredShortcuts   = @(
+    @{ Old = 'Start Cursor workers'; Script = 'workers-start.ps1' }
+    @{ Old = 'Stop Cursor workers';  Script = 'workers-stop.ps1' }
+    @{ Old = 'Workers Start';        Script = 'workers-start.ps1' }
+    @{ Old = 'Workers Stop';         Script = 'workers-stop.ps1' }
   )
 
   # Sign-in links that ShortcutsInstaller puts in the user's Startup folder (install.ps1 passes -StartupDir).

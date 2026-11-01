@@ -12,16 +12,22 @@ git clone <repo-url> <Projects>\active\workstation
 powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1      # hooks, gitleaks, models folder, local.toml
 powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -ProjectsRoot <Projects> -WhatIf   # then without -WhatIf
 ```
-The Workstation toolkit (`workstation\`: Start Cursor workers / Stop Cursor workers, Health check, Cursor worker) runs
+The Workstation toolkit (`workstation\`: Phone access, Claude remote shortcuts, Health check, Dashboard) runs
 straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`, since the
-shortcuts run whatever is checked out. Runtime files (the config install.ps1 writes, the Workers
-Stop flag, worker logs and state) live in `%LOCALAPPDATA%\Workstation\`, never in the clone.
+shortcuts run whatever is checked out. Runtime files (the config install.ps1 writes, the Claude remote state file)
+live in `%LOCALAPPDATA%\Workstation\`, never in the clone.
+**Nothing starts on its own.** No sign-in links, no scheduled tasks, no Cursor autostart: everything here starts from a
+shortcut, a dashboard toggle or button. Cursor's phone access is Cursor's own built-in Remote Control (the old
+Cursor workers feature was removed 2026-10-31; Install stops the old worker it started and deletes the old Start/Stop
+Cursor workers links, listed in `toolkit.psd1` RetiredShortcuts). Claude's phone access is this package's Claude
+remote shortcuts only: Install sets `remoteControlAtStartup` to `false` in `~\.claude\settings.json` (add-only, backup
+first; uninstall.ps1 puts the old value back), so Claude's built-in "Remote Control for all sessions" doesn't double up.
 **Shortcuts and sign-in links** are generated, never committed (`*.lnk` is gitignored). Their definitions are
 `Shortcuts` and `StartupLinks` in `toolkit.psd1`; `workstation\shortcuts\install-shortcuts.ps1` (run by install.ps1)
 creates them pointing at this clone:
 - `shortcuts\rc\`: one **Start Claude remote - `<folder>`** link and one **Stop Claude remote - `<folder>`** link per directory in `active\` (a git repo or a plain folder; names starting with a dot are skipped). Make Claude remote shortcuts rewrites this folder (and removes the old `RC <folder>` / `Close RC <folder>` links) and does not start a session.
-- `shortcuts\`: Start Cursor workers, Stop Cursor workers, Health check, Dashboard, Update from GitHub (`git pull --ff-only` of this clone only; or double-click root `pull.cmd`), Install (runs this clone's `install.ps1` with any arguments passed through; or double-click root `install.cmd`), Start Desktop Commander (`-Show`)
-  and Stop Desktop Commander, Start phone access / Stop phone access, Check for stray processes, Start phone alerts watcher / Stop phone alerts watcher,
+- `shortcuts\`: Health check, Dashboard, Update from GitHub (`git pull --ff-only` of this clone only; or double-click root `pull.cmd`), Install (runs this clone's `install.ps1` with any arguments passed through; or double-click root `install.cmd`), Start Desktop Commander (`-Show`)
+  and Stop Desktop Commander, Start phone access / Stop phone access (the dashboard's **Phone access (Desktop Commander + Claude)** toggle: Desktop Commander Remote plus the projects-root Claude remote control; Stop touches only those two), Check for stray processes, Start phone alerts watcher / Stop phone alerts watcher,
   Make Claude remote shortcuts, and Stop and start all Claude remotes (stops the per-project Claude remotes that are
   running, then starts fresh ones for the same folders, e.g. after a Claude Code update; the dashboard has the same
   button). Each shortcut uses the same words as its dashboard toggle or button. Install deletes the links it made under

@@ -56,13 +56,20 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
   `permissions.allow` `Bash(gh pr merge*)` rule. After merge: Pull + Install on both PCs.
 
 - 2026-10-31: Plain shortcut names, same words on the dashboard: Start/Stop Claude remote - <folder>, Start/Stop
-  phone access (dashboard toggle "Phone access (Desktop Commander + Cursor worker + Claude)"), Start/Stop Desktop
-  Commander, Start/Stop Cursor workers, Start/Stop phone alerts watcher, Update from GitHub, Check for stray
+  phone access (dashboard toggle "Phone access (Desktop Commander + Claude)"), Start/Stop Desktop
+  Commander, Start/Stop phone alerts watcher, Update from GitHub, Check for stray
   processes, Health check, Make Claude remote shortcuts. New click-only "Stop and start all Claude remotes" shortcut
   and dashboard button (rc-restart-all.ps1). Process check output now labels each process (repo/folder, session,
   who started it). After merge: Update from GitHub + Install, then Make Claude remote shortcuts, on both PCs.
 
-**Last added:** 2026-10-31 plain shortcut names and Stop and start all Claude remotes.
+- 2026-10-31: Cursor workers feature removed (Cursor's built-in Remote Control replaces it): no Start/Stop Cursor
+  workers shortcuts, no `workstation/cursor-worker/`; the Phone access toggle is now Desktop Commander + the
+  projects-root Claude remote (claude-root-start/stop.ps1; Stop matches only that session). Install stops the old
+  worker it started (retire-cursor-worker.ps1), deletes the old links it made, adds no Cursor autostart any more, and
+  sets `remoteControlAtStartup` false (add-only, backup; uninstall restores it) so the only Claude phone-remote method
+  is our shortcuts. Same PR #69.
+
+**Last added:** 2026-10-31 Cursor workers removed; no autostarts; remoteControlAtStartup false.
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27

@@ -376,7 +376,7 @@ def describe_process(chain: list[dict], started_by: str = "", projects_dir: Path
     if _is_claude_print_cmd(text):
         what, by = "Claude background job (claude -p)", started_by or "a bot's background job"
     elif "--remote-control" in low and name == "workstation-remote-control":
-        what, by = "Claude remote control (projects root)", "Start Cursor workers / Start phone access"
+        what, by = "Claude remote control (projects root)", "Start phone access"
     elif "--remote-control" in low:
         what, by = "Claude remote", f"'Start Claude remote - {folder}' shortcut" if folder else (started_by or "")
     elif "desktop-commander" in low and re.search(r"\bremote\b", low):
@@ -385,8 +385,10 @@ def describe_process(chain: list[dict], started_by: str = "", projects_dir: Path
         what, by = "Desktop Commander MCP", started_by
     elif "kapture" in low:
         what, by = "Kapture MCP (shared)", started_by
-    elif re.search(r"(?:^|[\s\\/])agent(?:\.cmd|\.exe)?\s+worker\b", low) or "cursor-worker" in low:
-        what, by = "Cursor worker", "Start Cursor workers / Start phone access"
+    elif "cursor-worker" in low or "--management-addr" in low:
+        what, by = "Old Cursor worker (retired; Install stops it)", "old Start Cursor workers"
+    elif re.search(r"(?:^|[\s\\/])agent(?:\.cmd|\.exe)?\s+worker\b", low):
+        what, by = "Cursor worker", started_by or "Cursor"
     elif "mcp" in low:
         key = _mcp_key(text)
         what, by = f"MCP server {key[:60]}" if key else "MCP server", started_by

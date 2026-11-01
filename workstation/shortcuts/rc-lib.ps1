@@ -200,7 +200,7 @@ function Get-RcCommandValue([string]$Cmd, [string]$Flag) {
 }
 
 # Folder name for a remote-control session. A cwd under active\<folder> wins.
-# The Start Cursor workers session lives in the projects root.
+# The Phone access session (claude-root-start.ps1) lives in the projects root.
 function Get-RcRepoLabel([string]$Cwd, [string]$SessionName, [string]$ProjectsRoot) {
     $path = Normalize-RcPath $Cwd
     $root = Normalize-RcPath $ProjectsRoot
@@ -271,7 +271,7 @@ function Get-RcStatusRows($Sessions, $Procs, [string]$ProjectsRoot) {
     return @($rows | Sort-Object Label, Detail)
 }
 
-# The projects-root session Start Cursor workers owns. Per-project sessions are named rc-<folder>.
+# The projects-root session Phone access (claude-root-start.ps1) owns. Per-project sessions are named rc-<folder>.
 function Select-ProjectsRootRcSessions($Sessions, [string]$SavedId) {
     $name = 'workstation-remote-control'
     @($Sessions | Where-Object {

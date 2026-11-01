@@ -9,7 +9,7 @@ dashboard is not open, and from the background watcher.
 
 | File | What | Committed |
 |---|---|---|
-| `toggles.json` (this folder) | package toggles: **Remote** (Desktop Commander Remote + Claude remote control + Cursor workers) | yes |
+| `toggles.json` (this folder) | package toggles: **Phone access (Desktop Commander + Claude)** (Desktop Commander Remote + the projects-root Claude remote control; Cursor uses its own built-in Remote Control) | yes |
 | `%LOCALAPPDATA%\Workstation\toggles.json` | this PC's own toggles and process-check settings | never |
 
 A local entry with the same `id` replaces a package one; `"hidden": true` hides it.

@@ -136,9 +136,9 @@ if (-not $NoStartup -and @($TK.StartupLinks).Count) {
     }
 }
 
-# Old-named links in this folder (toolkit.psd1 RenamedShortcuts): deleted only when they still run the same script
+# Old-named and retired links in this folder (toolkit.psd1 RenamedShortcuts, RetiredShortcuts): deleted only when they still run the same script
 # (and the same arguments when the entry lists them), so a link the user made under an old name stays.
-foreach ($r in @($TK.RenamedShortcuts)) {
+foreach ($r in @(@($TK.RenamedShortcuts) + @($TK.RetiredShortcuts))) {
     if (-not $r) { continue }
     $lp = Join-Path $linkDir ([string]$r.Old + '.lnk')
     if (-not (Test-Path -LiteralPath $lp)) { continue }
@@ -154,7 +154,7 @@ foreach ($r in @($TK.RenamedShortcuts)) {
 }
 
 # Remove old copies (loose on the desktop, or pre-rename names/folder), but only links that run one of these scripts.
-$oldNames = @{ 'workers-start.ps1' = 'Bridge Start'; 'workers-stop.ps1' = 'Bridge Stop'; 'workstation-status.ps1' = 'Bridge Status' }  # pull/push batch-git archived 2026-10-17
+$oldNames = @{ 'workstation-status.ps1' = 'Bridge Status' }  # pull/push batch-git archived 2026-10-17
 $oldPaths = @()
 foreach ($l in $links) {
     $names = @($l.Name); $on = $oldNames[$l.Script]; if ($on) { $names += $on }
