@@ -84,7 +84,7 @@ automations:
     enabled: true
   - id: memory-link-guard
     script: memory/hooks/memory-link-guard.ps1
-    helpers: [memory/hooks/tests/test-memory-link-guard-progress.ps1, memory/hooks/tests/test-memory-link-guard-worktree.ps1]
+    helpers: [memory/hooks/tests/test-memory-link-guard-progress.ps1, memory/hooks/tests/test-memory-link-guard-worktree.ps1, memory/hooks/tests/test-memory-link-guard-cursor.ps1]
     trigger: agent-hook:SessionStart+PreToolUse (installed copy, by install)
     reads: [user .claude settings, memory junction]
     writes: [memory junction and project memory folders (outside the repo)]

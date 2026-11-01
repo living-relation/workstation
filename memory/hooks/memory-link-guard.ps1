@@ -1,5 +1,7 @@
 # Keeps Claude Code's memory folder pointed at the one shared store.
-# Silent when everything is fine. Never deletes notes.
+# Silent when everything is fine under Claude Code (silence keeps its normal permission prompts).
+# Under Cursor (CURSOR_VERSION set) a preToolUse run prints exactly one line, {"permission":"allow"},
+# because Cursor blocks the edit when a hook prints nothing; its messages go to stderr instead. Never deletes notes.
 # Also warns (never blocks, moves or deletes) when a write to the store looks like
 # project progress; that belongs in the repo's in-repo state file.
 # Portable: no hardcoded profile, user or machine names. Paths are worked out at run time:
@@ -26,6 +28,19 @@ $hookIn = $null
 if ([Console]::IsInputRedirected) {
   $rawIn = [Console]::In.ReadToEnd()
   if ($rawIn) { try { $hookIn = $rawIn | ConvertFrom-Json } catch { } }
+}
+# Cursor preToolUse: collect messages (sent to stderr) so stdout is only the one JSON allow line.
+$cursorPre = [bool]($env:CURSOR_VERSION -and $hookIn -and (("$($hookIn.hook_event_name)" -match '(?i)^preToolUse$') -or (-not "$($hookIn.hook_event_name)" -and $hookIn.tool_name)))
+$script:hookMsgs = New-Object Collections.Generic.List[string]
+if ($cursorPre) {
+  function Write-Output { param([Parameter(ValueFromRemainingArguments = $true)]$InputObject) foreach ($x in $InputObject) { $script:hookMsgs.Add([string]$x) } }
+}
+function Exit-Hook {
+  if ($cursorPre) {
+    foreach ($m in $script:hookMsgs) { [Console]::Error.WriteLine($m) }
+    [Console]::Out.WriteLine('{"permission":"allow"}')
+  }
+  exit 0
 }
 function Get-PathKey([string]$p) {
   if (-not $p) { return '' }
@@ -77,7 +92,7 @@ if (-not $projRoot) { $projRoot = Join-Path $userHome 'Projects' }
 # No autoMemoryDirectory in settings: use Claude Code's own folder name for the Projects root.
 if (-not $link) { $link = Join-Path $userHome ('.claude\projects\' + ($projRoot -replace '[^A-Za-z0-9]', '-') + '\memory') }
 
-if (-not (Test-Path -LiteralPath $home_)) { Write-Output "MEMORY WARNING: shared memory folder is missing: $home_. Tell the user before saving any memory."; exit 0 }
+if (-not (Test-Path -LiteralPath $home_)) { Write-Output "MEMORY WARNING: shared memory folder is missing: $home_. Tell the user before saving any memory."; Exit-Hook }
 
 # Warn only when a write to the store looks like project progress. Never block, move or delete.
 try {
@@ -205,4 +220,4 @@ try {
     }
   }
 } catch { }
-exit 0
+Exit-Hook
