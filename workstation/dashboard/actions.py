@@ -158,7 +158,7 @@ def launch(kind: str, project_name: str, fp: str, text: str = "", today: str | N
         try:
             code = proc.wait(timeout=LAUNCH_WAIT)
         except subprocess.TimeoutExpired:
-            code = None  # still starting: leave it running, as workers-start does
+            code = None  # still starting: leave it running, as claude-root-start does
         if code not in (0, None):
             tail = (err_path.read_text("utf-8", "replace") or out_path.read_text("utf-8", "replace")).strip().splitlines()[-2:]
             raise ActionError(f"Claude did not start (exit {code}): {' / '.join(tail)}")

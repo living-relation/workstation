@@ -242,6 +242,74 @@ class RunPsTests(unittest.TestCase):
 
     def test_toggle_scripts_never_prompt(self):
         text = (toggles.HERE / "remote.ps1").read_text(encoding="utf-8")
-        for name in ("start-dc-remote.ps1", "stop-dc-remote.ps1", "workers-start.ps1", "workers-stop.ps1"):
+        for name in ("start-dc-remote.ps1", "stop-dc-remote.ps1", "claude-root-start.ps1", "claude-root-stop.ps1"):
             line = next(ln for ln in text.splitlines() if name in ln and ln.strip().startswith("&"))
             self.assertIn("-NoPause", line, name)
+
+
+class CursorWorkersRemovedTests(unittest.TestCase):
+    def test_phone_access_toggle_name_and_parts(self):
+        cfg = json.loads((toggles.HERE / "toggles.json").read_text(encoding="utf-8"))
+        remote = next(t for t in cfg["toggles"] if t["id"] == "remote")
+        self.assertEqual(remote["name"], "Phone access (Desktop Commander + Claude)")
+        text = (toggles.HERE / "remote.ps1").read_text(encoding="utf-8")
+        self.assertNotIn("workers-", text)
+        self.assertNotIn("Get-SupervisorProcs", text)
+        self.assertNotIn("Test-WorkerHealth", text)
+
+    def test_root_stop_never_uses_generic_remote_control_matchers(self):
+        # Per-project rc-<folder> remotes also run --remote-control; Stop phone access must not stop them.
+        text = (toggles.HERE.parent / "shortcuts" / "claude-root-stop.ps1").read_text(encoding="utf-8")
+        code = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
+        self.assertNotIn("Get-RemoteControlProcs", code)
+        self.assertNotIn("Get-RemoteControlSessions", code)
+        self.assertIn("Select-ProjectsRootRcSessions", code)
+        self.assertNotIn("watch-pull", code.lower())
+
+    def test_old_worker_label(self):
+        cmd = r"powershell.exe -File C:\p\active\workstation\workstation\cursor-worker\run-worker.ps1"
+        self.assertIn("Old Cursor worker", toggles.describe_process([proc(1, 0, "powershell.exe", cmd)]))
+
+
+class LabelTests(unittest.TestCase):
+    def test_claude_remote_label_names_repo_and_shortcut(self):
+        label = toggles.describe_process([proc(1, 0, "claude.exe", "claude.exe --bg --remote-control --name rc-handbuilt-cad")])
+        self.assertIn("Claude remote", label)
+        self.assertIn("in handbuilt-cad", label)
+        self.assertIn("'Start Claude remote - handbuilt-cad' shortcut", label)
+
+    def test_background_job_label_has_folder(self):
+        cmd = r"claude.exe -p --output-format json C:\p\active\resume-genie\_tmp_x\task.md"
+        label = toggles.describe_process([proc(1, 0, "node.exe", cmd)])
+        self.assertIn("background job", label)
+        self.assertIn("in resume-genie", label)
+
+    def test_session_title_from_projects_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "C--p-active-x"
+            folder.mkdir()
+            sid = "1234abcd-0000-0000-0000-000000000000"
+            (folder / f"{sid}.jsonl").write_text('{"type":"summary","summary":"Fix the dashboard"}\n', encoding="utf-8")
+            label = toggles.describe_process([proc(1, 0, "claude.exe", f"claude.exe --resume {sid}")], "Terminal window", Path(tmp))
+        self.assertIn("'Fix the dashboard'", label)
+        self.assertIn("started by Terminal window", label)
+
+    def test_orphans_and_duplicates_get_labels_but_same_verdict(self):
+        procs = [proc(50, 999, "node.exe", "node npx-cli.js desktop-commander remote", mb=30)]
+        result = toggles.analyze(procs)
+        self.assertIn("Desktop Commander remote", result["orphans"][0]["who"])
+        self.assertTrue(result["orphans"][0]["expected"])
+        procs = [proc(1, 0, "claude.exe", "claude"), proc(2, 1, "node.exe", "node x/@scope/some-mcp/index.js"), proc(3, 1, "node.exe", "node x/@scope/some-mcp/index.js")]
+        dup = toggles.analyze(procs, expected=[])["duplicates"][0]
+        self.assertEqual([w["pid"] for w in dup["who"]], [2, 3])
+        self.assertIn("started by Claude window", dup["who"][0]["label"])
+
+
+class RestartRemotesTests(unittest.TestCase):
+    def test_runs_the_shortcut_script_only(self):
+        from unittest import mock
+
+        with mock.patch.object(toggles, "run_ps", return_value=(0, "ok")) as run:
+            self.assertEqual(toggles.restart_claude_remotes(), {"ok": True, "output": "ok"})
+        self.assertIn("rc-restart-all.ps1", run.call_args[0][0])
+        self.assertTrue(toggles.RESTART_REMOTES_SCRIPT.is_file())

@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-  Workstation setup: shared Claude / Cursor memory, the Bridge toolkit, the 80% handoff hooks and the Cursor
-  autostart, for the CURRENT Windows user.
+  Workstation setup: shared Claude / Cursor memory, the Bridge toolkit and the 80% handoff hooks, for the CURRENT
+  Windows user. Adds no autostart.
 
 .DESCRIPTION
   Run as a normal user (not elevated) from the workstation repo clone (normally <Projects>\active\workstation; the
@@ -28,8 +28,8 @@
   - Does NOT copy the toolkit anywhere: it runs from this package's toolkit folder (PackageFolder in toolkit.psd1,
     e.g. <clone>\workstation\). Writes %LOCALAPPDATA%\<StateFolder>\<ConfigFile> (projectsRoot) so the scripts find
     the Projects root; runtime files (stop flag, worker logs/state) also go under %LOCALAPPDATA%\<StateFolder>\,
-    never into the clone. Then runs the toolkit's shortcuts installer (Workers Start / Workers Stop / Workstation
-    Status links in this package's shortcuts\ folder, gitignored, + prerequisite checks).
+    never into the clone. Then runs the toolkit's shortcuts installer (Health check, Phone access, Claude remote
+    and other links in this package's shortcuts\ folder, gitignored, + prerequisite checks).
     An old installed copy (<Projects>\_workstation or _bridge, LegacyFolders) is only reported, never moved.
   - Creates the junction ~\.claude\working-memory -> the memory store (the same path on every PC;
     the Cowork Global instructions line uses it). An existing folder or link there is never changed.
@@ -44,18 +44,24 @@
     prompt unless -Quiet / CI / -WhatIf / -UserHome); a server that still lacks a required key is skipped with a
     message, not a failed install. Then installs Claude Code plugins at user scope from claude\plugins.json
     (Anthropic official marketplace). That file is the source of truth for plugin names.
-  - Makes sure Cursor starts at sign-in: an existing Cursor entry (Startup folder or Run key) is left alone,
-    even if it is turned off in Startup apps (warning only); otherwise adds Cursor.lnk to the Startup folder.
+  - Adds no autostart: nothing of this package starts at sign-in or app launch. An existing Cursor sign-in entry is
+    only reported (WARN), never added or removed.
+  - Retires the old Cursor worker (removed 2026-10-31; Cursor's built-in Remote Control replaces it): stops only the
+    supervisor / agent worker the old Start Cursor workers or Phone access started, deletes its stop flag, and removes
+    the old Start/Stop Cursor workers links (only ones that still run those scripts).
+  - Sets remoteControlAtStartup to false in ~\.claude\settings.json (add-only: only when it is missing or true; backup
+    first), so the only Claude phone-remote method is this package's Claude remote shortcuts. uninstall.ps1 puts back
+    the earlier value (or removes the key when there was none).
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
   - Does NOT migrate old memory. See MIGRATION.md.
   Scheduled tasks need admin: run install-admin.ps1 afterwards in an elevated PowerShell.
-  - Ends by running Workstation Status (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts,
+  - Ends by running Health check (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts,
     then a Windows popup reminding you to upload skills\*.zip to the Claude desktop app for each Claude account
     (Settings > Capabilities > Skills). Click OK to open skills\ in Explorer. The popup is skipped for -NoPopup
     (alias -Quiet), -WhatIf, -UserHome (tests), and CI. Changed zip names since last install are tracked in
     %LOCALAPPDATA%\<StateFolder>\skill-zips.json; if that file is missing, the popup lists every zip.
     The manual steps (admin command, the two instruction pastes, sign-ins) are walked through by the
-    installing agent from SETUP-PROMPT.txt. Setup is finished only when Workstation Status shows 0 FAIL, 0 WARN.
+    installing agent from SETUP-PROMPT.txt. Setup is finished only when Health check shows 0 FAIL, 0 WARN.
 
 .PARAMETER ProjectsRoot
   Projects root folder. Default: the projectsRoot saved by the last install, else %USERPROFILE%\Projects,
@@ -489,31 +495,31 @@ function Merge-AutoModeAllow($Settings, [string]$Rule, [System.Collections.Gener
   })
 }
 
-# ---------------------------------------------------------------- final Workstation Status check
-# Runs Workstation Status -NoPause (read-only, never prompts) and reports the FAIL / WARN counts.
+# ---------------------------------------------------------------- final Health check
+# Runs Health check -NoPause (read-only, never prompts) and reports the FAIL / WARN counts.
 # The manual steps (admin command, the two pastes, sign-ins) are walked through by the installing
 # agent from SETUP-PROMPT.txt; install does not list or confirm them. Setup is finished only when
-# Workstation Status shows 0 FAIL and 0 WARN (SETUP-PROMPT.txt last check).
+# Health check shows 0 FAIL and 0 WARN (SETUP-PROMPT.txt last check).
 function Invoke-StatusCheck {
   $ErrorActionPreference = 'Continue'  # PS 5.1: native stderr with 2>&1 must not stop the script
   if ($testMode -or $WhatIf) {
     Write-Host ''
-    Write-Host ('  ' + $(if ($WhatIf) { 'Dry run' } else { 'Test mode (-UserHome)' }) + ': not running Workstation Status.') -ForegroundColor Cyan
+    Write-Host ('  ' + $(if ($WhatIf) { 'Dry run' } else { 'Test mode (-UserHome)' }) + ': not running Health check.') -ForegroundColor Cyan
     return
   }
-  $statusRel = @($TK.Shortcuts | Where-Object { $_.Name -eq 'Workstation Status' } | ForEach-Object { $_.Script }) | Select-Object -First 1
+  $statusRel = @($TK.Shortcuts | Where-Object { $_.Name -eq 'Health check' } | ForEach-Object { $_.Script }) | Select-Object -First 1
   if (-not $statusRel) { $statusRel = 'shortcuts\workstation-status.ps1' }
   $statusPs = Join-Path $BridgeDir $statusRel
   Write-Host ''
-  Write-Host "Workstation Status check: $statusPs -NoPause" -ForegroundColor White
-  if (-not (Test-Path -LiteralPath $statusPs)) { Write-Host "  [FAIL] Workstation Status script not found: $statusPs" -ForegroundColor Red; return }
+  Write-Host "Health check: $statusPs -NoPause" -ForegroundColor White
+  if (-not (Test-Path -LiteralPath $statusPs)) { Write-Host "  [FAIL] Health check script not found: $statusPs" -ForegroundColor Red; return }
   $out = @(& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $statusPs -NoPause 2>&1 | ForEach-Object { [string]$_ })
   foreach ($l in $out) { Write-Host $l }
   $fails = @($out | Where-Object { $_ -match '\[FAIL\]' }).Count
   $warns = @($out | Where-Object { $_ -match '\[WARN\]' }).Count
-  Write-Host ("  Workstation Status: {0} FAIL, {1} WARN" -f $fails, $warns) -ForegroundColor White
+  Write-Host ("  Health check: {0} FAIL, {1} WARN" -f $fails, $warns) -ForegroundColor White
   if ($fails -or $warns) { Write-Host '  Setup is finished only at 0 FAIL and 0 WARN. The remaining SETUP-PROMPT.txt steps usually clear these.' -ForegroundColor Yellow }
-  else { Write-Host '  Workstation Status: 0 FAIL, 0 WARN.' -ForegroundColor Green }
+  else { Write-Host '  Health check: 0 FAIL, 0 WARN.' -ForegroundColor Green }
 }
 
 # End-of-install reminder: upload skills\<name>.zip in Claude desktop. Hashes of those zips are stored in
@@ -538,7 +544,7 @@ function Get-SkillZipHashes([string]$Dir) {
   return $h
 }
 # Notes + writes hashes before the summary so they show in the counts. Popup is shown after
-# Workstation Status (end of the run). $SkillZipPopup holds -Skip / -Message / -Dir.
+# Health check (end of the run). $SkillZipPopup holds -Skip / -Message / -Dir.
 $SkillZipPopup = $null
 function Update-SkillZipState {
   $skillsDir = Join-Path $PkgRoot 'skills'
@@ -743,7 +749,7 @@ if ($CursorHookOk) { Copy-HomeFile (Join-Path $HandoffPkg 'cursor\handoff-at-80.
 else { Note 'WARN' "py -3 (Python 3.7+) not available: Cursor 80% handoff hook skipped ($CursorHookDest, $CursorHooksJson unchanged). Install Python 3, then re-run install.ps1." }
 # The skill the hooks trigger is agent-handoff-pack (skills\), linked by default in section 9b.
 
-# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart/PreToolUse guard hook + handoff hooks/statusLine + PostToolUse pr-closeout-nudge + autoMode.allow PR-merge rule), keep everything else
+# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart/PreToolUse guard hook + handoff hooks/statusLine + PostToolUse pr-closeout-nudge + autoMode.allow PR-merge rule + remoteControlAtStartup false), keep everything else
 $settings = $null; $settingsOk = $true; $settingsExisted = Test-Path -LiteralPath $SettingsPath
 if ($AutoMemAtStore) {
   $settingsOk = $false
@@ -875,6 +881,21 @@ if ($settingsOk) {
   # Does not add permissions.allow (no Bash(gh pr merge*) rule).
   Merge-AutoModeAllow $settings $AutoModePrMergeAllow $pendingS ([ref]$changes) $firstInstall
 
+  # remoteControlAtStartup = false: one Claude phone-remote method (this package's Claude remote shortcuts), not also
+  # Claude's built-in "Remote Control for all sessions". Only a missing key or true is changed; uninstall restores it.
+  $hadRcs = [bool]$settings.PSObject.Properties['remoteControlAtStartup']
+  $curRcs = $null; if ($hadRcs) { $curRcs = $settings.remoteControlAtStartup }
+  if ($hadRcs -and $curRcs -is [bool] -and -not $curRcs) {
+    Note 'OK' 'remoteControlAtStartup already false'
+    if ($firstInstall) { Add-ManifestJson @{ kind = 'rc-startup-preexisting'; target = 'claude' } }
+  } elseif ($hadRcs -and -not ($curRcs -is [bool])) {
+    Note 'WARN' "remoteControlAtStartup is '$curRcs' (not true/false); left alone"
+  } else {
+    if ($hadRcs) { $settings.remoteControlAtStartup = $false } else { $settings | Add-Member -NotePropertyName remoteControlAtStartup -NotePropertyValue $false }
+    $changes += 'remoteControlAtStartup = false'
+    $pendingS.Add(@{ kind = 'rc-startup'; target = 'claude'; value = $false; hadPrior = $hadRcs; prior = $(if ($hadRcs) { $curRcs } else { $null }) })
+  }
+
   if ($changes.Count -gt 0) {
     $bak = Get-FreePath "$SettingsPath.bak-$Stamp"
     $what = "update $SettingsPath (" + ($changes -join '; ') + ')' + $(if ($settingsExisted) { "; backup $bak" } else { '' })
@@ -983,7 +1004,7 @@ if (Test-Path -LiteralPath $gitDir) {
   $ErrorActionPreference = 'Continue'
   $br = $null; try { $br = (& git -C $PkgRoot rev-parse --abbrev-ref HEAD 2>$null | Select-Object -First 1) } catch { }
   $ErrorActionPreference = 'Stop'
-  if ($br -and @('main', 'master') -notcontains [string]$br) { Note 'WARN' "this clone is on branch '$br', not main: the shortcuts and the Cursor worker run whatever is checked out here. Switch it back to main." }
+  if ($br -and @('main', 'master') -notcontains [string]$br) { Note 'WARN' "this clone is on branch '$br', not main: the shortcuts run whatever is checked out here. Switch it back to main." }
   elseif ($br) { Note 'OK' "package clone is on $br (the toolkit runs what is checked out)" }
   else { Note 'INFO' "could not read this clone's branch with git (keep it on main: the toolkit runs what is checked out)" }
 }
@@ -1043,34 +1064,31 @@ else {
 # An old installed toolkit copy (LegacyFolders) is never moved or deleted; it is only reported.
 foreach ($lf in @($TK.LegacyFolders | Where-Object { $_ })) {
   $lp = Join-Path $ProjectsRoot $lf
-  if (Test-Path -LiteralPath $lp) { Note 'WARN' "old toolkit copy left in place: $lp (the toolkit now runs from $BridgeDir). Stop its workers (Workers Stop), check nothing else uses it, then archive it by hand." }
+  if (Test-Path -LiteralPath $lp) { Note 'WARN' "old toolkit copy left in place: $lp (the toolkit now runs from $BridgeDir). Stop anything still running from it, check nothing else uses it, then archive it by hand." }
 }
 
-# 9b. Cursor starts at sign-in: keep an existing entry (even if it is turned off), else add Cursor.lnk
+# 9b. No Cursor autostart (since 2026-10-31 nothing of this package starts at sign-in). An existing entry is only
+#     reported (preflight WARN); install never adds, changes or removes one. uninstall.ps1 still removes a Cursor.lnk an
+#     older install recorded.
 $cs = @($Preflight.CursorStartup)
-if ($cs.Count -ge 1) {
-  foreach ($e in $cs) {
-    if ($e.Toggle -like 'OFF*') { Note 'WARN' "Cursor autostart exists but is turned OFF in Startup apps; left off (not changed): $($e.Path)" }
-    else { Note 'OK' "Cursor autostart already set: $($e.Path)" }
-  }
-  if ($cs.Count -gt 1) { Note 'WARN' "$($cs.Count) Cursor autostart entries (duplicate launch). None added; keep one (see the preflight report)." }
-} elseif (-not $Preflight.CursorExe) {
-  Note 'WARN' 'Cursor.exe not found (Cursor not installed?). Cursor autostart skipped; re-run install.ps1 after installing Cursor.'
-} else {
-  $lnkPath = Join-Path $StartupFolder 'Cursor.lnk'
-  if (Test-Path -LiteralPath $lnkPath) { Note 'WARN' "$lnkPath exists but does not start Cursor.exe; left alone, no autostart added." }
-  else {
-    $exe = [string]$Preflight.CursorExe
-    Invoke-Change "add Cursor autostart: $lnkPath -> $exe" {
-      New-RecordedDir $StartupFolder
-      $wsh = New-Object -ComObject WScript.Shell
-      $sc = $wsh.CreateShortcut($lnkPath)
-      $sc.TargetPath = $exe
-      $sc.WorkingDirectory = (Split-Path $exe -Parent)
-      $sc.Description = 'Start Cursor at sign-in (workstation setup)'
-      $sc.Save()
-      Add-ManifestJson @{ kind = 'startup'; path = $lnkPath; target = $exe }
-    }
+if ($cs.Count) { foreach ($e in $cs) { Note 'WARN' "Cursor starts at sign-in (not added by this install; remove it by hand if unwanted): $($e.Path)" } }
+else { Note 'OK' 'Cursor does not start at sign-in (install adds no autostart)' }
+
+# 9c. Retire the old Cursor worker (feature removed 2026-10-31; Cursor's built-in Remote Control replaces it): stop
+#     only the supervisor / agent worker the old Start Cursor workers or Phone access started, and delete its stop
+#     flag. The old Start/Stop Cursor workers links go in section 9 (toolkit.psd1 RetiredShortcuts).
+$retireScript = Join-Path $BridgeDir 'shortcuts\retire-cursor-worker.ps1'
+if ($testMode) { Note 'SKIP' 'test mode (-UserHome): not checking for the old Cursor worker' }
+elseif (-not (Test-Path -LiteralPath $retireScript)) { Note 'ERROR' "not found: $retireScript" }
+else {
+  $ErrorActionPreference = 'Continue'
+  $rArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $retireScript); if ($WhatIf) { $rArgs += '-WhatIf' }
+  $rOut = @(& powershell.exe @rArgs 2>&1)
+  $ErrorActionPreference = 'Stop'
+  foreach ($ln in $rOut) {
+    $s = [string]$ln; if (-not $s.Contains('|')) { continue }
+    $k, $v = $s -split '\|', 2
+    switch ($k) { 'STOPPED' { Note 'DONE' $v } 'WOULD' { Note 'WOULD' $v } 'WARN' { Note 'WARN' $v } default { Note 'OK' $v } }
   }
 }
 

@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Continue'
 $repoPath = Normalize-RcPath $Repo
 $leaf = Split-Path $repoPath -Leaf
 $name = Get-RcSessionName $leaf
-Write-Title "RC $leaf"
+Write-Title "Start Claude remote - $leaf"
 
 if (-not $repoPath -or -not (Test-Path -LiteralPath $repoPath -PathType Container)) {
     Write-Bad "project folder not found: $Repo"

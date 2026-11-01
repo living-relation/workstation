@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # Start Desktop Commander remote in the background.
-# The dashboard's Remote toggle calls this with no switches (silent); it no longer runs at sign-in.
+# The dashboard's Phone access toggle calls this with no switches (silent); it no longer runs at sign-in.
 # Manual shortcut passes -Show so a window reports status.
 # Command: npx @wonderwhy-er/desktop-commander@<pinned version> remote
 # Lives in the workstation repo; the shortcuts come from toolkit.psd1 via install-shortcuts.ps1.
@@ -26,7 +26,7 @@ function Write-Bad([string]$m) { Write-Host "  [FAIL] $m" -ForegroundColor Red }
 
 if ($Show) {
     Write-Host ''
-    Write-Host '==== Desktop Commander Remote Start ====' -ForegroundColor Cyan
+    Write-Host '==== Start Desktop Commander ====' -ForegroundColor Cyan
 }
 
 $already = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {

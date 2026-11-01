@@ -1,4 +1,4 @@
-Grok Bot: please set up this PC with my workstation setup. Follow these steps in order. Stop and wait for me wherever it says so. Setup is NOT finished until every numbered step below is done, including the two pastes and the final Workstation Status check.
+Grok Bot: please set up this PC with my workstation setup. Follow these steps in order. Stop and wait for me wherever it says so. Setup is NOT finished until every numbered step below is done, including the two pastes and the final Health check check.
 
 0. The package is the workstation repo clone, normally <Projects>\active\workstation (clone it there if it is missing; ask me for the URL). The Workstation toolkit runs straight from this clone, so it must stay on main. Find it (ask me if you cannot). Work on this PC, as the signed-in Windows user. Do not use an elevated (admin) shell; I run the one admin command myself.
 
@@ -17,10 +17,10 @@ Grok Bot: please set up this PC with my workstation setup. Follow these steps in
 
 5. Reorganize: show me the plan from REORGANIZE.md step 1 (inventory -> proposed moves). Move nothing until I approve. Then do the moves I approved and the rest of REORGANIZE.md (steps 2 to 5). Step 5: merge the Projects-root CLAUDE.md into AGENTS.md yourself (the root is not a git repo; check first, back up first, keep every rule and the shared-memory marker block, then delete the root CLAUDE.md). Then list every CLAUDE.md / AGENTS.md in active\ projects and repos as a table and wait for my yes per file; a repo merge is a commit I make myself, and nothing is pushed. Leave every CLAUDE.local.md alone.
 
-6. Run install.ps1 for real (same parameters as the dry run). Add -AcceptConflicts only if I accepted the remaining conflicts in step 2. It copies no toolkit files (the toolkit runs from the clone's workstation\ folder); it writes %LOCALAPPDATA%\Workstation\workstation.json (the Projects root), creates the Workers Start, Workers Stop and Workstation Status shortcuts in the package's shortcuts\ folder, installs the 80% handoff hooks and the pr-closeout-nudge hook, merges Claude Code MCP connectors into ~\.claude.json and installs official-marketplace plugins from claude\plugins.json, links this repo's skills into ~\.claude\skills (opt out with -NoLinkSkills), and makes sure Cursor starts at sign-in. For github it reads GITHUB_PERSONAL_ACCESS_TOKEN (or GITHUB_TOKEN) from env, or prompts; empty skips that server. Show me the summary, the prerequisite results and any warnings.
-   At the end, install.ps1 runs Workstation Status (-NoPause) and prints its FAIL / WARN counts, then a Windows popup reminding you to upload skills\*.zip in Claude desktop (Settings > Capabilities > Skills); OK opens that folder in Explorer. FAIL or WARN lines are expected at this point; the steps below clear them. Exit code 0 is expected. Exit code 1 (error) or 2 (preflight conflict) is not: show me what went wrong.
+6. Run install.ps1 for real (same parameters as the dry run). Add -AcceptConflicts only if I accepted the remaining conflicts in step 2. It copies no toolkit files (the toolkit runs from the clone's workstation\ folder); it writes %LOCALAPPDATA%\Workstation\workstation.json (the Projects root), creates the Health check, Phone access, Claude remote and other shortcuts in the package's shortcuts\ folder, installs the 80% handoff hooks and the pr-closeout-nudge hook, merges Claude Code MCP connectors into ~\.claude.json and installs official-marketplace plugins from claude\plugins.json, links this repo's skills into ~\.claude\skills (opt out with -NoLinkSkills), stops the retired Cursor worker if it still runs, sets remoteControlAtStartup to false in ~\.claude\settings.json, and adds no autostart (nothing starts at sign-in). For github it reads GITHUB_PERSONAL_ACCESS_TOKEN (or GITHUB_TOKEN) from env, or prompts; empty skips that server. Show me the summary, the prerequisite results and any warnings.
+   At the end, install.ps1 runs Health check (-NoPause) and prints its FAIL / WARN counts, then a Windows popup reminding you to upload skills\*.zip in Claude desktop (Settings > Capabilities > Skills); OK opens that folder in Explorer. FAIL or WARN lines are expected at this point; the steps below clear them. Exit code 0 is expected. Exit code 1 (error) or 2 (preflight conflict) is not: show me what went wrong.
 
-7. Admin command (manual, by me): give me the ONE admin command to paste (it is printed at the end of install.ps1; it runs install-admin.ps1). I run it in PowerShell opened with "Run as admin" under my own account. Wait for my "done". Then check that the dashboard firewall rule exists (only when Tailscale is installed) and that there is NO task Workstation-Watcher (the watcher is the manual Watcher On / Off shortcuts, off by default) and no memory sync task (Cursor edits the live memory store).
+7. Admin command (manual, by me): give me the ONE admin command to paste (it is printed at the end of install.ps1; it runs install-admin.ps1). I run it in PowerShell opened with "Run as admin" under my own account. Wait for my "done". Then check that the dashboard firewall rule exists (only when Tailscale is installed) and that there is NO task Workstation-Watcher (the watcher is the manual Start phone alerts watcher / Stop phone alerts watcher shortcuts, off by default) and no memory sync task (Cursor edits the live memory store).
 
 8. Memory migration: do MIGRATION.md steps b to e. Show me the plan and wait for my OK before merging anything. Give me the transcript-only findings for review.
 
@@ -37,7 +37,7 @@ Grok Bot: please set up this PC with my workstation setup. Follow these steps in
 
 12. Cowork files location (manual, by me): if Cowork's "Cowork files" location is not <Projects>\_claude\Claude Projects (the memory store's parent), tell me to change it to that. Wait for my "done".
 
-13. Prerequisites and sign-ins (manual, by me): using the install results and Workstation Status, tell me what is missing and give me the exact steps for each, then wait for my "done":
+13. Prerequisites and sign-ins (manual, by me): using the install results and Health check, tell me what is missing and give me the exact steps for each, then wait for my "done":
    - git, and the GitHub sign-in (per-repo pull/push needs git);
    - the Cursor agent sign-in ("agent login");
    - Claude Code sign-in ("claude") and the Claude desktop app sign-in;
@@ -47,9 +47,9 @@ Grok Bot: please set up this PC with my workstation setup. Follow these steps in
 
 15. LAST: run
       powershell -NoProfile -ExecutionPolicy Bypass -File "<package folder>\workstation\shortcuts\workstation-status.ps1" -NoPause
-   (-NoPause only reports; it never prompts or changes anything). Count the [FAIL] and [WARN] lines. Setup is finished ONLY when there are 0 [FAIL] and 0 [WARN]. For each one left, tell me what it means and how to fix it, fix it with my OK (or tell me what I must do), and run the check again. Startup toggles are mine: if an app's startup entry is off, tell me, and I turn it on (or I run Workstation Status without -NoPause, which asks me per app).
+   (-NoPause only reports; it never prompts or changes anything). Count the [FAIL] and [WARN] lines. Setup is finished ONLY when there are 0 [FAIL] and 0 [WARN]. For each one left, tell me what it means and how to fix it, fix it with my OK (or tell me what I must do), and run the check again. Startup toggles are mine: if an app's startup entry is off, tell me, and I turn it on (or I run Health check without -NoPause, which asks me per app).
 
-16. Finish with a short report: each numbered step above with done / not done, the final Workstation Status counts (must be 0 FAIL, 0 WARN), what is left for me, and any warnings. Do not call setup finished while any step is not done.
+16. Finish with a short report: each numbered step above with done / not done, the final Health check counts (must be 0 FAIL, 0 WARN), what is left for me, and any warnings. Do not call setup finished while any step is not done.
 
 Notes:
 - Startup toggles for apps are mine: never turn one on or off yourself. Report them only.

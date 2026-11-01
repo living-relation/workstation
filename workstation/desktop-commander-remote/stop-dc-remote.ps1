@@ -11,7 +11,7 @@ function Write-Log([string]$msg) {
 }
 
 Write-Host ''
-Write-Host '==== Desktop Commander Remote Stop ====' -ForegroundColor Cyan
+Write-Host '==== Stop Desktop Commander ====' -ForegroundColor Cyan
 
 $dcProcs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
     $_.CommandLine -and

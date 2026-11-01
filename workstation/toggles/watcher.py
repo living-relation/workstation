@@ -1,7 +1,7 @@
 """Background watcher: health checks for the toggles that are on, plus the process check.
 
-Off by default. The Watcher On shortcut (watcher.ps1 -Action on) starts it hidden with --loop 15,
-so it checks every 15 minutes until Watcher Off (or sign-out) stops it. No scheduled task.
+Off by default. The Start phone alerts watcher shortcut (watcher.ps1 -Action on) starts it hidden with --loop 15,
+so it checks every 15 minutes until Stop phone alerts watcher (or sign-out) stops it. No scheduled task.
 Shows a Windows toast when something is wrong. The same problem set is not repeated within
 REPEAT_HOURS, so it does not nag. Results go to %LOCALAPPDATA%\\Workstation\\dashboard\\watcher.json.
 """

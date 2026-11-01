@@ -357,7 +357,7 @@ tick();
 setInterval(tick, 15000);
 
 // ---- Toggle row: one switch per toggle (toggles.json + %LOCALAPPDATA%\Workstation\toggles.json),
-// a Health button that works only while the toggle is on, and a Process check button.
+// a Health button that works only while the toggle is on, and a Check for stray processes button.
 async function post(url, body) {
   const response = await fetch(url, {
     method: "POST",
@@ -383,15 +383,18 @@ function processText(result) {
   const jobs = all.filter((o) => o.kind === "background-job");
   const orphans = all.filter((o) => o.kind !== "background-job");
   const row = (o) => {
-    lines.push(`  ${o.expected ? "ok  " : "WARN"} pid ${o.pid} ${o.label || o.name}: ${o.processes} process(es), ${o.mb} MB${o.note ? ` - ${o.note}` : ""}`);
-    lines.push(`       ${o.cmd}`);
+    lines.push(`  ${o.expected ? "ok  " : "WARN"} ${o.who || o.label || o.name}${o.note ? ` - ${o.note}` : ""}`);
+    lines.push(`       pid ${o.pid}${o.ageHours != null ? `, ${o.ageHours} h old` : ""}, ${o.processes} process(es), ${o.mb} MB`);
   };
   lines.push("", `Orphaned process trees (parent gone): ${orphans.length}`);
   for (const o of orphans) row(o);
   lines.push("", `Background jobs (claude -p): ${jobs.length}`);
   for (const o of jobs) row(o);
   lines.push("", `Duplicate MCP / server processes: ${(result.duplicates || []).length}`);
-  for (const d of result.duplicates || []) lines.push(`  x${d.count} (${d.mb} MB) ${d.server}`);
+  for (const d of result.duplicates || []) {
+    lines.push(`  x${d.count} (${d.mb} MB) ${d.server}`);
+    for (const w of d.who || []) lines.push(`       ${w.label} (pid ${w.pid})`);
+  }
   lines.push("", (result.problems || []).length ? `Problems:\n  ${result.problems.join("\n  ")}` : "No problems found.");
   return lines.join("\n");
 }
@@ -411,7 +414,8 @@ function renderToggles(rows) {
       ${row.hasHealth ? `<button type="button" data-health="${esc(row.id)}" ${row.on && !row.busy ? "" : "disabled"}>Health</button>` : ""}
     </div>`;
   });
-  cells.push(`<div class="toggle plain"><button type="button" id="proc-check">Process check</button></div>`);
+  cells.push(`<div class="toggle plain"><button type="button" id="proc-check">Check for stray processes</button></div>`);
+  cells.push(`<div class="toggle plain"><button type="button" id="rc-restart-all">Stop and start all Claude remotes</button></div>`);
   $("toggles").innerHTML = cells.join("");
   for (const box of $("toggles").querySelectorAll("input[data-toggle]")) {
     box.addEventListener("change", async () => {
@@ -438,8 +442,17 @@ function renderToggles(rows) {
     button.textContent = "Checking...";
     const result = await post("/api/process-check", {});
     button.disabled = false;
-    button.textContent = (result.problems || []).length ? `Process check (${result.problems.length} problem)` : "Process check";
-    showCheck("Process check", processText(result));
+    button.textContent = (result.problems || []).length ? `Check for stray processes (${result.problems.length} problem)` : "Check for stray processes";
+    showCheck("Check for stray processes", processText(result));
+  });
+  $("rc-restart-all").addEventListener("click", async () => {
+    const button = $("rc-restart-all");
+    button.disabled = true;
+    button.textContent = "Stopping and starting...";
+    const result = await post("/api/restart-claude-remotes", {});
+    button.disabled = false;
+    button.textContent = "Stop and start all Claude remotes";
+    showCheck("Stop and start all Claude remotes", result.output || result.error || (result.ok ? "done" : "failed"));
   });
 }
 
