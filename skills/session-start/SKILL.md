@@ -22,6 +22,8 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 - **Only this skill offers the chain.** Every other skill run alone does only its own job and may just suggest the next one.
 - **Never read or print secrets** (`.env*` values, tokens, keys).
 - **The repo beats memory.** If Claude/Cursor memory disagrees with the repo, trust the repo and flag the stale memory.
+- **A resumed chat is a new session.** Reopening an old chat (any age) means running this skill fresh. Treat everything from the earlier chat — its summary, its notes, what it "already knows" — as stale until re-read from the files this session.
+- **No memory-only claims.** Every fact in the note and report names the file it came from, opened this session. If you can't open it, write "not verified: <claim>" instead of stating it.
 - **Report conflicts, never resolve them.** Contradictions go in the note as open questions for the user.
 
 ---
@@ -32,7 +34,7 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 1. Root `AGENTS.md`. `CLAUDE.md` or `CLAUDE.local.md` should import `@AGENTS.md` (+ Claude-only lines).
 2. The nearest nested `AGENTS.md` above the folder you'll work in (closest wins).
 3. `README.md`.
-4. Before any other work, read in full every doc the agent guide names as state, open items, decisions or source of truth; list each in the note. If none, write "none named".
+4. Before any other work, read in full every doc the agent guide names as state, open items, decisions or source of truth; list each in the note with its last-changed date. Excerpts or skims don't count. The decisions file is never skipped. Any named doc you couldn't read, or read only partly, goes in the note as a gap. If none, write "none named".
 5. `.cursor/rules/*.mdc` with `alwaysApply: true`, if present.
 6. Session tracker `%LOCALAPPDATA%\Workstation\tracker\tracker.json` (tool: `workstation/tracker/`). If missing, say so.
 
@@ -80,7 +82,8 @@ Put it in the repo's state file if one exists and writing it is allowed; otherwi
 **Goal now:** <one sentence: the current objective>
 **Last session:** finished | stopped early (<which sign>) — handoff: <path>
 **Where work is:** branch <x>, PR #N (open), worktrees: <list>
-**Read:** <paths, or none named>
+**Read:** <path (last changed YYYY-MM-DD), each read in full; or none named>
+**Gaps:** <named docs not read or only partly read, with why; or none>
 **Changed:** <paths or none>
 **Open:** <top 3 items, each with a date>
 **Flags:** promised-not-written: … | outside the repo: … | stale memory: … | unsigned memory: … | orientation-cost: …
