@@ -77,7 +77,6 @@ $LegacyDirs = @($TK.LegacyFolders | Where-Object { $_ } | ForEach-Object { Join-
 $DotClaude  = Join-Path $UserHome '.claude'
 $DotCursor  = Join-Path $UserHome '.cursor'
 $LinkPath   = Join-Path $DotClaude "projects\$ProjectKey\memory"
-$WmLink     = Join-Path $DotClaude 'working-memory'
 $SettingsPath = Join-Path $DotClaude 'settings.json'
 $CursorHooksJson = Join-Path $DotCursor 'hooks.json'
 $Expected = @{
@@ -585,32 +584,16 @@ foreach ($name in 'claude-cowork', 'handoff-sync-continue') {
   foreach ($f in $found) { Add-Finding 'WARN' 'skills' $f.Path "retired skill (merged into agent-handoff-pack); link-skills.ps1 (install.ps1) moves it to ~\.skills-backup" }
 }
 
-# Claude instruction texts (package instructions\, pasted by hand; never edited by install). Read-only check.
-Add-Finding 'OK' 'instructions' 'Instructions for Claude' 'account-level, not on disk: paste instructions\instructions-for-claude.md into Claude desktop > Settings > Instructions for Claude if not done yet'
-$coworkFiles = @()
-foreach ($pattern in @((Join-Path $LocalAppData 'Packages\Claude_*\LocalCache\Roaming\Claude\local-agent-mode-sessions\*\*\memory\CLAUDE.md'),
-                       (Join-Path $RoamingAppData 'Claude\local-agent-mode-sessions\*\*\memory\CLAUDE.md'))) {
-  if ($pattern) { $coworkFiles += @(Get-ChildItem -Path $pattern -File -Force -ErrorAction SilentlyContinue | ForEach-Object FullName) }
-}
-$coworkWith = @($coworkFiles | Where-Object { [IO.File]::ReadAllText($_) -match '(?i)\.claude\s*[\\/]\s*working-memory' })
-if ($coworkWith.Count) {
-  foreach ($f in $coworkWith) { Add-Finding 'ALREADY-INSTALLED' 'instructions' $f 'Cowork Global instructions have the working-memory line' }
-  foreach ($f in @($coworkFiles | Where-Object { $coworkWith -notcontains $_ })) { Add-Finding 'OK' 'instructions' $f 'other Cowork account/org folder without the working-memory line (left alone)' }
-} else {
-  Add-Finding 'OK' 'instructions' 'Cowork Global instructions' ('TODO: ' + $(if ($coworkFiles.Count) { 'no working-memory line in ' + ($coworkFiles -join ' | ') } else { 'not found on this PC' }) + '. Paste instructions\cowork-global-instructions.md into Claude desktop > Cowork settings > Global instructions.')
-}
+# Claude instruction texts (package instructions\, pasted by hand; never edited by install). Read-only reminder.
+# Cowork / Chat local-memory files are not checked: desktop no longer writes them (personal account
+# verified 2026-11-03; work account unverified).
+Add-Finding 'OK' 'instructions' 'Instructions for Claude' 'account-level, not on disk: paste instructions\instructions-for-claude.md into Claude desktop > Settings > Instructions for Claude if that box is still there'
+Add-Finding 'OK' 'instructions' 'Cowork / Chat memory' 'not checked. Online Memory is separate from the file store and is not synced. instructions\cowork-global-instructions.md no longer points at a local folder.'
 
 # ---------------------------------------------------------------- 9. memory stores and links
 if (Test-Path -LiteralPath $Store -PathType Container) { Add-Finding 'ALREADY-INSTALLED' 'memory' $Store ("memory store exists (" + @(Get-ChildItem -LiteralPath $Store -Recurse -File -Force -ErrorAction SilentlyContinue).Count + ' files)') }
 else { Add-Finding 'OK' 'memory' $Store 'memory store not there yet; install.ps1 creates it' }
-$wm = Get-Item -LiteralPath $WmLink -Force -ErrorAction SilentlyContinue
-if (-not $wm) { Add-Finding 'OK' 'memory' $WmLink 'not there yet; install.ps1 creates the junction' }
-elseif ($wm.LinkType) {
-  $t = Get-LinkTarget $wm
-  if ($t -ieq $Store) { Add-Finding 'ALREADY-INSTALLED' 'memory' $WmLink "$($wm.LinkType) to the store" }
-  elseif (-not $t -or -not (Test-Path -LiteralPath $t)) { Add-Finding 'CONFLICT' 'memory' $WmLink "BROKEN $($wm.LinkType): target $t does not exist. Remove the link (the link only) and re-run." }
-  else { Add-Finding 'CONFLICT' 'memory' $WmLink "$($wm.LinkType) to $t, not the store $Store. Pointer lines would read the wrong notes; fix by hand (MIGRATION.md) first." }
-} else { Add-Finding 'CONFLICT' 'memory' $WmLink 'is a real folder or file, not a junction to the store. Merge it (MIGRATION.md) and move it aside first.' }
+Add-Finding 'OK' 'memory' (Join-Path $DotClaude 'working-memory') 'not created or checked. A leftover junction from older Cowork / Chat setup is harmless. Install and uninstall leave it alone.'
 $roots = @{}
 if (Test-Path -LiteralPath $Store) { $roots[$Store.ToLower()] = $Store }
 $projDir = Join-Path $DotClaude 'projects'

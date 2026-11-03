@@ -31,8 +31,10 @@
     never into the clone. Then runs the toolkit's shortcuts installer (Health check, Phone access, Claude remote
     and other links in this package's shortcuts\ folder, gitignored, + prerequisite checks).
     An old installed copy (<Projects>\_workstation or _bridge, LegacyFolders) is only reported, never moved.
-  - Creates the junction ~\.claude\working-memory -> the memory store (the same path on every PC;
-    the Cowork Global instructions line uses it). An existing folder or link there is never changed.
+  - Does not create, check or remove ~\.claude\working-memory. That junction only let Cowork / Chat
+    pointer lines find the store. Claude desktop no longer writes local memory files (personal account
+    verified 2026-11-03, Store app 4.4212.0.0, Unified Claude; work account unverified). A leftover
+    junction is left as it is and is harmless. Claude Code still uses the autoMemoryDirectory junction.
   - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
     pr-closeout-nudge.ps1 (Claude Code PostToolUse, after a PR is opened), handoff-at-80.py (Cursor preCompact +
     stop, needs py -3); the skill the handoff hooks trigger, agent-handoff-pack, is linked by default (section 9b;
@@ -162,8 +164,6 @@ $Store       = Join-Path $WorkingMem 'memory'
 $DotClaude   = Join-Path $UserHome '.claude'
 $HooksDir    = Join-Path $DotClaude 'hooks'
 $LinkPath    = Join-Path $DotClaude ("projects\$ProjectKey\memory")
-# Path-independent alias of the store, the same on every PC. The Cowork Global instructions line uses it.
-$WmLink      = Join-Path $DotClaude 'working-memory'
 $SettingsPath = Join-Path $DotClaude 'settings.json'
 $GuardDest   = Join-Path $HooksDir 'memory-link-guard.ps1'
 $GuardCfg    = Join-Path $HooksDir 'memory-link-guard.config.json'
@@ -609,7 +609,6 @@ Write-Host "  Projects root : $ProjectsRoot"
 Write-Host "  Claude key    : $ProjectKey"
 Write-Host "  Memory store  : $Store"
 Write-Host "  Junction      : $LinkPath"
-Write-Host "  Store alias   : $WmLink"
 Write-Host "  Startup folder: $StartupFolder"
 Write-Host "  Toolkit (runs from the clone): $BridgeDir"
 Write-Host "  Runtime folder: $StateDir"
@@ -722,24 +721,9 @@ if (-not $link) {
   }
 }
 
-# 6b. Junction ~\.claude\working-memory -> store. Same path on every PC, so the Cowork Global instructions line
-#     (account-wide) never names a user or a Projects folder. Never changes an existing folder or other link.
-$wmItem = Get-Item -LiteralPath $WmLink -Force -ErrorAction SilentlyContinue
-if (-not $wmItem) {
-  Invoke-Change "create junction $WmLink -> $Store" {
-    New-Item -ItemType Directory -Path $DotClaude -Force | Out-Null
-    New-Item -ItemType Junction -Path $WmLink -Target $Store | Out-Null
-    $AddedLinks.Add($WmLink)
-  }
-} elseif ($wmItem.LinkType) {
-  $targets = @($wmItem.Target | ForEach-Object { ($_ -replace '^\\\?\?\\', '').TrimEnd('\') })
-  if ($targets -contains $Store) { Note 'OK' "junction already points at the store: $WmLink" }
-  else { Note 'WARN' ("$WmLink is a $($wmItem.LinkType) to '" + ($targets -join ';') + "', not the store. Left alone; the Cowork Global instructions line will not reach the store on this PC until it is fixed by hand.") }
-} elseif ($wmItem.PSIsContainer) {
-  Note 'WARN' "$WmLink is a real folder, not a junction. Left alone; move it aside by hand and re-run install.ps1 so the Cowork Global instructions line reaches the store."
-} else {
-  Note 'WARN' "$WmLink is a file, not a junction. Left alone; move it aside by hand and re-run install.ps1."
-}
+# 6b. ~\.claude\working-memory is not created, checked or removed. Older installs may have left a
+#     junction there for Cowork / Chat. Leave it. It is harmless. Claude Code uses $LinkPath (section 6).
+Note 'OK' '~\.claude\working-memory is not created or checked. A leftover junction is harmless and was left as it is.'
 
 # 6c. 80% handoff files: context-guard.ps1, pr-closeout-nudge.ps1, handoff-at-80.py (only with py -3), the skill (never overwritten)
 Copy-HomeFile (Join-Path $HandoffPkg 'claude\context-guard.ps1') $CtxDest
@@ -974,25 +958,11 @@ $rootAgentsMarked = (Test-Path -LiteralPath $RootAgentsMd) -and ([IO.File]::Read
 if ($rootClaudeMarked -and -not $rootAgentsMarked) { Note 'SKIP' "memory section not added to ${RootAgentsMd}: the root CLAUDE.md already has it (no second copy). It moves over with the merge." }
 else { Add-MemoryBlock $RootAgentsMd 'projects-AGENTS.md' -CreateIfMissing }
 # Claude's instruction texts (instructions\ in the package) are pasted by hand; install never edits them.
-# 'Instructions for Claude' is account-level (not on disk): only a reminder. Cowork Global instructions are stored
-# in local-agent-mode-sessions\<account>\<org>\memory\CLAUDE.md: checked for the working-memory line, read-only.
-Note 'TODO' 'Reminder: paste instructions\instructions-for-claude.md into Claude desktop > Settings > Instructions for Claude (account-level; cannot be checked on disk). Skip if already done.'
-$CoworkText = 'instructions\cowork-global-instructions.md'
-$CoworkLineRx = '(?i)\.claude\s*[\\/]\s*working-memory'
-$coworkFiles = @()
-foreach ($pattern in @((Join-Path $LocalAppData 'Packages\Claude_*\LocalCache\Roaming\Claude\local-agent-mode-sessions\*\*\memory\CLAUDE.md'),
-                       (Join-Path $RoamingAppData 'Claude\local-agent-mode-sessions\*\*\memory\CLAUDE.md'))) {
-  if ($pattern) { $coworkFiles += @(Get-ChildItem -Path $pattern -File -Force -ErrorAction SilentlyContinue | ForEach-Object FullName) }
-}
-$coworkWith = @($coworkFiles | Where-Object { [IO.File]::ReadAllText($_) -match $CoworkLineRx })
-if ($coworkWith.Count) {
-  foreach ($f in $coworkWith) { Note 'OK' "ALREADY-INSTALLED: Cowork Global instructions have the working-memory line (not changed): $f" }
-  foreach ($f in @($coworkFiles | Where-Object { $coworkWith -notcontains $_ })) { Note 'INFO' "other Cowork account/org folder without the working-memory line (left alone): $f" }
-} elseif ($coworkFiles.Count) {
-  Note 'TODO' ("Cowork Global instructions do not have the working-memory line yet (not changed): " + ($coworkFiles -join ' | ') + ". Paste $CoworkText into Claude desktop > Cowork settings > Global instructions.")
-} else {
-  Note 'TODO' "Cowork Global instructions not found on this PC. Paste $CoworkText into Claude desktop > Cowork settings > Global instructions."
-}
+# Instructions for Claude are account-level (not on disk): only a reminder.
+# Cowork / Chat no longer write local memory (personal account verified 2026-11-03; work account unverified),
+# so install does not search Cowork instruction files for a working-memory line.
+Note 'TODO' 'Reminder: paste instructions\instructions-for-claude.md into Claude desktop > Settings > Instructions for Claude if that box is still there (account-level; cannot be checked on disk). Skip if already done.'
+Note 'INFO' 'instructions\cowork-global-instructions.md no longer points at a local memory folder. Paste it only if a Global instructions box is still there. Install does not check it. Online Memory (Settings > Your Claude > Memory) is separate and not synced. Personal account verified 2026-11-03; work account unverified.'
 
 # 9. Toolkit: runs straight from this package's toolkit folder (no copy). Write the runtime config the scripts read
 #    (%LOCALAPPDATA%\<StateFolder>\<ConfigFile>: projectsRoot), then create the shortcuts in <package>\<ShortcutFolder>

@@ -1,5 +1,7 @@
-## Working memory
-Working memory lives in %USERPROFILE%\.claude\working-memory. Never create another memory store. Each project has its own folder there, named after the project folder in lowercase with dashes (for example my-project), with an INDEX.md. At the start of a task, read that project's INDEX.md. For work with no project, use _unassigned. Save new notes there, signed with your agent name. Follow any pointer one step only. Before asking me anything, read that INDEX.md and the project's own rules; if they already answer it, act on it and cite them. Never commit memory to git.
+## Memory
+Account Memory (Settings > Your Claude > Memory) is facts about me. It is not the project note store, and it does not sync with files on disk.
+Project status, progress, next steps, PR and branch state, TODOs and handoffs go in that project's repo state file (the one its AGENTS.md names, for example STATE.md).
+Do not write project progress into Memory. The Claude Code file store on each PC is a separate record of preferences, rules and cross-project facts. This chat does not maintain that store.
 
 ## Git and project folders
 - In a git repo, commit often, keep local and remote in sync, and stay on one feature branch unless I say otherwise. Check comments on commits and PRs, and resolve the valid ones.

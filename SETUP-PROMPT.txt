@@ -1,4 +1,4 @@
-Grok Bot: please set up this PC with my workstation setup. Follow these steps in order. Stop and wait for me wherever it says so. Setup is NOT finished until every numbered step below is done, including the two pastes and the final Health check check.
+Grok Bot: please set up this PC with my workstation setup. Follow these steps in order. Stop and wait for me wherever it says so. Setup is NOT finished until every numbered step below is done, including the instruction paste and the final Health check check.
 
 0. The package is the workstation repo clone, normally <Projects>\active\workstation (clone it there if it is missing; ask me for the URL). The Workstation toolkit runs straight from this clone, so it must stay on main. Find it (ask me if you cannot). Work on this PC, as the signed-in Windows user. Do not use an elevated (admin) shell; I run the one admin command myself.
 
@@ -24,32 +24,29 @@ Grok Bot: please set up this PC with my workstation setup. Follow these steps in
 
 8. Memory migration: do MIGRATION.md steps b to e. Show me the plan and wait for my OK before merging anything. Give me the transcript-only findings for review.
 
-9. Paste 1 of 2 (manual, by me; MIGRATION.md step f): tell me to open
+9. Paste (manual, by me; MIGRATION.md step f): tell me to open
       <package folder>\instructions\instructions-for-claude.md
-   copy ALL of it, and paste it into Claude desktop > Settings > Instructions for Claude (account-level; applies to chats and Cowork), replacing what is there. Give me the full path on this PC. Then STOP and wait until I say "done". Do not go on before that.
-
-10. Paste 2 of 2 (manual, by me): tell me to open
+   copy ALL of it, and paste it into Claude desktop > Settings > Instructions for Claude (account-level), replacing what is there, if that box is still there. Give me the full path on this PC. Then STOP and wait until I say "done". Do not go on before that.
+   If a Global instructions box is still there, also tell me to paste
       <package folder>\instructions\cowork-global-instructions.md
-   copy ALL of it, and paste it into Claude desktop > Cowork settings > Global instructions (Cowork only), replacing what is there. Give me the full path on this PC. Then STOP and wait until I say "done". After my "done", re-run preflight.ps1 and confirm the Cowork Global instructions line shows ALREADY-INSTALLED. If it does not, tell me what is wrong and repeat this step.
-   Never edit these two instruction texts or Claude's/Cowork's files yourself; I paste them.
+   It no longer points at a local memory folder. Do not re-run preflight to look for a working-memory line. Preflight does not check it.
+   Never edit these instruction texts or Claude's files yourself; I paste them.
 
-11. Old Cowork project lines (manual, by me): tell me to remove any old per-project Cowork memory lines from my Cowork projects' instructions (the global text replaces them). Wait for my "done".
+10. Stranded desktop memory (manual, by me): Cowork / Chat no longer write local memory files (personal account verified 2026-11-03, Store app 4.4212.0.0, Unified Claude; work account unverified). Tell me that old local Cowork notes can be copied into the Claude Code store or brought in with the app's Import memory button. A leftover %USERPROFILE%\.claude\working-memory junction is harmless; do not delete it. Old per-project Cowork memory lines are obsolete; I may remove them myself. Do not point a Cowork files location at the store. Wait for my "done".
 
-12. Cowork files location (manual, by me): if Cowork's "Cowork files" location is not <Projects>\_claude\Claude Projects (the memory store's parent), tell me to change it to that. Wait for my "done".
-
-13. Prerequisites and sign-ins (manual, by me): using the install results and Health check, tell me what is missing and give me the exact steps for each, then wait for my "done":
+11. Prerequisites and sign-ins (manual, by me): using the install results and Health check, tell me what is missing and give me the exact steps for each, then wait for my "done":
    - git, and the GitHub sign-in (per-repo pull/push needs git);
    - the Cursor agent sign-in ("agent login");
    - Claude Code sign-in ("claude") and the Claude desktop app sign-in;
    - Python 3, if install skipped the Cursor 80% handoff hook because Python was missing (then re-run install.ps1 so the hook is installed).
 
-14. Any other required step that REVIEW-NOTES.md lists for this PC and that is not done yet (for example removing old automations): do it as REVIEW-NOTES.md says, with my approval where it asks for it.
+12. Any other required step that REVIEW-NOTES.md lists for this PC and that is not done yet (for example removing old automations): do it as REVIEW-NOTES.md says, with my approval where it asks for it.
 
-15. LAST: run
+13. LAST: run
       powershell -NoProfile -ExecutionPolicy Bypass -File "<package folder>\workstation\shortcuts\workstation-status.ps1" -NoPause
    (-NoPause only reports; it never prompts or changes anything). Count the [FAIL] and [WARN] lines. Setup is finished ONLY when there are 0 [FAIL] and 0 [WARN]. For each one left, tell me what it means and how to fix it, fix it with my OK (or tell me what I must do), and run the check again. Startup toggles are mine: if an app's startup entry is off, tell me, and I turn it on (or I run Health check without -NoPause, which asks me per app).
 
-16. Finish with a short report: each numbered step above with done / not done, the final Health check counts (must be 0 FAIL, 0 WARN), what is left for me, and any warnings. Do not call setup finished while any step is not done.
+14. Finish with a short report: each numbered step above with done / not done, the final Health check counts (must be 0 FAIL, 0 WARN), what is left for me, and any warnings. Do not call setup finished while any step is not done.
 
 Notes:
 - Startup toggles for apps are mine: never turn one on or off yourself. Report them only.

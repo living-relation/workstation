@@ -1,93 +1,23 @@
-# Continuity doc templates
+# Continuity notes
 
-Use these only when the project has no living handoff docs yet. If it already names files, update those instead of creating a parallel set. Put both files **inside the git clone** (no git repo: in the project folder; never `git init` for this). The handoff skill updates these on disk only; it does not commit or push.
+Write these fields into the repo's one state file (the one `AGENTS.md` names, for example `STATE.md`). Do not create `docs/SESSION_STATE.md`, `docs/PHASE_HANDOFF.md`, or any other progress file. Do not put them in memory or outside the repo. The handoff skill updates the state file on disk only; it does not commit or push.
 
-Suggested paths: `docs/SESSION_STATE.md` and `docs/PHASE_HANDOFF.md` (or whatever `AGENTS.md` already points at).
+If the project has no state file, say so and show the note in chat. Do not invent a second file. Offer to add the one file `AGENTS.md` should name, and wait for a yes.
 
-## SESSION_STATE.md
+## Fields to keep current in the state file
 
-Short continuity for the next session. Keep it current; do not let it become a history dump.
+Short continuity for the next session. Do not let it become a history dump.
 
-```markdown
-# Session state — [Project]
-
-**Last updated:** YYYY-MM-DD
-**Git tip:** `SHA` — in sync with `origin/<branch>`, CI [green / waiting / n/a]
-**Test/deploy:** [SHA and where it is running, or n/a]
-
-## Read first (new session)
-
-1. `AGENTS.md` — standing rules
-2. Phase handoff — progress + tip SHA
-3. This file
-4. [Work queue / roadmap if one exists]
-
-## Where the build stands
-
-| Piece | State |
-|-------|-------|
-| … | ✅ / ⏳ / ❌ |
-
-## What just changed
-
-[One short paragraph.]
-
-## In flight — read before continuing
-
-[Anything another agent must not collide with.]
-
-## Next exact steps
-
-1. [Next slice]
-2. …
-
-## Gotchas that cost time
-
-- …
-
-## Do not do
-
-- Push the protected default branch unless explicitly ordered
-- Forget to tell the next chat about uncommitted or unpushed work
-```
-
-## PHASE_HANDOFF.md
-
-Living progress record. Session state is "where we are"; this file is "what landed and the tip SHA."
-
-```markdown
-# [Project] — Phase handoff (living)
-
-**Last updated:** YYYY-MM-DD
-**Branch tip:** `SHA` on `origin/<branch>` (in sync, CI [status])
-**Working branch:** `<branch>` — do not push `<protected>` unless explicitly ordered
-
-> After every meaningful slice: update this file **and** session state on disk. Do not leave progress only in chat. (Commit and push are the user's choice; the handoff skill does not do them.)
-
-## Progress
-
-| # | Step | Status |
-|---|------|--------|
-| 1 | … | ✅ / ⏳ / ⬜ |
-
-## Next exact step
-
-[One concrete slice.]
-
-## Git status (report only)
-
-1. Durable work lives in the git clone on the working branch (when a repo exists).
-2. After a slice: note uncommitted, untracked, or unpushed work in the handoff docs and paste block.
-3. Do not commit or push as part of the handoff skill.
-
-## Notes from this slice
-
-[What landed, blockers, decisions.]
-```
+- **Last updated** and **git tip** (SHA, branch, whether it matches origin, CI).
+- **Where the build stands** and **what just changed**.
+- **In flight** — anything another agent must not collide with.
+- **Next exact step** — one concrete slice.
+- **Gotchas** and **do not do**.
+- **Uncommitted, untracked, or unpushed work.**
 
 ## Next-chat paste block
 
-Print this as a single markdown fenced block (` ```text `) so it copies cleanly. Fill from real state. No placeholders, no omitted sections.
+Print this as a single markdown fenced block (` ```text `) so it copies cleanly. Fill from real state. No placeholders, no omitted sections. This block is for the next chat. The state file is the record.
 
 ```text
 NEXT CHAT HANDOFF — paste this as the first message in a new chat.
@@ -102,9 +32,7 @@ Test/deploy: [URL + SHA, or owed, or n/a]
 
 Read first:
 1. [standing rules file]
-2. [phase handoff path]
-3. [session state path]
-4. [work queue path if any]
+2. [repo state file named by AGENTS.md]
 
 What just landed:
 - [bullet]

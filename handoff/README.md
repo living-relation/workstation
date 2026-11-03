@@ -1,8 +1,9 @@
 # 80% handoff hooks
 
 When a chat gets close to its context limit, these hooks make the agent run the
-`agent-handoff-pack` skill once in its quick mode (it replaced `handoff-sync-continue`): update the living docs and print a paste block for a new chat.
-It does not commit or push.
+`agent-handoff-pack` skill once in its quick mode (it replaced `handoff-sync-continue`): update the repo's state file (the one `AGENTS.md` names, for example `STATE.md`) and print a paste block for a new chat.
+Progress is not written to memory or to a file outside the repo. The skill does not commit or push.
+`context-guard.ps1` still copies the transcript to `~\.claude\compaction-backups\` before compaction. That copy is a backup of the chat, not the handoff record.
 
 | File | Installed to | Wired in |
 |---|---|---|

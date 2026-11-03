@@ -69,7 +69,9 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
   sets `remoteControlAtStartup` false (add-only, backup; uninstall restores it) so the only Claude phone-remote method
   is our shortcuts. Same PR #69.
 
-**Last added:** 2026-10-31 Cursor workers removed; no autostarts; remoteControlAtStartup false.
+- 2026-11-03: Cowork / Chat no longer write local memory (Claude desktop Store app 4.4212.0.0, Unified Claude, verified on the personal account; work account unverified). Install, preflight, Health check, uninstall and memory-link-guard no longer create or check `~\.claude\working-memory`. A leftover junction is harmless and is not deleted. Claude Code shared store stays the file record (preferences, rules, cross-project facts). Online Memory is account-level facts about the user and is not synced. Project progress stays in each repo's state file. After merge: Pull + Install on both PCs. Old local Cowork notes (no writes since Oct 19) can be copied into the store or imported with the app's Import memory button. Re-paste instruction texts if those boxes are still in use.
+
+**Last added:** 2026-11-03 Cowork local memory retired; progress stays in the repo state file.
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27

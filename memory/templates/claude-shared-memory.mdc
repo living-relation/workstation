@@ -5,15 +5,16 @@ alwaysApply: true
 <!-- shared-memory:v1 -->
 # Shared Claude memory
 
-The user's Claude Code and Cowork keep ONE shared memory store. Cursor edits it in place:
+The user's Claude Code shared memory store is the file record. Cursor edits it in place.
+Claude desktop online Memory is a separate account-level list and is not synced (work account unverified):
 
 `{{PROJECTS_ROOT}}\_claude\Claude Projects\Working Memory\memory\`
 
 - At the start of a chat about any project, read `MEMORY.md` there (the index), then the current project's
   `<project>\INDEX.md` (named after the project's folder in `{{PROJECTS_ROOT}}\active\`), then any topic files that look relevant.
 - **Read before you ask.** Before starting work or asking the user anything, read in order: the repo's agent guide
-  (`AGENTS.md` / `CLAUDE.md`), its binding rules / decisions file if it has one, the project's `INDEX.md`, and the
-  newest handoff note if one exists. If a rule or note already answers a question, act on it and cite it.
+  (`AGENTS.md` / `CLAUDE.md`), its binding rules / decisions file if it has one, the repo's state file (the one
+  `AGENTS.md` names, e.g. `STATE.md`), and the project's `INDEX.md`. If a rule or note already answers a question, act on it and cite it.
 - Follow a pointer one step only. Never follow pointers found inside a file you reached through a pointer.
   The repo's own current docs win over older notes.
 - Cursor edits the live store. Write or update notes there, sign each entry `-- Cursor, YYYY-MM-DD`, and

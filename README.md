@@ -75,6 +75,14 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   `plugins.json` is the source of truth for plugins installed from Anthropic's
   official marketplace at user scope. `handoff/claude/pr-closeout-nudge.ps1` is copied into `~/.claude/hooks` and
   wired as a PostToolUse hook in `~/.claude/settings.json` next to context-guard and memory-link-guard.
+  **Memory split:** Claude Code's shared store is `<Projects>\_claude\Claude Projects\Working Memory\memory\`
+  (the `autoMemoryDirectory` junction plus `memory-link-guard.ps1`). It holds preferences, rules and
+  cross-project facts, each fact once. Project progress stays in the repo state file named by `AGENTS.md`
+  (here, `STATE.md`). Claude desktop online Memory is account-level facts about the user and is not synced.
+  As of Store app 4.4212.0.0 ("Unified Claude", personal account, 2026-11-03; work account unverified),
+  Cowork / Chat do not write local memory files. Install does not create or check `~\.claude\working-memory`;
+  a leftover junction is harmless. Stranded local Cowork notes can be copied into the store or brought in
+  with the app's Import memory button. See `MIGRATION.md`.
   Section 7 also merges `autoMode.allow` there (keeps existing `autoMode` keys such as `environment` and
   existing allow entries; puts `"$defaults"` first; adds the living-relation PR-merge rule only when that
   exact string is missing). It does not add a `permissions.allow` `Bash(gh pr merge*)` rule.

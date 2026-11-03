@@ -48,7 +48,7 @@ says "fix this", "ship it", "push it", or "I want to test it".
    - Apps: `./scripts/deploy_all.sh dev` (guards: on dev, clean tree, HEAD == origin/dev).
    - `SPARK_ENV=dev scripts/verify_deploy.sh` must print **VERIFY: PASS**.
 7. **Hand over.** Give the user the link(s) for every app the change touched, plus the dev SHA.
-   Update `docs/SESSION_STATE.md` (local-only, never committed).
+   Put the hand-over (what shipped, the dev SHA, the test link) in the repo state file that `AGENTS.md` names, on the branch, and commit it with the work. Do not keep a second local-only progress file such as `docs/SESSION_STATE.md`. If that repo's own rules name a different state file, use that file.
 
 ## Windows traps
 

@@ -1,6 +1,7 @@
 # PostToolUse nudge (Dan, 2026-10-28): after a shell call that ran `gh pr create` and printed a
 # PR URL, or a GitHub-MCP create_pull_request, tell the agent to run the pr-closeout skill
-# (state file on the same PR branch + memory + hygiene). One script for Claude Code
+# (state file on the same PR branch; memory only for preferences, rules and
+# cross-project facts; hygiene). One script for Claude Code
 # (~\.claude\settings.json, tools Bash / PowerShell) and Cursor (~\.cursor\hooks.json
 # postToolUse, tool Shell). Never blocks. Prints "{}" when it has nothing to say, because
 # Cursor treats an empty reply as invalid JSON. -- Claude Code, 2026-10-28
@@ -19,7 +20,7 @@ if ($tool -in 'Bash', 'PowerShell', 'Shell') {
 $m = [regex]::Match("$resp", 'https://github\.com/[\w.-]+/[\w.-]+/pull/\d+')
 if (-not $m.Success) { Exit-Quiet }   # the command ran but no PR was created
 
-$ctx = "A pull request was just opened: $($m.Value). Run the pr-closeout skill now: update the repo's state file on this PR's own branch, save durable non-repo facts to memory (signed), run the repo's gates, and report in a few lines. Skip any step that does not apply."
+$ctx = "A pull request was just opened: $($m.Value). Run the pr-closeout skill now: update the repo's state file on this PR's own branch (status, progress, next steps, PR and branch state, TODOs, handoffs). Shared memory gets only preferences, rules and cross-project facts, each fact once, signed. Do not write project progress into memory. Run the repo's gates, and report in a few lines. Skip any step that does not apply."
 if ($cursor) {
   @{ additional_context = $ctx } | ConvertTo-Json -Compress
 } else {

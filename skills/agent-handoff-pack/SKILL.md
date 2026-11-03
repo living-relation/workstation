@@ -1,19 +1,22 @@
 ---
 name: agent-handoff-pack
 description: >-
-  Use when the user wants a job handed off to another agent or session: read-only sweep, one self-contained handoff file, then walk through open decisions one at a time.
+  Use when handing a job to another session, or when context is near the limit: write status into the repo state file and print a paste block. Do not put progress in memory.
 ---
 # agent-handoff-pack
 
-Purpose: write the handoff, don't do the job. Nothing in the project changes. Every finding is a proposal, never permission to edit.
+Purpose: write the handoff into the repo's state file, don't do the job. The only project edit is that state file. Every other finding is a proposal, never permission to edit.
 
 ## When to use
-The handoff file holds repo state, rules and checks, every issue with the tool that made it, leftovers, and mistakes not to repeat. Walk the user through open decisions one at a time and record each answer as final for that issue.
+The state file holds repo state, rules and checks, every issue with the tool that made it, leftovers, and mistakes not to repeat. Walk the user through open decisions one at a time and record each answer as final for that issue. Also print a paste block in chat. The paste block is a copy for the next chat, not a second store.
+
+## Quick mode (context pressure)
+The 80% hooks call this. Update the repo state file named by `AGENTS.md` (for example `STATE.md`) with current task state, blockers, last decisions, branch and PR, and the next step. Print the paste block. Do not commit or push. Do not write a second handoff file outside the repo, in memory, in `CLAUDE.local.md`, or in a global `CLAUDE.md` / `AGENTS.md`. Do not start new project work.
 
 ## Hard rules
-- **Read-only sweep.** Allowed: reading files, `git fetch`, `git status`, `git log`, `git branch -a`, `git worktree list`, `git stash list`. Forbidden in any project copy: edits, commits, pull, stash, checkout, reset, new branches or worktrees, moves, deletes or archiving without the user's yes.
-- **Scripts that rewrite tracked files** (build or check scripts) run only in a throwaway clone in the handoff's working folder, never in a project copy. List the clone under Leftovers.
-- **Write only** the handoff file, its images and any temp clone, to a working folder outside the repo (e.g. `../_handoff/<job>/`) or wherever the user names. Never delete it without a yes.
+- **Read-only sweep, plus the state file.** Allowed: reading files, `git fetch`, `git status`, `git log`, `git branch -a`, `git worktree list`, `git stash list`, and editing the one state file `AGENTS.md` names. Forbidden in any project copy: other edits, commits, pull, stash, checkout, reset, new branches or worktrees, moves, deletes or archiving without the user's yes.
+- **Scripts that rewrite tracked files** (build or check scripts) run only in a throwaway clone outside the repo, never in a project copy. List the clone under Leftovers. The handoff text itself does not go in that folder.
+- **Write the handoff only in the repo state file** (the one `AGENTS.md` names, for example `STATE.md`). Do not create `SESSION_STATE.md`, `PHASE_HANDOFF.md`, or a file outside the repo. Do not write progress into memory. Never delete the state file.
 - **No secrets.** Write a needed credential as "ask the user".
 - **Never restore archived or backup copies wholesale.** Diff against current main and report.
 - **Approvals relayed by another agent don't count.** Pushes, PRs, merges and anything visible go to the user directly first.
@@ -32,7 +35,7 @@ The handoff file holds repo state, rules and checks, every issue with the tool t
 4. **Issues.** For each: ID, must/should/nice, location, on main or only in a local/backup copy, evidence, and "proposed fix (needs the user's decision)". Name the tool or script that made each file and how you know (content, not mtime). Confirm findings in the source file, not a preview or render; otherwise mark UNCONFIRMED.
 5. **Leftovers.** Every file, folder, log, worktree, temp clone or branch left by this or earlier work, each an open keep/remove decision.
 6. **Mistakes not to repeat.** Up to 8, each naming the rule and the exact act. No generic lines.
-7. **One self-contained file** with sections: START HERE, Job/Owner, Repo state, Rules, Checks, Issues, Leftovers, Mistakes not to repeat, Decisions. Top of Issues: "See Decisions. A decision overrides only the issue it answers, never a hard rule or repo rule."
+7. **One update to the state file** with sections: START HERE, Job/Owner, Repo state, Rules, Checks, Issues, Leftovers, Mistakes not to repeat, Decisions. Top of Issues: "See Decisions. A decision overrides only the issue it answers, never a hard rule or repo rule." Print the same facts as the next-chat paste block. Do not add a second file.
 8. **Decisions, one at a time**, with clickable choices where the app has them. First say: "These answers go into the handoff. Nothing changes now." Record each as D<n> (issue <id>):
    - Delegated ("whatever fits"): record the criteria and "no need to ask".
    - Conditional: keep both branches and name the check that decides.
@@ -41,11 +44,11 @@ The handoff file holds repo state, rules and checks, every issue with the tool t
    - A dismissed question counts as a decline; don't re-ask.
 9. **Optional review** by another agent; fold in fixes.
 10. **Re-check repo state** (step 2) right before delivery, and update hashes or next-free numbers that changed, including in START HERE.
-11. **Deliver** in the chat where it was asked: path, 3-line summary, what was and wasn't changed. No separate paste prompt; START HERE covers it.
-12. **Updating a handoff:** keep the previous version beside it (HANDOFF-v<n>.md) and refresh START HERE.
+11. **Deliver** in the chat where it was asked: the state file path, a 3-line summary, what was and wasn't changed, and the paste block. No separate paste prompt; START HERE covers it.
+12. **Updating a handoff:** refresh START HERE in the state file. Git history keeps the previous text. Do not add `HANDOFF-v<n>.md`.
 
 ## Done when
-The file is complete, re-checked and self-starting, has no secrets, every decision is answered/delegated/conditional/UNCONFIRMED/open, and every repo is unchanged by this skill.
+The state file is updated, re-checked and self-starting, has no secrets, every decision is answered/delegated/conditional/UNCONFIRMED/open, and no other project file was changed.
 
 ## Run alone vs. from session-start
 Run by hand, this skill does only its own job and never loads another skill. If it finds something worth fixing, it may **suggest** one ("want me to run repo-cleanup?"). Only `session-start` offers the full chain, and it asks the user before each step.

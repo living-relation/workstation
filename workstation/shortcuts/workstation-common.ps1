@@ -509,16 +509,9 @@ function Show-Automations {
             else { Write-Bad "autoMemoryDirectory points at a missing folder: $amdPath" }
         }
     }
-    $wm = Join-Path $claudeDir 'working-memory'
-    if (Test-Path -LiteralPath $wm) {
-        $item = Get-Item -LiteralPath $wm -Force
-        $target = @($item.Target) | Select-Object -First 1
-        if ($target) {
-            if (Test-Path -LiteralPath $target) { Write-Ok "working-memory link -> $target" } else { Write-Bad "working-memory link target missing: $target" }
-        } else { Write-Ok "working-memory folder present: $wm" }
-    } elseif ((Get-Item -LiteralPath $wm -Force -ErrorAction SilentlyContinue)) {
-        Write-Bad "working-memory is a broken link: $wm"
-    } else { Write-Ok 'working-memory not present (optional)' }
+    # Older Cowork / Chat alias. Not created or checked. A leftover junction is harmless
+    # and must not fail Health check (broken, missing or a real folder are all left alone).
+    Write-Ok 'working-memory junction is not checked (leftover from older Cowork setup; harmless if still present)'
 
     # 2b. Claude reads AGENTS.md too ("read both"), and the Projects root has no CLAUDE.md
     if ($settings) {

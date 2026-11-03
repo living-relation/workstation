@@ -1,1 +1,1 @@
-Project memory: %USERPROFILE%\.claude\working-memory\{{PROJECT_SLUG}}\INDEX.md
+Project memory: <Projects>\_claude\Claude Projects\Working Memory\memory\{{PROJECT_SLUG}}\INDEX.md

@@ -107,7 +107,11 @@ are not a letter or digit becomes `-` (for example `My Project.v2` -> `my-projec
    - a renamed or moved project: rename its memory folder to the new slug, and fix its line in `MEMORY.md`.
    Sign each change: `-- Grok Bot, yyyy-MM-dd`.
 2. Fix project pointer lines (`CLAUDE.local.md` in git repos, else `CLAUDE.md`) so the path in
-   `Project memory: ...\INDEX.md` matches the new slug. See `memory\templates\project-pointer-line.txt`.
+   `Project memory: ...\INDEX.md` matches the new slug and names the store
+   (`<Projects>\_claude\Claude Projects\Working Memory\memory\<slug>\INDEX.md`).
+   See `memory\templates\project-pointer-line.txt`. An old line that still says
+   `~\.claude\working-memory\` works only while a leftover junction is there. When you touch the line,
+   point it at the store. Do not delete that leftover junction.
 3. After a project moves, also update:
    - `active\README.md` (any line that still names the old path);
    - any `CLAUDE.local.md` or `CLAUDE.md` memory pointer that still uses the old path;

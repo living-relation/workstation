@@ -14,8 +14,10 @@ ARMED_PATH = STATE_DIR / "armed"
 FOLLOWUP = (
     "CONTEXT PRESSURE: chat context is at or above 80%. "
     "Run the agent-handoff-pack skill in quick mode immediately. "
-    "Do not continue coding. Update living handoff docs, then output only the "
-    "copyable next-chat paste block. Do not commit or push."
+    "Do not continue coding. Update the repo state file named by AGENTS.md "
+    "(for example STATE.md) with status, progress, next steps and the handoff. "
+    "Do not write that progress into memory or a file outside the repo. "
+    "Then output only the copyable next-chat paste block. Do not commit or push."
 )
 
 

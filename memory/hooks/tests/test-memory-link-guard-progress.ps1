@@ -54,6 +54,18 @@ Check 'project_* progress file left' (Test-Path $projectProg)
 $r4 = Invoke-Hook (Write-Payload $projectPref (Get-Content $projectPref -Raw))
 Check 'project_* preference silent' ($r4.Out -notmatch 'looks like project progress')
 Check 'project_* preference file left' (Test-Path $projectPref)
+$hand = Join-Path $store 'session-handoff.md'
+Set-Content $hand "# Handoff`n`nWhere we stopped.`n" -Encoding ascii
+$r5 = Invoke-Hook (Write-Payload $hand (Get-Content $hand -Raw))
+Check 'handoff filename warns' ($r5.Out -match 'MEMORY WARNING' -and $r5.Out -match 'state file')
+Check 'handoff file left in place' (Test-Path $hand)
+Check 'handoff write exit 0' ($r5.Code -eq 0)
+$idx = Join-Path $store 'INDEX.md'
+Set-Content $idx "# Index`n`nNext steps: land the PR.`n" -Encoding ascii
+$r6 = Invoke-Hook (Write-Payload $idx (Get-Content $idx -Raw))
+Check 'INDEX.md catalog stays quiet' ($r6.Out -notmatch 'looks like project progress')
+Check 'INDEX.md left in place' (Test-Path $idx)
+Check 'no working-memory junction created' (-not (Test-Path (Join-Path $t '.claude\working-memory')))
 Check 'store files not deleted' (@(Get-ChildItem $store -File).Count -ge 5)
 Remove-Item $t -Recurse -Force
 if ($fail) { exit 1 } else { 'ALL PASS' }

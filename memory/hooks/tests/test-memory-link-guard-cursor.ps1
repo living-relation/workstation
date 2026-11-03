@@ -11,7 +11,6 @@ $storeJson = ($store -replace '\\', '/')
 '{"autoMemoryDirectory": "' + $storeJson + '"}' | Set-Content (Join-Path $t '.claude\settings.json') -Encoding ascii
 '{"storePath": "' + $storeJson + '"}' | Set-Content (Join-Path $t '.claude\hooks\memory-link-guard.config.json') -Encoding ascii
 $wm = Join-Path $t '.claude\working-memory'
-New-Item -ItemType Junction -Path $wm -Target $store | Out-Null
 $shell = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
 function Invoke-Hook([hashtable]$Payload, [string]$CursorVersion) {
   $psi = New-Object Diagnostics.ProcessStartInfo $shell, "-NoProfile -ExecutionPolicy Bypass -File `"$hook`""
@@ -37,6 +36,7 @@ $progText = "# Next steps`n`n- open PR #12`n"
 # Claude Code (no CURSOR_VERSION)
 $r = Invoke-Hook (P 'PreToolUse' $pref "Prefer short commits.") ''
 Check 'claude: normal write prints nothing' ($r.Out.Trim() -eq '' -and $r.Code -eq 0)
+Check 'claude: does not create working-memory' (-not (Test-Path -LiteralPath $wm))
 $r = Invoke-Hook (P 'PreToolUse' $prog $progText) ''
 Check 'claude: progress write warns on stdout' ($r.Out -match 'MEMORY WARNING' -and $r.Out -notmatch 'permission' -and $r.Code -eq 0)
 $r = Invoke-Hook (P 'PreToolUse' (Join-Path $t 'other.txt') 'x') ''
@@ -53,6 +53,6 @@ $r = Invoke-Hook (P 'PreToolUse' $pref "x") '1.7.0'
 Check 'cursor: Claude-style event name also allowed' ($r.Out.Trim() -eq $allowLine)
 $r = Invoke-Hook @{ hook_event_name = 'SessionStart'; cwd = $t } '1.7.0'
 Check 'cursor: SessionStart prints no allow line' ($r.Out -notmatch 'permission')
-[IO.Directory]::Delete($wm)
+Check 'cursor: does not create working-memory' (-not (Test-Path -LiteralPath $wm))
 Remove-Item $t -Recurse -Force
 if ($fail) { exit 1 } else { 'ALL PASS' }
