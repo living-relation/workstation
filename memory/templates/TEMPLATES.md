@@ -26,14 +26,15 @@ install.ps1 fills these placeholders at install time. Nothing here holds memory 
 | `repo-agent-rule.md` | the top of each repo's `AGENTS.md` (or its `CLAUDE.md` when that is the only guide) | pasted by hand during migration, not by install.ps1; adapt the guide / decisions file names per repo. Existing installs are not refreshed: install only appends a marked block when the marker is missing |
 | `project-pointer-line.txt` | one line per project: `CLAUDE.local.md` in a git repo (add `CLAUDE.local.md` to `.git\info\exclude`), else `CLAUDE.md` | added during migration, not by install.ps1; only `{{PROJECT_SLUG}}` is filled |
 
-The project pointer line uses `%USERPROFILE%\.claude\working-memory\<slug>\INDEX.md`, written literally (not a
-placeholder). `~\.claude\working-memory` is a junction to the memory store that install.ps1 creates (and the guard hook
-recreates if it goes missing), so the same line works on every PC whatever the user name or Projects location.
+The project pointer line uses `<Projects>\_claude\Claude Projects\Working Memory\memory\<slug>\INDEX.md`.
+`<Projects>` stays written that way (it is the Projects root from install, not a filled placeholder). Only
+`{{PROJECT_SLUG}}` is filled. The line does not use `~\.claude\working-memory`. Install does not create that
+junction. A leftover from an older Cowork / Chat setup is harmless.
 
-The Claude instruction texts (account Instructions for Claude and Cowork Global instructions) are not templates: they are
-in the package's `instructions\` folder, have no placeholders, and are pasted by hand once per account (MIGRATION.md
-step f). Cowork's text uses the same `%USERPROFILE%\.claude\working-memory` path, so it must never hold
-`{{PROJECTS_ROOT}}`, `{{USERPROFILE}}` or `{{USERNAME}}`.
+The Claude instruction texts (account Instructions for Claude and the old Cowork Global instructions) are not
+templates: they are in the package's `instructions\` folder, have no placeholders, and are pasted by hand once
+per account (MIGRATION.md step f). They must never hold `{{PROJECTS_ROOT}}`, `{{USERPROFILE}}` or `{{USERNAME}}`.
+Local Working Memory is still the project source of truth for Claude Code, Cowork and Cursor (2026-11-05). Account Memory is a separate allowed store and is not synced. These texts must not point at `~\.claude\working-memory`.
 
 Toolkit files have no placeholders and are not copied: they run straight from the package folder named
 `PackageFolder` in `toolkit.psd1` inside the workstation repo clone. install.ps1 writes

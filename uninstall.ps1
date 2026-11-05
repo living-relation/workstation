@@ -64,7 +64,6 @@ $WorkingMem = Join-Path $ClaudeDir 'Claude Projects\Working Memory'
 $Store      = Join-Path $WorkingMem 'memory'
 $DotClaude  = Join-Path $UserHome '.claude'
 $LinkPath   = Join-Path $DotClaude ("projects\$ProjectKey\memory")
-$WmLink     = Join-Path $DotClaude 'working-memory'
 $SettingsPath = Join-Path $DotClaude 'settings.json'
 $BackupDir  = Join-Path $ProjectsRoot ("_archive\automation-uninstall-backup-$Stamp")
 $ManifestPath = Join-Path $ClaudeDir 'automation-installed-files.txt'
@@ -503,11 +502,16 @@ foreach ($f in 'memory-link-guard.ps1', 'memory-link-guard.config.json') {
 
 # 4. Junctions the manifest lists ('junction|<full path>'). Only a junction whose target is the store is removed,
 #    and only the link: Directory.Delete(path, $false) on a junction never touches the target's files.
+#    ~\.claude\working-memory is never removed, even if an older install recorded it. It is a harmless leftover.
 $listedLinks = @()
 if (Test-Path -LiteralPath $ManifestPath) {
   $listedLinks = @([IO.File]::ReadAllLines($ManifestPath) | Where-Object { $_ -like 'junction|*' } | ForEach-Object { $_.Substring(9).Trim() } | Where-Object { $_ } | Sort-Object -Unique)
 }
 foreach ($wl in $listedLinks) {
+  if ($wl -match '(?i)[\\/]\.claude[\\/]working-memory$') {
+    Note 'OK' "leftover working-memory junction left in place (harmless; install no longer creates it): $wl"
+    continue
+  }
   $wi = Get-Item -LiteralPath $wl -Force -ErrorAction SilentlyContinue
   if (-not $wi) { continue }
   if ($wi.LinkType -eq 'Junction') {
@@ -516,9 +520,10 @@ foreach ($wl in $listedLinks) {
     else { Note 'WARN' "junction points elsewhere, left alone: $wl" }
   } else { Note 'WARN' "not a junction to the store, left alone: $wl" }
 }
-foreach ($jl in @($LinkPath, $WmLink)) {
+foreach ($jl in @($LinkPath)) {
   if ((Get-Item -LiteralPath $jl -Force -ErrorAction SilentlyContinue) -and -not @($listedLinks | Where-Object { $_ -ieq $jl }).Count) { Note 'OK' "not installed by this package, left alone: $jl" }
 }
+Note 'OK' '~\.claude\working-memory is not removed. A leftover junction from an older install is harmless.'
 
 # 5. Files install.ps1 added under <Projects> (_claude sync scripts, toolkit files). Only files listed in
 #    the manifest; anything that was there before install is never listed, so it stays.

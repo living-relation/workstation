@@ -16,7 +16,7 @@ Use for workstation installs, folder merges, archives, or any destructive-ish ch
 4. **Pause warning.** Broadcast that the real run is about to start so other bots don’t write the same trees.
 5. **Apply.** Run the real change once.
 6. **Verify.** Compare live files to the backup hashes; confirm expected new state.
-7. **Archive + memory.** Move the backup into `_archive` with a short README for undo; write the outcome to shared memory.
+7. **Archive + where the outcome goes.** Move the backup into `_archive` with a short README for undo. That README is how to undo the copy, not the project status. Put what changed (status, what moved, what is next) in the repo state file the project's `AGENTS.md` names (for this toolkit, `STATE.md`). Write shared memory only when a new preference, rule or cross-project fact turned up, once. Do not put the outcome in memory.
 8. **All-clear.** Tell the bots they can resume. If a StopSubagent(all) was used, check what other agents’ in-flight work got cancelled and restart only what’s still needed.
 
 ## Hard rules

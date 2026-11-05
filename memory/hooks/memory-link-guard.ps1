@@ -3,7 +3,8 @@
 # Under Cursor (CURSOR_VERSION set) a preToolUse run prints exactly one line, {"permission":"allow"},
 # because Cursor blocks the edit when a hook prints nothing; its messages go to stderr instead. Never deletes notes.
 # Also warns (never blocks, moves or deletes) when a write to the store looks like
-# project progress; that belongs in the repo's in-repo state file.
+# project progress (status, progress, next steps, TODOs, handoffs, PR or branch state);
+# that belongs in the repo's in-repo state file.
 # Portable: no hardcoded profile, user or machine names. Paths are worked out at run time:
 #   link  = autoMemoryDirectory from ~\.claude\settings.json (~ expanded); this is the junction.
 #   store = storePath from the optional ~\.claude\hooks\memory-link-guard.config.json, else the
@@ -11,8 +12,8 @@
 #   Projects root = the first folder above the store that contains _claude.
 # Worktrees (a .git file pointing into <repo>\.git\worktrees\) use the main repo's project folder;
 # no folder is ever made per worktree.
-# Also keeps ~\.claude\working-memory (a junction to the store, the same path on every PC; Cowork / Chat
-# pointer lines use it): recreated only when missing, never changed when it is a real folder or another link.
+# Does not create, check or remove ~\.claude\working-memory. That alias only served Cowork / Chat
+# pointer lines. A leftover junction there is harmless and is left alone.
 $ErrorActionPreference = 'SilentlyContinue'
 $userHome = $env:USERPROFILE
 if (-not $userHome) { $userHome = $HOME }
@@ -54,13 +55,15 @@ function Test-UnderStore([string]$Path, [string]$Root) {
   if (-not $a -or -not $b) { return $false }
   return ($a -eq $b) -or $a.StartsWith($b + [IO.Path]::DirectorySeparatorChar) -or $a.StartsWith($b + '\') -or $a.StartsWith($b + '/')
 }
-# status/progress/next-steps/PR/branch/TODO language, or a project_* note with that content.
+# status/progress/next-steps/handoff/PR/branch/TODO language, or a project_* note with that content.
+# INDEX.md, MEMORY.md and CLAUDE.md are catalogs: a one-line index update is not flagged.
+# A topic file whose name or body looks like progress is flagged (warn only).
 function Test-ProgressNote([string]$NotePath, [string]$Text) {
   $leaf = Split-Path $NotePath -Leaf
   if ($leaf -match '(?i)^(INDEX|MEMORY|CLAUDE)\.md$') { return $false }
   $stem = [IO.Path]::GetFileNameWithoutExtension($leaf)
-  $lang = '(?i)(\b(project[- ]?)?(status|progress)\b|\bnext[- ]steps?\b|\bTODOs?\b|\bpull request\b|\bPR\s*#\d+\b|\bopen PRs?\b|\bcurrent branch\b|\bon branch\b|\bfeature branch\b)'
-  $nameHit = $stem -match '(?i)(status|progress|next[-_ ]?steps?|todos?)'
+  $lang = '(?i)(\b(project[- ]?)?(status|progress)\b|\bnext[- ]steps?\b|\bTODOs?\b|\bhandoffs?\b|\bpull request\b|\bPR\s*#\d+\b|\bopen PRs?\b|\bcurrent branch\b|\bon branch\b|\bfeature branch\b)'
+  $nameHit = $stem -match '(?i)(status|progress|next[-_ ]?steps?|todos?|handoffs?)'
   $bodyHit = $Text -and [regex]::IsMatch($Text, $lang)
   $projectStar = $stem -match '(?i)^project[_-]'
   return [bool]($nameHit -or $bodyHit -or ($projectStar -and $bodyHit))
@@ -109,7 +112,7 @@ try {
     elseif ($ti.PSObject.Properties['new_string'] -and $ti.new_string) { $noteText = [string]$ti.new_string }
     elseif (Test-Path -LiteralPath $notePath -PathType Leaf) { try { $noteText = [IO.File]::ReadAllText($notePath) } catch { } }
     if (Test-ProgressNote $notePath $noteText) {
-      Write-Output "MEMORY WARNING: '$notePath' looks like project progress/state. Put that in the repo's in-repo state file instead (the one AGENTS.md names, e.g. STATE.md). Local Working Memory holds only preferences, rules and cross-project facts; each fact is written once. This is a warning only; the note was not blocked, moved or deleted."
+      Write-Output "MEMORY WARNING: '$notePath' looks like project progress/state (status, progress, next steps, TODOs, handoffs, or PR/branch state). Put that in the repo's in-repo state file instead (the one AGENTS.md names, e.g. STATE.md). Local Working Memory holds only preferences, rules and cross-project facts; each fact is written once. This is a warning only; the note was not blocked, moved or deleted."
     }
   }
 } catch { }
@@ -142,22 +145,6 @@ New-Item -ItemType Directory -Force -Path (Split-Path $link -Parent) | Out-Null
 New-Item -ItemType Junction -Path $link -Target $home_ | Out-Null
 Write-Output ("MEMORY NOTE: re-linked Claude Code memory to the shared store. " + ($msg -join '; ') + " Merge any .conflict files into the real notes.")
 }
-
-# Path-independent alias: ~\.claude\working-memory -> store. Recreate it only when nothing is there.
-# A real folder, a file or a link to somewhere else is left alone (warning only); nothing is deleted.
-try {
-  $wm = Join-Path $userHome '.claude\working-memory'
-  $wi = Get-Item -LiteralPath $wm -Force
-  if (-not $wi) {
-    New-Item -ItemType Directory -Force -Path (Split-Path $wm -Parent) | Out-Null
-    New-Item -ItemType Junction -Path $wm -Target $home_ | Out-Null
-    if (Test-Path -LiteralPath $wm) { Write-Output "MEMORY NOTE: recreated the link $wm -> $home_ (used by Cowork / Chat memory pointer lines)." }
-  } elseif (-not $wi.LinkType) {
-    Write-Output "MEMORY WARNING: $wm is a real folder or file, not a link to the shared store ($home_). Left alone; Cowork / Chat memory pointer lines will not reach the shared notes on this PC. Tell the user."
-  } elseif (-not (@($wi.Target | ForEach-Object { ($_ -replace '^\\\?\?\\', '').TrimEnd('\').ToLower() }) -contains $home_.TrimEnd('\').ToLower())) {
-    Write-Output ("MEMORY WARNING: $wm is a $($wi.LinkType) to '" + (@($wi.Target) -join ';') + "', not the shared store ($home_). Left alone. Tell the user.")
-  }
-} catch { }
 
 # Per-project memory folder: find the project from the working directory and make sure the
 # store has <slug>\INDEX.md plus a line in MEMORY.md. Only for projects under <Projects>\active.

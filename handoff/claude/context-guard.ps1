@@ -51,7 +51,7 @@ switch ($Mode) {
         New-Item -ItemType File -Force -Path $fired | Out-Null
         @{
             decision = 'block'
-            reason   = "CONTEXT PRESSURE: context is at $pct, near the compaction point. Invoke the agent-handoff-pack skill in quick mode now (context-pressure fast path): update living docs and emit the next-chat paste block (do not commit or push). Do not start new project work."
+            reason   = "CONTEXT PRESSURE: context is at $pct, near the compaction point. Invoke the agent-handoff-pack skill in quick mode now (context-pressure fast path): update the repo state file named by AGENTS.md (for example STATE.md) with status, progress, next steps and the handoff. Do not write that progress into memory or a file outside the repo. Emit the next-chat paste block. Do not commit or push. Do not start new project work."
         } | ConvertTo-Json -Compress
         exit 0
     }

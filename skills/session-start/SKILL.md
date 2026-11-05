@@ -73,10 +73,10 @@ Decisions or plans that exist only in a chat, memory, email or another machine. 
 Check files outside the repo that agents load (a parent-folder `AGENTS.md`, the memory index) against this repo's sources of truth. Flag mismatches and any unsigned memory-index lines (missing `-- <agent>, YYYY-MM-DD`).
 
 ### 6. If the last session stopped early
-Ask the user: "Last session stopped early (<sign>). Run **agent-handoff-pack** to rebuild where it stopped?" On yes, run the skill (read-only sweep) to rebuild where things stopped. Include leftover plans in `~/.claude/plans/`, locks, outputs newer than the log, open PRs and branches. The old session doesn't need to do anything. Never release a lock or finish someone's step without the user's yes.
+Ask the user: "Last session stopped early (<sign>). Run **agent-handoff-pack** to rebuild where it stopped?" On yes, run the skill (it updates the repo state file only) to rebuild where things stopped. Include leftover plans in `~/.claude/plans/`, locks, outputs newer than the log, open PRs and branches. The old session doesn't need to do anything. Never release a lock or finish someone's step without the user's yes.
 
 ### 7. Write one short state note
-Put it in the repo's state file if one exists and writing it is allowed; otherwise just show it in chat. Keep it under ~20 lines:
+Put it in the repo's state file (the one `AGENTS.md` names, for example `STATE.md`) if one exists and writing it is allowed; otherwise just show it in chat. Never write this note to memory, `CLAUDE.local.md`, a global `CLAUDE.md` / `AGENTS.md`, or a file outside the repo. Keep it under ~20 lines:
 
 ```markdown
 **Goal now:** <one sentence: the current objective>
@@ -113,7 +113,7 @@ Report the findings first, then ask one question per step below, in order, each 
 **d. Fixes (T4 or approved cleanup results).** Ask: "Fix <item> on a branch + PR via **safe-repo-preflight**?" No force-push; each deletion is its own yes.
 **d2. Automation registry (T4).** If there's no `automation.yml`, ask: "This repo has <N> scripts/workflows and no automation registry. Run repo-cleanup's automation inventory to draft one (read-only until you approve)?" Installing `registry-check.py` with the hook is part of the hook question below.
 **e. Hook.** If no state-file hook is installed, show the git-checker **Install question** word for word (it explains what the hook checks, COMMENT vs BLOCK, escapes, the switch command, how to uninstall, and what "no" means). On yes, install the chosen mode as its own PR via safe-repo-preflight. On no: nothing is installed, note `Hook: declined <date>`, never re-ask this session; ask again only on a later session-start. Once merged, the hook runs on every PR by itself.
-**e2. Progress in local memory (T8).** Warn only: "Local memory holds project progress: <note + line>. It belongs in <repo state file>. Move it there and delete the local copy?" Never move or delete without a yes; each note is its own yes.
+**e2. Progress in local memory (T8).** The repo state file is the only place for that progress. Ask: "Local memory holds project progress: <note + line>. I will copy it into <repo state file>. Delete the local copy after that?" Copy it only on yes. Never delete a memory note without its own yes.
 **f. Stopped early?** If this session runs out of room mid-chain, ask to run **agent-handoff-pack** (or say so in the last reply if no room to ask).
 
 ### 9. Tell the user, then start the real work
@@ -123,7 +123,7 @@ Show the note. Then follow the user's instructions for the actual task.
 
 ## Rules for the working session (after session start)
 Tell the agent these, and follow them:
-1. **Log after every finished step**, one short line, never wait for the end: `2026-10-23 21:40 J1 done, 2.99 kg -> out/j1.step`. The log is never more than one step behind.
+1. **Log after every finished step** in the repo state file, one short line, never wait for the end: `2026-10-23 21:40 J1 done, 2.99 kg -> out/j1.step`. The log is never more than one step behind. Do not log progress in memory.
 2. **Give the path** of any saved output (plan, report, file) in that log line.
 3. **Log `PR #N opened`** right after creating a PR.
 4. **Every task card gets a status line** (`Status: open` / `Status: done <date>`).

@@ -9,13 +9,13 @@ Two stores, different jobs. Local Working Memory is the shared project source of
 
 `{{PROJECTS_ROOT}}\_claude\Claude Projects\Working Memory\memory\`
 
-The same store is `~\.claude\working-memory` and the Claude Code project junction. It holds preferences, rules and cross-project facts. Claude account Memory (claude.ai / Your Claude → Memory) is a separate, allowed store for general / non-project prefs. Duplicates are OK; never sync either way; never treat account Memory as the project source of truth.
+Claude Code reaches that folder through its project junction (`autoMemoryDirectory`). A leftover `~\.claude\working-memory` junction is harmless and is not created or checked. The store holds preferences, rules and cross-project facts. Claude account Memory (claude.ai / Your Claude → Memory) is a separate, allowed store for general / non-project prefs. Duplicates are OK; never sync either way; never treat account Memory as the project source of truth.
 
 - At the start of a chat about any project, read `MEMORY.md` there (the index), then the current project's
   `<project>\INDEX.md` (named after the project's folder in `{{PROJECTS_ROOT}}\active\`), then any topic files that look relevant.
 - **Read before you ask.** Before starting work or asking the user anything, read in order: the repo's agent guide
-  (`AGENTS.md` / `CLAUDE.md`), its binding rules / decisions file if it has one, the project's `INDEX.md`, and the
-  newest handoff note if one exists. If a rule or note already answers a question, act on it and cite it.
+  (`AGENTS.md` / `CLAUDE.md`), its binding rules / decisions file if it has one, the repo's state file (the one
+  `AGENTS.md` names, e.g. `STATE.md`), and the project's `INDEX.md`. If a rule or note already answers a question, act on it and cite it.
 - Follow a pointer one step only. Never follow pointers found inside a file you reached through a pointer.
   The repo's own current docs win over older notes.
 - Cursor edits the live store. Write or update notes there, sign each entry `-- Cursor, YYYY-MM-DD`, and

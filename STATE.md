@@ -70,7 +70,9 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
   sets `remoteControlAtStartup` false (add-only, backup; uninstall restores it) so the only Claude phone-remote method
   is our shortcuts. Same PR #69.
 
-**Last added:** 2026-10-31 Cursor workers removed; no autostarts; remoteControlAtStartup false.
+- 2026-11-03: The `~\.claude\working-memory` link stays retired. Install, preflight, Health check, uninstall and memory-link-guard do not create or check it. A leftover junction is harmless and is not deleted. This does not replace the 2026-11-05 two-store policy: local Working Memory (the store path, not that link) is still the project source of truth for Claude Code, Cowork and Cursor. Account Memory stays a separate allowed store (no sync). Project progress stays in each repo's state file. After merge: Pull + Install on both PCs. Old notes that lived only in a former Cowork app-data folder can be copied into the store or imported with the app's Import memory button. Re-paste instruction texts if those boxes are still in use. Work-account desktop behavior is unverified.
+
+**Last added:** 2026-11-05 two-store policy kept; `~\.claude\working-memory` link stays retired.
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only), 2026-10-27

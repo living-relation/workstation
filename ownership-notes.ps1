@@ -27,7 +27,7 @@ $own = @(
   @{ Dir = (Join-Path $StateDir 'cursor-worker'); What = 'Cursor worker state and logs' },
   @{ Dir = (Join-Path $StateDir 'dashboard'); What = 'local dashboard runtime files (logs, token, cache; never commit them)' },
   @{ Dir = (Join-Path $StateDir 'backups'); What = 'backups the installer made before replacing links (add-only)' },
-  @{ Dir = (Join-Path $ProjectsRoot '_claude'); What = 'the ONE shared working memory store, Claude Projects\Working Memory\memory\, and the install manifest. Claude Code, Claude desktop / Cowork and Cursor all use this same store: Claude Code reaches it through the junction %USERPROFILE%\.claude\working-memory, and Cursor edits the notes directly (no copy, no sync). Never create another memory store. The memory files inside are your own data; the repo only manages the scripts and links' }
+  @{ Dir = (Join-Path $ProjectsRoot '_claude'); What = 'the Claude Code shared memory store, Claude Projects\Working Memory\memory\, and the install manifest. Claude Code reaches it through the autoMemoryDirectory junction under %USERPROFILE%\.claude\projects\. Cursor edits the notes directly (no copy, no sync). The store holds preferences, rules and cross-project facts only; project progress stays in each repo. Claude desktop online Memory is a separate account-level list and is not synced. A leftover %USERPROFILE%\.claude\working-memory junction is harmless and is not used. Never create another memory store. The memory files inside are your own data; the repo only manages the scripts and links' }
   # Nothing is written inside the clone itself (that would dirty it); the repo's own README covers its folders.
 )
 foreach ($o in $own) {
