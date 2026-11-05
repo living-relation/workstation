@@ -2,7 +2,7 @@
 <!-- shared-memory:v1 -->
 ## Memory - read this before asking the user to repeat themselves
 
-Claude Code and Cowork share ONE memory store for every project folder:
+Claude Code, Cowork and Cursor share ONE local memory store, the project source of truth, for every project folder:
 
     {{PROJECTS_ROOT}}\_claude\Claude Projects\Working Memory\memory\
 
@@ -11,6 +11,7 @@ a junction to that folder (`autoMemoryDirectory` in `~\.claude\settings.json`). 
 loads automatically. Rules:
 - **Read before you ask.** Before starting work or asking the maintainer anything, read in order: (1) the repo's agent guide (`AGENTS.md` / `CLAUDE.md`), (2) its binding rules / decisions file if it has one, (3) the shared working memory `%USERPROFILE%\.claude\working-memory\<project>\INDEX.md` (WSL: `/mnt/c/Users/<user>/.claude/working-memory/<project>/INDEX.md`), (4) the newest handoff note if one exists. If a rule or note already answers a question, act on it and cite it - never ask the maintainer something the rules already answer.
 - Save durable knowledge only there, with an index line in the project's `INDEX.md` (or `MEMORY.md` for general notes).
+- Claude account Memory (claude.ai) is a separate, allowed store for general / non-project prefs. Duplicates with the local folder are OK; never sync both ways; never treat it as the project source of truth. Don't use `project_memory_read` / `project_memory_write` for project memory.
 - Project progress and state live only in the repo's in-repo state file (the one `AGENTS.md` names, e.g. `STATE.md`). Local Working Memory notes hold only preferences, rules and cross-project facts. Each fact is written once; never duplicate it.
 - Sign every note or index line you write or edit there with who wrote it and the date, e.g. `-- Claude Code, YYYY-MM-DD` or `-- Cowork, YYYY-MM-DD`, so it's clear which agent wrote it.
 - Layout: `MEMORY.md` is the no-project index (general notes, one line per project pointing to `<project>\INDEX.md`). Each project has its own subfolder with an `INDEX.md`, named after its folder in `{{PROJECTS_ROOT}}\active\` (lowercase, non-letters/digits become `-`). Archived projects go in `_archive\<project>\`. Save a project note in its folder with a line in that `INDEX.md`. Notes from chats with no project yet go in `_unassigned\`; when the chat gets a project, move the note into that project's folder, move its index line, and sign both.
