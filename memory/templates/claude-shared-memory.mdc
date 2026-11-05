@@ -5,9 +5,11 @@ alwaysApply: true
 <!-- shared-memory:v1 -->
 # Shared Claude memory
 
-The user's Claude Code and Cowork keep ONE shared memory store. Cursor edits it in place:
+Two stores, different jobs. Local Working Memory is the shared project source of truth for Claude Code, Cowork and Cursor. Cursor reads and edits it in place:
 
 `{{PROJECTS_ROOT}}\_claude\Claude Projects\Working Memory\memory\`
+
+The same store is `~\.claude\working-memory` and the Claude Code project junction. It holds preferences, rules and cross-project facts. Claude account Memory (claude.ai / Your Claude → Memory) is a separate, allowed store for general / non-project prefs. Duplicates are OK; never sync either way; never treat account Memory as the project source of truth.
 
 - At the start of a chat about any project, read `MEMORY.md` there (the index), then the current project's
   `<project>\INDEX.md` (named after the project's folder in `{{PROJECTS_ROOT}}\active\`), then any topic files that look relevant.
@@ -18,8 +20,8 @@ The user's Claude Code and Cowork keep ONE shared memory store. Cursor edits it 
   The repo's own current docs win over older notes.
 - Cursor edits the live store. Write or update notes there, sign each entry `-- Cursor, YYYY-MM-DD`, and
   add or update the matching line in `MEMORY.md` (general notes) or the project's `INDEX.md`.
-  Do not create any other memory folder.
+  Never create a second local memory folder or replace the junction. Do not use `project_memory_read` / `project_memory_write` for project memory.
 - Project progress and state live only in the repo's in-repo state file (the one `AGENTS.md` names, e.g. `STATE.md`). Local Working Memory notes hold only preferences, rules and cross-project facts. Each fact is written once; never duplicate it.
 - Memory and note files are local only. Never commit them to git.
-- Cursor's own memory and project rules are unchanged; this only adds Claude's knowledge.
+- Project-specific rules stay in each repo's own files. Cursor keeps its own memory.
 <!-- /shared-memory:v1 -->

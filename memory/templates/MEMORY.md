@@ -1,11 +1,11 @@
 # Memory Index
 
-**This is the ONE shared memory store for Claude Code AND Cowork, for every project folder.**
+**Local Working Memory (this folder) is the shared project source of truth for Claude Code, Cowork and Cursor.**
 Real path: `{{PROJECTS_ROOT}}\_claude\Claude Projects\Working Memory\memory\`
-Claude Code reaches it through `~\.claude\projects\{{CLAUDE_PROJECT_KEY}}\memory`,
-which is a junction (a folder shortcut) to this folder, so both apps read and write the same files.
-Never create a second memory folder or copy notes elsewhere. Project rules stay in each project's
-own `CLAUDE.md`; only memory lives here. Memory is local only: never commit it to git.
+Also `~\.claude\working-memory`. Claude Code reaches it through `~\.claude\projects\{{CLAUDE_PROJECT_KEY}}\memory`,
+which is a junction (a folder shortcut) to this folder, so those apps read and write the same files.
+It holds preferences, rules and cross-project facts. Claude account Memory (claude.ai / Your Claude → Memory) is a separate, allowed store for general / non-project prefs. Duplicates are OK; never sync either way; never treat account Memory as the project source of truth.
+Never create a second local memory folder or replace the junction. Do not use `project_memory_read` / `project_memory_write` for project memory. Project-specific rules stay in each repo's own `AGENTS.md`. Memory is local only: never commit it to git.
 
 Read this index at the start of a session, then open the current project's `INDEX.md`.
 This file holds general (no-project) notes and one line per project.

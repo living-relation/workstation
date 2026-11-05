@@ -2,7 +2,7 @@
 # Working Memory - agent instructions
 
 Cowork project folder for general knowledge that is not part of a larger project.
-It also holds the ONE shared memory store (`memory/`) used by Claude Code and Cowork for every project.
+It also holds the local Working Memory store (`memory/`), the shared project source of truth for Claude Code, Cowork and Cursor.
 
 ## READ THIS FIRST, EVERY SESSION
 
