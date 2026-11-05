@@ -2,18 +2,18 @@
 <!-- shared-memory:v1 -->
 ## Memory - read this before asking the user to repeat themselves
 
-Claude Code keeps ONE file memory store for every project folder. Cursor edits the same files.
-Claude desktop online Memory is account-level facts about the user, separate and not synced
-(personal account verified 2026-11-03; work account unverified). Cowork / Chat do not write this folder.
+Claude Code, Cowork and Cursor share ONE local memory store, the project source of truth, for every project folder.
+Claude account Memory (claude.ai) is a separate, allowed store for general / non-project prefs. Duplicates with the local folder are OK; never sync both ways; never treat it as the project source of truth.
 
     {{PROJECTS_ROOT}}\_claude\Claude Projects\Working Memory\memory\
 
 Claude Code reaches it through `{{USERPROFILE}}\.claude\projects\{{CLAUDE_PROJECT_KEY}}\memory\`,
 a junction to that folder (`autoMemoryDirectory` in `~\.claude\settings.json`). Its `MEMORY.md`
-loads automatically. A leftover `~\.claude\working-memory` junction is harmless and is not this path.
+loads automatically. A leftover `~\.claude\working-memory` junction is harmless and is not this path. Install does not create or check it.
 Rules:
 - **Read before you ask.** Before starting work or asking the maintainer anything, read in order: (1) the repo's agent guide (`AGENTS.md` / `CLAUDE.md`), (2) its binding rules / decisions file if it has one, (3) the repo's state file (the one `AGENTS.md` names, e.g. `STATE.md`), (4) `{{PROJECTS_ROOT}}\_claude\Claude Projects\Working Memory\memory\<project>\INDEX.md`. If a rule or note already answers a question, act on it and cite it - never ask the maintainer something the rules already answer.
-- Save preferences, rules and cross-project facts only in that store, with an index line in the project's `INDEX.md` (or `MEMORY.md` for general notes).
+- Save preferences, rules and cross-project facts only in that store, with an index line in the project's `INDEX.md` (or `MEMORY.md` for general notes). Each fact is written once.
+- Don't use `project_memory_read` / `project_memory_write` for project memory.
 - Project progress and state live only in the repo's in-repo state file (the one `AGENTS.md` names, e.g. `STATE.md`). Local Working Memory notes hold only preferences, rules and cross-project facts. Each fact is written once; never duplicate it.
 - Sign every note or index line you write or edit there with who wrote it and the date, e.g. `-- Claude Code, YYYY-MM-DD` or `-- Cowork, YYYY-MM-DD`, so it's clear which agent wrote it.
 - Layout: `MEMORY.md` is the no-project index (general notes, one line per project pointing to `<project>\INDEX.md`). Each project has its own subfolder with an `INDEX.md`, named after its folder in `{{PROJECTS_ROOT}}\active\` (lowercase, non-letters/digits become `-`). Archived projects go in `_archive\<project>\`. Save a project note in its folder with a line in that `INDEX.md`. Notes from chats with no project yet go in `_unassigned\`; when the chat gets a project, move the note into that project's folder, move its index line, and sign both.
