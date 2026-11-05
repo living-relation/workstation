@@ -2,14 +2,14 @@
 # Working Memory - agent instructions
 
 Cowork project folder for general knowledge that is not part of a larger project.
-It also holds the ONE shared memory store (`memory/`) used by Claude Code and Cowork for every project.
+It also holds the local Working Memory store (`memory/`), the shared project source of truth for Claude Code, Cowork and Cursor.
 
 ## READ THIS FIRST, EVERY SESSION
 
 `memory/MEMORY.md` in **this folder** is the index of retained knowledge. Read it, then read
 the current project's `INDEX.md` and any topic file that looks relevant, before you plan or ask questions.
 
-**This folder is the source of truth for project memory - not the built-in memory tool.**
+**This folder is the shared source of truth for project memory (Claude Code, Cowork, Cursor). Claude account Memory (claude.ai) is a separate, allowed store for general prefs: duplicates are OK, never sync the two, and never treat account Memory as the project source of truth.**
 
 ## Why
 
@@ -23,7 +23,7 @@ notes written with it landed nowhere. A session that trusts it can silently work
 2. Write new knowledge as files in `memory/` in this folder, in the project's subfolder with a line in its
    `INDEX.md` (general notes: `memory/MEMORY.md`). Keep each note to: the fact or rule, then `Why:` and `How to apply:`.
 3. Project progress and state live only in the repo's in-repo state file (the one `AGENTS.md` names, e.g. `STATE.md`). Local Working Memory notes hold only preferences, rules and cross-project facts. Each fact is written once; never duplicate it.
-4. Do not use `project_memory_write`; write to `memory/` in this folder instead. Never treat an
+4. Do not use `project_memory_read` / `project_memory_write` for project memory; write files under `memory/` in this folder instead. Never treat an
    empty `project_memory_read` as "no prior work exists."
 5. Convert relative dates to absolute when saving.
 6. If a note turns out to be wrong or stale, correct or delete it. Do not leave conflicting
@@ -37,7 +37,7 @@ notes written with it landed nowhere. A session that trusts it can silently work
 
 ## Shared with Claude Code
 
-`memory/` is the ONE memory store for both Cowork and Claude Code, for every project folder.
+`memory/` is the ONE local memory store for Cowork, Claude Code and Cursor, for every project folder (Claude account Memory is separate and allowed, see above).
 Claude Code reaches it through a junction at
 `{{USERPROFILE}}\.claude\projects\{{CLAUDE_PROJECT_KEY}}\memory`.
 Never create another memory folder, and never copy notes into the Claude desktop app's
