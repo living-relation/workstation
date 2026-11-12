@@ -1,12 +1,22 @@
 #Requires -Version 5.1
 # Helpers for the per-project Claude remote-control shortcuts.
-# No live claude calls. Windows PowerShell 5.1. Keep this file ASCII-only.
+# Windows PowerShell 5.1. Keep this file ASCII-only.
+# Dot-sourcing does not run claude. Tests call Invoke-RcRemoteLaunch with a fake invoker.
 
-# Every directory directly inside active\ is a project, git repo or not.
-# A name that starts with a dot is tool metadata (.cursor), not a project.
+# A shortcut folder is a real git repo directly inside active\: its .git is a directory.
+# A worktree's .git is a file that points at the main repo, so it gets no shortcut.
+# A plain folder, and a name that starts with a dot (.cursor), are not shortcut folders.
+function Test-RcGitRepoDirectory([string]$Path) {
+    if (-not $Path) { return $false }
+    $git = Join-Path $Path '.git'
+    return [bool](Test-Path -LiteralPath $git -PathType Container)
+}
+
 function Get-RcProjectFolders([string]$ActiveDir) {
     if (-not $ActiveDir -or -not (Test-Path -LiteralPath $ActiveDir -PathType Container)) { return @() }
-    @(Get-ChildItem -LiteralPath $ActiveDir -Force -Directory | Where-Object { $_.Name -and $_.Name -notlike '.*' } | Sort-Object Name)
+    @(Get-ChildItem -LiteralPath $ActiveDir -Force -Directory | Where-Object {
+        $_.Name -and $_.Name -notlike '.*' -and (Test-RcGitRepoDirectory $_.FullName)
+    } | Sort-Object Name)
 }
 
 function Get-RcSafeFilePart([string]$FolderName) {
@@ -131,15 +141,18 @@ function Get-RcKillRoots($Procs) {
     @($Procs | Where-Object { $ids -notcontains [int]$_.ParentProcessId })
 }
 
-# Write one start link and one stop link per project folder. Remove our links whose folder is gone, and the
-# old-named "RC <folder>" / "Close RC <folder>" links this generator wrote before the rename.
+# Write one start link and one stop link per git repo. Remove our links whose repo is gone
+# (including a plain folder or a worktree that used to get a pair), and the old-named
+# "RC <folder>" / "Close RC <folder>" links this generator wrote before the rename.
 # Leaves any other file in LinkDir alone. Returns a hashtable: Ok, Projects, Created, Updated, Removed, Errors.
+# Pass Shell only from tests (a fake). The real generator uses WScript.Shell.
 function Write-RcShortcuts {
     param(
         [Parameter(Mandatory = $true)][string]$ActiveDir,
         [Parameter(Mandatory = $true)][string]$LinkDir,
         [Parameter(Mandatory = $true)][string]$OpenScript,
-        [Parameter(Mandatory = $true)][string]$CloseScript
+        [Parameter(Mandatory = $true)][string]$CloseScript,
+        [object]$Shell = $null
     )
     $errors = @()
     $result = @{ Ok = $true; Projects = 0; Created = 0; Updated = 0; Removed = 0; Errors = @() }
@@ -149,9 +162,19 @@ function Write-RcShortcuts {
     if ($errors.Count) { $result.Ok = $false; $result.Errors = @($errors); return $result }
 
     if (-not (Test-Path -LiteralPath $LinkDir)) { New-Item -ItemType Directory -Path $LinkDir -Force | Out-Null }
-    $psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    $shell32 = Join-Path $env:SystemRoot 'System32\shell32.dll'
-    $wsh = New-Object -ComObject WScript.Shell
+    $winRoot = $env:SystemRoot
+    if (-not $winRoot) { $winRoot = 'C:\Windows' }
+    $psExe = Join-Path $winRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $shell32 = Join-Path $winRoot 'System32\shell32.dll'
+    $wsh = $Shell
+    if (-not $wsh) {
+        try { $wsh = New-Object -ComObject WScript.Shell } catch {
+            $errors += "could not create shortcuts: $($_.Exception.Message)"
+            $result.Ok = $false
+            $result.Errors = @($errors)
+            return $result
+        }
+    }
     $projects = @(Get-RcProjectFolders $ActiveDir)
     $result.Projects = $projects.Count
     $expected = @{}
@@ -277,4 +300,331 @@ function Select-ProjectsRootRcSessions($Sessions, [string]$SavedId) {
     @($Sessions | Where-Object {
         $_ -and (("$($_.name)" -eq $name) -or ($SavedId -and "$($_.sessionId)" -eq $SavedId))
     })
+}
+
+# "2.1.301 (Claude Code)" -> 2.1.301. Empty when the text has no version.
+function Get-RcCliVersion([string]$Text) {
+    if ("$Text" -match '(\d+\.\d+\.\d+)') { return $Matches[1] }
+    return ''
+}
+
+# Length and write time of the CLI binary. Changes when an update replaces claude.exe.
+function Get-RcBinaryStamp([string]$Path) {
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return '' }
+    try {
+        $item = Get-Item -LiteralPath $Path -Force
+        return ('{0}:{1}' -f $item.Length, $item.LastWriteTimeUtc.Ticks)
+    } catch { return '' }
+}
+
+# `claude daemon status` text. A worker line "N from a different CLI version" is not the
+# supervisor itself being old; that case is the version field compared with the CLI.
+# Windows can print a pid while control.sock is unreachable: that supervisor is not usable.
+function ConvertFrom-RcDaemonStatus([string]$Text, $ExitCode = 0) {
+    $text = "$Text"
+    $daemonPid = ''
+    $version = ''
+    if ($text -match '(?im)^\s*pid:\s*(\d+)') { $daemonPid = $Matches[1] }
+    if ($text -match '(?im)^\s*version:\s*(\d+\.\d+\.\d+)') { $version = $Matches[1] }
+    $control = ''
+    if ($text -match '(?i)control\.sock:\s*(\S+)') { $control = $Matches[1].ToLower() }
+    $skew = $false
+    foreach ($line in ($text -split "`r?`n")) {
+        if ($line -match '(?i)from a different') { continue }
+        if ($line -match '(?i)different version') { $skew = $true }
+    }
+    $notRunning = [bool]($text -match '(?i)not running')
+    $running = (-not $notRunning) -and ($daemonPid -ne '') -and ($version -ne '') -and ($control -ne 'unreachable')
+    return @{
+        Running  = [bool]$running
+        Pid      = $daemonPid
+        Version  = $version
+        Control  = $control
+        Skew     = [bool]$skew
+        ExitCode = $ExitCode
+    }
+}
+
+# Ready to host a new session: supervisor is up, its pipe answers, and its version matches
+# the CLI we are about to launch (so it will not self-restart for an upgrade under the session).
+function Test-RcDaemonReady($Status, [string]$CliVersion) {
+    if (-not $Status -or -not $Status.Running -or $Status.Skew) { return $false }
+    if ($CliVersion -and $Status.Version -and ($Status.Version -ne $CliVersion)) { return $false }
+    return $true
+}
+
+# One CLI call. InvokeCli receives a single string[] (update, --version, daemon status,
+# daemon run, agents --json, or --bg --remote-control --name <name>).
+# Returns @{ ExitCode; Text }. Tests pass a fake; nothing here starts claude itself.
+function Test-RcCliResult($Item) {
+    if ($null -eq $Item) { return $false }
+    $dict = $Item
+    try {
+        if ($Item.PSObject -and ($Item.PSObject.BaseObject -is [System.Collections.IDictionary])) { $dict = $Item.PSObject.BaseObject }
+    } catch { }
+    if ($dict -is [System.Collections.IDictionary]) {
+        if ($dict.Contains('ExitCode')) { return $true }
+    }
+    try { return [bool]($Item.PSObject.Properties['ExitCode']) } catch { return $false }
+}
+
+function Invoke-RcCliCall {
+    param([scriptblock]$InvokeCli, [string[]]$ArgumentList)
+    if (-not $InvokeCli) { return @{ ExitCode = 1; Text = 'no claude invoker' } }
+    # .Invoke keeps the string[] as one argument. The call operator wraps it, so a
+    # fake sees "System.String[]" instead of the words. Windows PowerShell 5.1 may
+    # wrap the hashtable result; Test-RcCliResult unwraps that.
+    try { $raw = @($InvokeCli.Invoke(@(, [string[]]$ArgumentList))) } catch { return @{ ExitCode = 1; Text = "$($_.Exception.Message)" } }
+    $hit = $null
+    foreach ($item in @($raw)) { if (Test-RcCliResult $item) { $hit = $item } }
+    if ($null -eq $hit) { return @{ ExitCode = 1; Text = '' } }
+    $code = 1
+    if ($null -ne $hit.ExitCode) { $code = [int]$hit.ExitCode }
+    $text = ''
+    if ($null -ne $hit.Text) { $text = [string]$hit.Text }
+    return @{ ExitCode = $code; Text = $text }
+}
+
+# The real invoker used by the shortcut scripts. `daemon run` is not waited on (it stays up).
+# `update` may download a version, so it gets a longer timeout. Tests never call this.
+function New-RcClaudeInvoker {
+    param(
+        [Parameter(Mandatory = $true)][string]$ClaudeExe,
+        [Parameter(Mandatory = $true)][string]$RepoPath
+    )
+    $state = @{ N = 0 }
+    $block = {
+        param($ArgumentList)
+        $cliArgs = @($ArgumentList)
+        $state.N++
+        if ($cliArgs.Count -ge 2 -and $cliArgs[0] -eq 'daemon' -and $cliArgs[1] -eq 'run') {
+            try {
+                Start-Process -FilePath $ClaudeExe -ArgumentList $cliArgs -WorkingDirectory $RepoPath -WindowStyle Hidden -ErrorAction Stop | Out-Null
+                return @{ ExitCode = 0; Text = '' }
+            } catch { return @{ ExitCode = 1; Text = "$($_.Exception.Message)" } }
+        }
+        $outFile = Join-Path $env:TEMP ("rc-cli-{0}-{1}.out.txt" -f $PID, $state.N)
+        $errFile = Join-Path $env:TEMP ("rc-cli-{0}-{1}.err.txt" -f $PID, $state.N)
+        $timeout = 20000
+        if ($cliArgs.Count -ge 1 -and $cliArgs[0] -eq 'update') { $timeout = 90000 }
+        if ($cliArgs -contains '--bg') { $timeout = 30000 }
+        try {
+            $proc = Start-Process -FilePath $ClaudeExe -ArgumentList $cliArgs -WorkingDirectory $RepoPath `
+                -WindowStyle Hidden -PassThru -ErrorAction Stop `
+                -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+        } catch { return @{ ExitCode = 1; Text = "$($_.Exception.Message)" } }
+        $exited = $false
+        try { $exited = $proc.WaitForExit($timeout) } catch { $exited = $false }
+        $outText = ''
+        $errText = ''
+        try { if (Test-Path -LiteralPath $outFile) { $outText = [IO.File]::ReadAllText($outFile) } } catch { }
+        try { if (Test-Path -LiteralPath $errFile) { $errText = [IO.File]::ReadAllText($errFile) } } catch { }
+        $text = ($outText + "`n" + $errText).Trim()
+        if (-not $exited) {
+            if ($cliArgs -contains '--bg') { return @{ ExitCode = 0; Text = $text } }
+            try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch { }
+            return @{ ExitCode = 124; Text = $text }
+        }
+        $code = $proc.ExitCode
+        if ($null -eq $code) { $code = 0 }
+        return @{ ExitCode = [int]$code; Text = $text }
+    }
+    return $block.GetNewClosure()
+}
+
+# Start one remote-control session and report success only when `claude agents --json`
+# still lists it. A cold `claude --bg` both starts the background service and prints
+# "backgrounded" before Claude's startup update replaces claude.exe. The service then
+# logs "self-restarting for upgrade" and "post-takeover prewarm burst ... refused", and
+# the session is gone. The second click works because that service is already on the new
+# binary. So: apply any pending update first, start the service if it is down, and do not
+# create the session until the service is up on this CLI version with a stable pid.
+# If the session is missing once that is true, start it one more time.
+# InvokeCli is the only way out to claude (see Invoke-RcCliCall). Sleep and GetBinaryStamp
+# are replaceable so tests do not wait or touch a real binary.
+function Invoke-RcRemoteLaunch {
+    param(
+        [Parameter(Mandatory = $true)][scriptblock]$InvokeCli,
+        [Parameter(Mandatory = $true)][string]$RepoPath,
+        [Parameter(Mandatory = $true)][string]$SessionName,
+        [scriptblock]$GetBinaryStamp = { '' },
+        [scriptblock]$Sleep = { param([int]$Milliseconds) Start-Sleep -Milliseconds $Milliseconds },
+        [int]$PollMilliseconds = 1000,
+        [int]$MaxPolls = 75,
+        [int]$MaxStarts = 2,
+        [int]$ReadyMisses = 3,
+        [int]$DownPollsBeforeStart = 15
+    )
+    $logs = New-Object System.Collections.Generic.List[string]
+    $bgText = New-Object System.Collections.Generic.List[string]
+    function Note([string]$Message) { if ($Message) { $logs.Add($Message) } }
+    function Stamp { return "$(& $GetBinaryStamp)" }
+    function Read-Status { return (ConvertFrom-RcDaemonStatus (Invoke-RcCliCall $InvokeCli @('daemon', 'status')).Text) }
+    function Read-Live {
+        $r = Invoke-RcCliCall $InvokeCli @('agents', '--json')
+        if ($r.ExitCode -ne 0) { return @{ Ok = $false; Sessions = @() } }
+        try { $parsed = @(ConvertFrom-RcAgentsJson $r.Text) } catch { return @{ Ok = $false; Sessions = @() } }
+        return @{ Ok = $true; Sessions = @(Select-RcSessions $parsed $RepoPath $SessionName) }
+    }
+    # Hashtable so Start-Once and the poll loop share one counter (a nested function
+    # assigning $starts would not update the caller's copy).
+    $run = @{ Starts = 0; Misses = 0; Confirm = 0; ConfirmPid = '' }
+    function Start-Once {
+        $run.Starts++
+        $bg = Invoke-RcCliCall $InvokeCli @('--bg', '--remote-control', '--name', $SessionName)
+        if ($bg.Text) { $bgText.Add($bg.Text) }
+        if ($bg.ExitCode -ne 0) { Note "claude --bg exited $($bg.ExitCode)" }
+        $run.Misses = 0
+        $run.Confirm = 0
+        $run.ConfirmPid = ''
+    }
+    function Finish([bool]$Ok, [string]$Detail, $Sessions) {
+        $sid = ''
+        $full = ''
+        $first = @($Sessions) | Select-Object -First 1
+        if ($first) {
+            $sid = Get-RcStopId $first
+            $full = "$($first.sessionId)".Trim()
+        }
+        if (-not $sid) { $sid = Get-RcBackgroundId (($bgText | Select-Object -Last 1)) }
+        return @{
+            Ok        = $Ok
+            Starts    = $run.Starts
+            SessionId = $sid
+            FullId    = $full
+            Detail    = $Detail
+            Output    = ($bgText -join "`n")
+            Log       = @($logs)
+        }
+    }
+
+    $verText = Invoke-RcCliCall $InvokeCli @('--version')
+    $cliVersion = Get-RcCliVersion $verText.Text
+    $baseStamp = Stamp
+    $first = Read-Status
+    $daemon = $first
+    $settled = $false
+    if (Test-RcDaemonReady $first $cliVersion) {
+        & $Sleep $PollMilliseconds
+        $secondStamp = Stamp
+        $second = Read-Status
+        if ((Test-RcDaemonReady $second $cliVersion) -and ($second.Pid -eq $first.Pid) -and ($secondStamp -eq $baseStamp)) {
+            $settled = $true
+            $daemon = $second
+        }
+    }
+    $settleGaveUp = $false
+    if (-not $settled) {
+        Note 'Checking for a Claude update before starting the session'
+        $upd = Invoke-RcCliCall $InvokeCli @('update')
+        $updLine = ''
+        foreach ($line in ("$($upd.Text)" -split "`r?`n")) {
+            $trimmed = $line.Trim()
+            if ($trimmed -and $trimmed.Length -le 180) { $updLine = $trimmed }
+        }
+        if ($upd.ExitCode -ne 0) { Note "Claude update did not finish (exit $($upd.ExitCode)); continuing" }
+        elseif ($updLine) { Note $updLine }
+        else { Note 'Claude update check finished' }
+        $newVer = Get-RcCliVersion (Invoke-RcCliCall $InvokeCli @('--version')).Text
+        if ($newVer) { $cliVersion = $newVer }
+        $baseStamp = Stamp
+        $polls = 0
+        $seenPid = ''
+        $didWarm = $false
+        $downPolls = 0
+        $loggedWait = $false
+        while ($polls -lt $MaxPolls) {
+            $polls++
+            $stampNow = Stamp
+            if ($baseStamp -and $stampNow -and ($stampNow -ne $baseStamp)) {
+                Note 'Claude binary changed; waiting for the background service'
+                $baseStamp = $stampNow
+                $seenPid = ''
+                $downPolls = 0
+                & $Sleep $PollMilliseconds
+                continue
+            }
+            $status = Read-Status
+            if (-not $status.Running) {
+                $downPolls++
+                $seenPid = ''
+                if (-not $didWarm) {
+                    Note 'Starting the background service before the session'
+                    [void](Invoke-RcCliCall $InvokeCli @('daemon', 'run'))
+                    $didWarm = $true
+                } elseif ($downPolls -ge $DownPollsBeforeStart) {
+                    $settleGaveUp = $true
+                    $daemon = $status
+                    break
+                }
+            } elseif (Test-RcDaemonReady $status $cliVersion) {
+                $downPolls = 0
+                if ($seenPid -and ($seenPid -eq $status.Pid)) {
+                    $daemon = $status
+                    $settled = $true
+                    break
+                }
+                $seenPid = $status.Pid
+            } else {
+                $downPolls = 0
+                $seenPid = ''
+                if (-not $loggedWait) {
+                    Note 'Waiting for the background service to finish updating'
+                    $loggedWait = $true
+                }
+            }
+            & $Sleep $PollMilliseconds
+        }
+        if (-not $settled) { $settleGaveUp = $true }
+    }
+
+    $polls = 0
+    $loggedRetry = $false
+    while ($polls -lt $MaxPolls) {
+        $polls++
+        $stampNow = Stamp
+        if ($baseStamp -and $stampNow -and ($stampNow -ne $baseStamp)) {
+            Note 'Claude binary changed; waiting for the background service'
+            $baseStamp = $stampNow
+            $run.Confirm = 0
+            $run.ConfirmPid = ''
+            $run.Misses = 0
+            & $Sleep $PollMilliseconds
+            continue
+        }
+        $daemon = Read-Status
+        $ready = Test-RcDaemonReady $daemon $cliVersion
+        $live = Read-Live
+        $listed = $live.Ok -and (@($live.Sessions).Count -gt 0)
+        if ($listed -and $ready) {
+            $run.Misses = 0
+            if ($run.Confirm -ge 1 -and $run.ConfirmPid -eq "$($daemon.Pid)") {
+                $why = $(if ($run.Starts -eq 0) { 'already running' } else { 'started' })
+                return (Finish $true $why $live.Sessions)
+            }
+            $run.Confirm = 1
+            $run.ConfirmPid = "$($daemon.Pid)"
+        } elseif ($live.Ok -and $ready -and -not $listed) {
+            $run.Confirm = 0
+            $run.ConfirmPid = ''
+            $run.Misses++
+            if ($run.Starts -eq 0 -or $run.Misses -ge $ReadyMisses) {
+                if ($run.Starts -ge $MaxStarts) { break }
+                if ($run.Starts -ge 1 -and -not $loggedRetry) {
+                    Note 'Session was not running after start; starting it once more'
+                    $loggedRetry = $true
+                }
+                Start-Once
+            }
+        } elseif ($run.Starts -eq 0 -and $settleGaveUp -and -not $listed) {
+            Start-Once
+            $settleGaveUp = $false
+        } else {
+            $run.Confirm = 0
+            $run.ConfirmPid = ''
+        }
+        if ($polls -ge $MaxPolls) { break }
+        & $Sleep $PollMilliseconds
+    }
+    return (Finish $false "session $SessionName was not running after $($run.Starts) start(s)" @())
 }

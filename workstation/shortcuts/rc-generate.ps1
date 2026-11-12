@@ -1,7 +1,8 @@
 #Requires -Version 5.1
-# Write one open shortcut and one close shortcut for each project folder in active\.
-# A project is any directory there, git repo or not. Names that start with a dot are skipped.
-# Does not start a session. Re-running updates the links and removes a pair whose folder is gone.
+# Write one open shortcut and one close shortcut for each git repo directly in active\.
+# A repo's .git must be a directory. Worktrees (.git is a file) and plain folders are skipped.
+# Names that start with a dot are skipped. Does not start a session. Re-running updates the
+# links and removes a pair whose folder is gone or is no longer a repo.
 param(
     [string]$ActiveDir,
     [string]$LinkDir,
@@ -27,7 +28,7 @@ $close = Join-Path $PSScriptRoot 'rc-close.ps1'
 $r = Write-RcShortcuts -ActiveDir $ActiveDir -LinkDir $LinkDir -OpenScript $open -CloseScript $close
 foreach ($e in @($r.Errors)) { Write-Host "  [FAIL] $e" -ForegroundColor Red }
 if ($r.Ok) {
-    Write-Host "  [ OK ] $($r.Projects) project folder(s); $($r.Created) created, $($r.Updated) updated, $($r.Removed) removed" -ForegroundColor Green
+    Write-Host "  [ OK ] $($r.Projects) git repo(s); $($r.Created) created, $($r.Updated) updated, $($r.Removed) removed" -ForegroundColor Green
 }
 Write-Host ''
 Write-Host "Start a project with its 'Start Claude remote - <folder>' shortcut. 'Stop Claude remote - <folder>' stops that session by folder and name, not by session id." -ForegroundColor DarkGray
