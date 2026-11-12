@@ -2,6 +2,9 @@
 # Start a Claude Code remote-control session for one project folder.
 # No prompt: the session stays up until rc-close.ps1 stops it.
 # --bg assigns the session id itself and ignores --session-id, so this session is named rc-<folder>.
+# Success means the named session is listed by `claude agents --json`, not merely that
+# `claude --bg` printed "backgrounded". A cold start otherwise loses the session when
+# Claude updates claude.exe and the background service restarts for that upgrade.
 param(
     [Parameter(Mandatory = $true)][string]$Repo,
     [switch]$NoPause
@@ -44,36 +47,27 @@ if (-not $ClaudeExe) {
     exit 1
 }
 
-$safe = ($name -replace '[^\w.-]', '-')
-$outFile = Join-Path $env:TEMP "rc-open-$safe.out.txt"
-$errFile = Join-Path $env:TEMP "rc-open-$safe.err.txt"
 try {
-    $p = Start-Process -FilePath $ClaudeExe -ArgumentList @('--bg', '--remote-control', '--name', $name) `
-        -WorkingDirectory $repoPath -WindowStyle Hidden -PassThru -ErrorAction Stop `
-        -RedirectStandardOutput $outFile -RedirectStandardError $errFile
-    $exited = $p.WaitForExit(30000)
-    $outText = ''
-    $errText = ''
-    if (Test-Path -LiteralPath $outFile) { $outText = [IO.File]::ReadAllText($outFile) }
-    if (Test-Path -LiteralPath $errFile) { $errText = [IO.File]::ReadAllText($errFile) }
-    foreach ($line in (($outText + "`n" + $errText) -split "`r?`n")) {
-        if ($line.Trim()) { Write-Info $line }
-    }
-    if (-not $exited) {
-        Write-Warn "claude --bg --remote-control still running after 30 s (left running, name $name)"
-    } elseif ($p.ExitCode -ne 0) {
-        Write-Bad "claude exited $($p.ExitCode) before the session stayed up (name $name)"
-        Wait-BridgeClose -NoPause:$NoPause
-        exit 1
-    } else {
-        $id = Get-RcBackgroundId $outText
-        if ($id) { Write-Ok "started Claude remote control in $repoPath (name $name, session $id)" }
-        else { Write-Ok "started Claude remote control in $repoPath (name $name)" }
-    }
+    $launch = Invoke-RcRemoteLaunch -InvokeCli (New-RcClaudeInvoker -ClaudeExe $ClaudeExe -RepoPath $repoPath) `
+        -RepoPath $repoPath -SessionName $name -GetBinaryStamp { Get-RcBinaryStamp $ClaudeExe }
 } catch {
     Write-Bad "could not start Claude remote control: $($_.Exception.Message)"
     Wait-BridgeClose -NoPause:$NoPause
     exit 1
+}
+foreach ($line in @($launch.Log)) { if ($line) { Write-Info $line } }
+foreach ($line in ("$($launch.Output)" -split "`r?`n")) { if ($line.Trim()) { Write-Info $line.Trim() } }
+if (-not $launch.Ok) {
+    Write-Bad "$($launch.Detail)"
+    Wait-BridgeClose -NoPause:$NoPause
+    exit 1
+}
+if ($launch.Starts -eq 0) {
+    Write-Ok "already running ($name)"
+} elseif ($launch.SessionId) {
+    Write-Ok "started Claude remote control in $repoPath (name $name, session $($launch.SessionId))"
+} else {
+    Write-Ok "started Claude remote control in $repoPath (name $name)"
 }
 Wait-BridgeClose -NoPause:$NoPause
 exit 0
