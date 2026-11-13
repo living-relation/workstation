@@ -21,6 +21,7 @@ install.ps1 fills these placeholders at install time. Nothing here holds memory 
 | `working-memory-CLAUDE.md` | `<Projects>\_claude\Claude Projects\Working Memory\CLAUDE.md` | created if missing, else appended if the marker is missing |
 | `projects-AGENTS.md` | `<Projects>\AGENTS.md` (the one root guide; there is no root `CLAUDE.md`) | created if missing, else only its marked memory + bridge section is appended if the marker is missing. Skipped (WARN) while a root `CLAUDE.md` that already has the marker still exists: merge it first (REORGANIZE.md step 5) |
 | `claude-shared-memory.mdc` | `~\.cursor\rules\claude-shared-memory.mdc` | created if missing, else the body is appended if the marker is missing |
+| `app-locks.md` | `~\.claude\CLAUDE.md`, `~\.cursor\rules\claude-shared-memory.mdc`, an existing `repo-rules.mdc`, and `<Projects>\AGENTS.md` | appended when `<!-- app-locks:v1 -->` is missing and the file does not already say acquire, check in, and release for Fusion and harness.design. uninstall removes it only if install added it |
 | `MEMORY.md` | `<store>\MEMORY.md` | created only if missing |
 | `unassigned-INDEX.md` | `<store>\_unassigned\INDEX.md` | created only if missing |
 | `repo-agent-rule.md` | the top of each repo's `AGENTS.md` (or its `CLAUDE.md` when that is the only guide) | pasted by hand during migration, not by install.ps1; adapt the guide / decisions file names per repo. Existing installs are not refreshed: install only appends a marked block when the marker is missing |

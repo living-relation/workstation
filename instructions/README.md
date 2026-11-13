@@ -46,3 +46,5 @@ cannot check them.
 `repo-rules.mdc` is the Cursor user-rule version of the repo-rules section (copy to `~/.cursor/rules/`).
 
 `state-sot.mdc` is a one-line alwaysApply Cursor rule: read and keep current the project's state and source of truth (copy to `~/.cursor/rules/`).
+
+The Fusion lock and the harness.design lock are in `cowork-global-instructions.md`, `instructions-for-claude.md`, `cursor-user-rules.md` (inside the paste block), and `repo-rules.mdc`. Re-paste or re-copy those after pulling. On-disk copies are checked by `workstation\shortcuts\workstation-status.ps1 -Locks`.

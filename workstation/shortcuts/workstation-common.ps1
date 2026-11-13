@@ -591,3 +591,239 @@ function Show-Automations {
     else { Write-Ok 'retired items absent (Run CursorWorker; tasks Cursor-Worker, Cursor-Worker-Health, ClaudeCode-RemoteControl, Workstation-Watcher)' }
     if ($denied) { Write-Warn "can't read without admin: task $($denied -join ', ')" }
 }
+
+# ---- App locks (Fusion + harness.design), read-only --------------------------------------
+# One PC check for every Windows profile that has Claude Code, Cursor, or Claude Desktop.
+# Prints PASS, FAIL, or SKIP per item. Returns the FAIL count. Does not take or delete a lock.
+# Test seam: WORKSTATION_LOCKCHECK_USERS = a folder of fake profiles.
+#            WORKSTATION_LOCKCHECK_SCRIPT = lock script to run instead of this clone's.
+
+function Join-ProfilePath([string]$Profile, [string[]]$Parts) {
+    $p = $Profile
+    foreach ($part in $Parts) { if ($part) { $p = Join-Path $p $part } }
+    return $p
+}
+function Test-LockRuleComplete([string]$Text) {
+    if (-not $Text) { return $false }
+    return ($Text -match '(?i)\bacquire\b' -and $Text -match '(?i)(check-?in|check in)\b' -and $Text -match '(?i)\brelease\b' -and $Text -match '(?i)\bfusion\b' -and $Text -match '(?i)harness\.design')
+}
+function Get-LockRuleGaps([string]$Text) {
+    $gaps = New-Object System.Collections.Generic.List[string]
+    if ($Text -notmatch '(?i)\bacquire\b') { [void]$gaps.Add('acquire') }
+    if ($Text -notmatch '(?i)(check-?in|check in)\b') { [void]$gaps.Add('check-in') }
+    if ($Text -notmatch '(?i)\brelease\b') { [void]$gaps.Add('release') }
+    if ($Text -notmatch '(?i)\bfusion\b') { [void]$gaps.Add('Fusion') }
+    if ($Text -notmatch '(?i)harness\.design') { [void]$gaps.Add('harness.design') }
+    return @($gaps)
+}
+# True when an allow rule grants write to this profile user, the current user, or Users,
+# and no matching deny rule takes it away. $Rules is the .Access collection from Get-Acl.
+function Test-AclAllowsWrite($Rules, [string]$ProfileLeaf, [string[]]$IdentityNames) {
+    $deny = $false
+    $allow = $false
+    foreach ($rule in @($Rules)) {
+        $rights = "$($rule.FileSystemRights)"
+        if ($rights -notmatch 'Write|Modify|FullControl') { continue }
+        $id = "$($rule.IdentityReference)"
+        $hit = $false
+        if ($id -match '(?i)(^|\\)(Users|Everyone|Authenticated Users)$') { $hit = $true }
+        if ($ProfileLeaf -and (($id -eq $ProfileLeaf) -or ($id -like "*\$ProfileLeaf"))) { $hit = $true }
+        foreach ($n in @($IdentityNames)) {
+            if ($n -and (($id -eq $n) -or ($id -like "*\$n"))) { $hit = $true }
+        }
+        if (-not $hit) { continue }
+        if ("$($rule.AccessControlType)" -eq 'Deny') { $deny = $true } else { $allow = $true }
+    }
+    if ($deny) { return $false }
+    return [bool]$allow
+}
+function Get-CurrentIdentityNames {
+    $names = New-Object System.Collections.Generic.List[string]
+    if ($env:USERNAME) { [void]$names.Add([string]$env:USERNAME) }
+    if ($env:USERDOMAIN -and $env:USERNAME) { [void]$names.Add("$($env:USERDOMAIN)\$($env:USERNAME)") }
+    try {
+        $me = [Security.Principal.WindowsIdentity]::GetCurrent()
+        if ($me.Name) { [void]$names.Add([string]$me.Name) }
+        if ($me.User) { [void]$names.Add([string]$me.User) }
+        foreach ($g in @($me.Groups)) { if ($g) { [void]$names.Add([string]$g) } }
+    } catch { }
+    return @($names | Where-Object { $_ } | Select-Object -Unique)
+}
+# Read-only on Windows (ACL). A write probe is used only when Get-Acl does not exist, and the probe file is removed.
+function Test-ProfileFolderWritable([string]$Folder, [string]$ProfileLeaf) {
+    $path = $Folder
+    while ($path -and -not (Test-Path -LiteralPath $path)) {
+        $parent = Split-Path -Parent $path
+        if (-not $parent -or $parent -eq $path) { $path = $null; break }
+        $path = $parent
+    }
+    if (-not $path) { return @{ Ok = $false; Why = 'lock folder and its parents are missing' } }
+    if (Get-Command Get-Acl -ErrorAction SilentlyContinue) {
+        try {
+            $acl = Get-Acl -LiteralPath $path
+            if (Test-AclAllowsWrite $acl.Access $ProfileLeaf (Get-CurrentIdentityNames)) { return @{ Ok = $true; Why = $path } }
+            return @{ Ok = $false; Why = "no write rule for $ProfileLeaf on $path" }
+        } catch { return @{ Ok = $false; Why = "can't read permissions on ${path}: $($_.Exception.Message)" } }
+    }
+    try {
+        $probe = Join-Path $path ('.lockcheck-' + [guid]::NewGuid().ToString('N'))
+        [IO.File]::WriteAllText($probe, 'ok')
+        Remove-Item -LiteralPath $probe -Force
+        return @{ Ok = $true; Why = $path }
+    } catch { return @{ Ok = $false; Why = $_.Exception.Message } }
+}
+function Get-LockCheckProfiles {
+    if ($env:WORKSTATION_LOCKCHECK_USERS) {
+        if (-not (Test-Path -LiteralPath $env:WORKSTATION_LOCKCHECK_USERS)) { return @() }
+        return @(Get-ChildItem -LiteralPath $env:WORKSTATION_LOCKCHECK_USERS -Force -Directory | ForEach-Object { $_.FullName })
+    }
+    $paths = @()
+    try {
+        $paths = @(Get-CimInstance Win32_UserProfile -ErrorAction Stop | Where-Object { -not $_.Special -and $_.LocalPath } | ForEach-Object { [string]$_.LocalPath })
+    } catch { }
+    if (-not $paths -and $env:USERPROFILE) { $paths = @($env:USERPROFILE) }
+    $skip = @('public', 'default', 'default user', 'all users', 'defaultaccount', 'wdagutilityaccount')
+    return @($paths | Where-Object { $_ -and (Test-Path -LiteralPath $_) -and ($skip -notcontains (Split-Path -Leaf $_).ToLower()) })
+}
+function Get-ProfileProjectsRoot([string]$Profile) {
+    $cfg = Join-ProfilePath $Profile @('AppData', 'Local', $WsStateName, $WsConfigName)
+    if (-not (Test-Path -LiteralPath $cfg)) { return $null }
+    try { return ([string](Get-Content -LiteralPath $cfg -Raw | ConvertFrom-Json).projectsRoot).TrimEnd('\', '/') } catch { return $null }
+}
+function Show-AppLocks {
+    $box = @{ n = 0 }
+    function Add-Item([string]$State, [string]$Msg) {
+        Write-Host ("{0}  {1}" -f $State, $Msg)
+        if ($State -eq 'FAIL') { $box.n++ }
+    }
+    function Add-RuleFile([string]$Label, [string]$Path) {
+        if (-not (Test-Path -LiteralPath $Path)) { Add-Item 'FAIL' "$Label missing: $Path"; return }
+        try { $text = [IO.File]::ReadAllText($Path) } catch { Add-Item 'FAIL' "$Label unreadable: $Path ($($_.Exception.Message))"; return }
+        if (Test-LockRuleComplete $text) { Add-Item 'PASS' "$Label has acquire, check-in, and release for Fusion and harness.design: $Path" }
+        else { Add-Item 'FAIL' "$Label missing [$($(Get-LockRuleGaps $text) -join ', ')]: $Path" }
+    }
+    Write-Host 'App locks (read-only): Fusion and harness.design' -ForegroundColor Cyan
+    $selfScript = Join-Path $BridgeRoot 'fusion-lock\fusion-lock.ps1'
+    if ($env:WORKSTATION_LOCKCHECK_SCRIPT) { $selfScript = $env:WORKSTATION_LOCKCHECK_SCRIPT }
+    $scripts = New-Object System.Collections.Generic.List[string]
+    $seenScript = @{}
+    if ($selfScript -and -not $seenScript.ContainsKey($selfScript.ToLower())) { [void]$scripts.Add($selfScript); $seenScript[$selfScript.ToLower()] = $true }
+
+    $profiles = @(Get-LockCheckProfiles)
+    $roots = New-Object System.Collections.Generic.List[string]
+    $seenRoot = @{}
+    $profilesWithApps = 0
+    foreach ($profile in $profiles) {
+        $leaf = Split-Path -Leaf $profile
+        $hasClaude = Test-Path -LiteralPath (Join-Path $profile '.claude')
+        $hasCursor = Test-Path -LiteralPath (Join-Path $profile '.cursor')
+        $desktopDirs = @(
+            (Join-ProfilePath $profile @('AppData', 'Roaming', 'Claude')),
+            (Join-ProfilePath $profile @('AppData', 'Local', 'Claude-Data')),
+            (Join-ProfilePath $profile @('AppData', 'Local', 'AnthropicClaude'))
+        )
+        $hasDesktop = $false
+        foreach ($d in $desktopDirs) { if (Test-Path -LiteralPath $d) { $hasDesktop = $true } }
+        if (-not ($hasClaude -or $hasCursor -or $hasDesktop)) { continue }
+        $profilesWithApps++
+        $folder = Join-ProfilePath $profile @('AppData', 'Local', $WsStateName)
+        $w = Test-ProfileFolderWritable $folder $leaf
+        if ($w.Ok) { Add-Item 'PASS' "$leaf lock folder writable: $($w.Why)" }
+        else { Add-Item 'FAIL' "$leaf lock folder not writable ($folder): $($w.Why)" }
+
+        if ($hasClaude) { Add-RuleFile "$leaf Claude Code CLAUDE.md" (Join-ProfilePath $profile @('.claude', 'CLAUDE.md')) }
+        if ($hasCursor) {
+            $rulesDir = Join-ProfilePath $profile @('.cursor', 'rules')
+            $ruleFiles = @()
+            if (Test-Path -LiteralPath $rulesDir) {
+                $ruleFiles = @(Get-ChildItem -LiteralPath $rulesDir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match '^\.(mdc|md)$' })
+            }
+            foreach ($extraName in @('user-rules.md', 'rules.md')) {
+                $extra = Join-ProfilePath $profile @('.cursor', $extraName)
+                if (Test-Path -LiteralPath $extra) { $ruleFiles += @(Get-Item -LiteralPath $extra) }
+            }
+            if (-not $ruleFiles) { Add-Item 'FAIL' "$leaf Cursor rules: .cursor exists but no .mdc/.md rule file was found" }
+            else {
+                $hit = $null
+                foreach ($rf in $ruleFiles) {
+                    try { $t = [IO.File]::ReadAllText($rf.FullName) } catch { continue }
+                    if (Test-LockRuleComplete $t) { $hit = $rf.FullName; break }
+                }
+                if ($hit) { Add-Item 'PASS' "$leaf Cursor rules have acquire, check-in, and release for Fusion and harness.design: $hit" }
+                else { Add-Item 'FAIL' "$leaf Cursor rules: none of the $($ruleFiles.Count) file(s) under .cursor have acquire, check-in, and release for Fusion and harness.design" }
+            }
+            Add-Item 'SKIP' "$leaf Cursor account User Rules are not a file on disk (they follow the Cursor account). Checked .cursor rules files."
+        }
+        if ($hasDesktop) {
+            $found = @()
+            $names = @('CLAUDE.md', 'instructions.md', 'instructions-for-claude.md', 'cowork-global-instructions.md', 'global-instructions.md')
+            foreach ($d in $desktopDirs) {
+                if (-not (Test-Path -LiteralPath $d)) { continue }
+                foreach ($name in $names) {
+                    $one = Join-Path $d $name
+                    if (Test-Path -LiteralPath $one -PathType Leaf) { $found += $one }
+                }
+                foreach ($sub in @(Get-ChildItem -LiteralPath $d -Directory -ErrorAction SilentlyContinue)) {
+                    foreach ($name in $names) {
+                        $one = Join-Path $sub.FullName $name
+                        if (Test-Path -LiteralPath $one -PathType Leaf) { $found += $one }
+                    }
+                }
+            }
+            if (-not $found) { Add-Item 'SKIP' "$leaf Claude Desktop/Cowork instructions are not a file (account box). Paste instructions\cowork-global-instructions.md and instructions\instructions-for-claude.md by hand." }
+            else {
+                foreach ($f in $found) { Add-RuleFile "$leaf Claude Desktop/Cowork" $f }
+            }
+        }
+        $root = Get-ProfileProjectsRoot $profile
+        if (-not $root) { Add-Item 'FAIL' "$leaf projects AGENTS.md: no projectsRoot in $(Join-ProfilePath $profile @('AppData', 'Local', $WsStateName, $WsConfigName))" }
+        elseif (-not $seenRoot.ContainsKey($root.ToLower())) { [void]$roots.Add($root); $seenRoot[$root.ToLower()] = $true }
+    }
+    if (-not $profilesWithApps) { Add-Item 'FAIL' 'no Windows profile with Claude Code, Cursor, or Claude Desktop was found to check' }
+
+    if (-not $env:WORKSTATION_LOCKCHECK_SCRIPT) {
+        foreach ($root in @($roots)) {
+            $active = Join-Path $root 'active'
+            if (-not (Test-Path -LiteralPath $active)) { continue }
+            foreach ($d in @(Get-ChildItem -LiteralPath $active -Directory -ErrorAction SilentlyContinue)) {
+                $cand = Join-Path $d.FullName (Join-Path 'workstation' (Join-Path 'fusion-lock' 'fusion-lock.ps1'))
+                if ((Test-Path -LiteralPath $cand) -and -not $seenScript.ContainsKey($cand.ToLower())) { [void]$scripts.Add($cand); $seenScript[$cand.ToLower()] = $true }
+            }
+        }
+    }
+    if (-not $scripts.Count) { Add-Item 'FAIL' 'lock script not found' }
+    foreach ($scriptPath in @($scripts)) {
+        if (-not (Test-Path -LiteralPath $scriptPath)) { Add-Item 'FAIL' "lock script missing: $scriptPath"; continue }
+        $pairs = @(
+            ,@('fusion', 'Fusion')
+            ,@('harness-design', 'harness.design')
+        )
+        foreach ($pair in $pairs) {
+            $arg = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath, 'status')
+            if ($pair[0] -ne 'fusion') { $arg += @('-Name', $pair[0]) }
+            $out = & powershell @arg 2>&1
+            $code = $LASTEXITCODE
+            $text = (($out | ForEach-Object { "$_" }) -join ' ')
+            if ($code -in 0, 1) { Add-Item 'PASS' "$($pair[1]) lock script runs (status exit $code): $scriptPath" }
+            else { Add-Item 'FAIL' "$($pair[1]) lock script status failed (exit $code): $scriptPath $text" }
+        }
+    }
+
+    $ruleSeen = @{}
+    $shared = Join-Path (Split-Path -Parent $BridgeRoot) (Join-Path 'agents' 'projects-AGENTS.md')
+    Add-RuleFile 'projects AGENTS.md (shared rules)' $shared
+    $ruleSeen[$shared.ToLower()] = $true
+    foreach ($root in @($roots)) {
+        $agents = Join-Path $root 'AGENTS.md'
+        if (-not $ruleSeen.ContainsKey($agents.ToLower())) { Add-RuleFile 'projects AGENTS.md' $agents; $ruleSeen[$agents.ToLower()] = $true }
+        $active = Join-Path $root 'active'
+        if (-not (Test-Path -LiteralPath $active)) { continue }
+        foreach ($d in @(Get-ChildItem -LiteralPath $active -Directory -ErrorAction SilentlyContinue)) {
+            $one = Join-Path $d.FullName (Join-Path 'agents' 'projects-AGENTS.md')
+            if ((Test-Path -LiteralPath $one) -and -not $ruleSeen.ContainsKey($one.ToLower())) { Add-RuleFile 'projects AGENTS.md (shared rules)' $one; $ruleSeen[$one.ToLower()] = $true }
+        }
+    }
+    Add-Item 'SKIP' 'Grok Bot: this repo does not track a separate instruction file. Grok reads agents/projects-AGENTS.md (checked above).'
+    if ($box.n) { Write-Host "FAIL  $($box.n) item(s)" } else { Write-Host 'PASS  all checked items' }
+    return [int]$box.n
+}

@@ -71,6 +71,10 @@ Write the handoff into the repo state file. A paste block in chat is a copy, not
 - Files added or changed, uncommitted changes, and the steps to get the repo up to date
 - Key docs to read first, gotchas, unresolved questions, and next steps
 
+## App locks
+- Before driving Autodesk Fusion, hold the per-PC Fusion lock: section 5 "Fusion lock" in the workstation repo agents/projects-AGENTS.md. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand.
+- Before driving the harness.design desktop app, hold the per-PC harness.design lock: section 5b in that same file. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand. MCP cloud tools do not need the lock. An agent delete goes through the desktop app under the lock.
+
 ## End of every turn (skip any that don't apply)
 1. ✅ What you did this turn
 2. ➡️ What's next
