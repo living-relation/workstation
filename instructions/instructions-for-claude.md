@@ -54,6 +54,10 @@ Every handoff must let a new session rebuild context fast. Write it into the rep
 ## Context limits
 When you reach about 85% of the context window, tell me and give a compact state handoff.
 
+## App locks
+- Before driving Autodesk Fusion, hold the per-PC Fusion lock: section 5 "Fusion lock" in the workstation repo agents/projects-AGENTS.md. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand.
+- Before driving the harness.design desktop app, hold the per-PC harness.design lock: section 5b in that same file. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand. MCP cloud tools do not need the lock. An agent delete goes through the desktop app under the lock.
+
 ## Repos
 - Follow each repo's own rules: read its AGENTS.md, CLAUDE.md, CONTRIBUTING.md, decisions log, hooks and CI before changing anything.
 - Never bypass a hook or gate without my explicit yes: no `--no-verify`, no skipping CI, no direct pushes of generated or bot-owned files.

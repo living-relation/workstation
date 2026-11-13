@@ -15,6 +15,10 @@
     (only after the user reviewed the preflight report). -WhatIf runs preflight too.
   - Never moves or deletes folders, never overwrites memory or starter files.
   - Appends memory sections to rule files only when the marker <!-- shared-memory:v1 --> is missing.
+  - Appends the Fusion and harness.design lock rules (<!-- app-locks:v1 -->) to ~\.claude\CLAUDE.md,
+    ~\.cursor\rules\claude-shared-memory.mdc, an existing repo-rules.mdc, and <Projects>\AGENTS.md
+    when that marker is missing and the file does not already say acquire, check in, and release
+    for both. uninstall removes only a block this install added.
   - Backs up ~\.claude\settings.json and ~\.claude.json (timestamped .bak next to each) before changing them.
   - Sets Claude Code's Project instructions to claude-md-and-agents-md (read CLAUDE.md AND AGENTS.md) in
     ~\.claude\settings.json > pluginConfigs (plugin cc-plugin-agents-md@builtin, or agents-md@builtin before
@@ -301,6 +305,27 @@ function Add-MemoryBlock([string]$Path, [string]$TemplateName, [switch]$CreateIf
     Backup-File $Path
     [IO.File]::AppendAllText($Path, $add, $Utf8NoBom)
     Add-ManifestJson @{ kind = 'section'; path = $Path; created = $false }
+  }
+}
+# Appends the app-lock block. Skips a file that already has the marker or the full rule text.
+function Test-AppLockText([string]$Text) {
+  if (-not $Text) { return $false }
+  return ($Text -match '(?i)\bacquire\b' -and $Text -match '(?i)(check-?in|check in)\b' -and $Text -match '(?i)\brelease\b' -and $Text -match '(?i)\bfusion\b' -and $Text -match '(?i)harness\.design')
+}
+function Add-AppLockBlock([string]$Path) {
+  $marker = '<!-- app-locks:v1 -->'
+  if (-not (Test-Path -LiteralPath $Path)) { Note 'SKIP' "app locks not added (file missing): $Path"; return }
+  $existing = [IO.File]::ReadAllText($Path)
+  if ($existing.Contains($marker)) { Note 'OK' "app lock section already present: $Path"; return }
+  if (Test-AppLockText $existing) { Note 'OK' "lock rule already in the text: $Path"; return }
+  $block = Get-Template 'app-locks.md'
+  $nl = if ($existing.Contains("`r`n") -or -not $existing.Contains("`n")) { "`r`n" } else { "`n" }
+  $prefix = if ($existing.Length -eq 0 -or $existing.EndsWith("`n")) { $nl } else { $nl + $nl }
+  $add = ConvertTo-Newline ($prefix + $block.TrimStart("`n")) $nl
+  Invoke-Change "append app lock section to: $Path (backup in $BackupDir)" {
+    Backup-File $Path
+    [IO.File]::AppendAllText($Path, $add, $Utf8NoBom)
+    Add-ManifestJson @{ kind = 'app-locks'; path = $Path }
   }
 }
 function Copy-PackageFile([string]$Source, [string]$Dest) {
@@ -957,6 +982,13 @@ if (Test-Path -LiteralPath $RootClaudeMd) {
 $rootAgentsMarked = (Test-Path -LiteralPath $RootAgentsMd) -and ([IO.File]::ReadAllText($RootAgentsMd)).Contains($Marker)
 if ($rootClaudeMarked -and -not $rootAgentsMarked) { Note 'SKIP' "memory section not added to ${RootAgentsMd}: the root CLAUDE.md already has it (no second copy). It moves over with the merge." }
 else { Add-MemoryBlock $RootAgentsMd 'projects-AGENTS.md' -CreateIfMissing }
+# Fusion + harness.design lock rules. Existing files get the block on the next install (the memory
+# marker is not rewritten). Paste texts in instructions\ are still updated by hand.
+Add-AppLockBlock (Join-Path $DotClaude 'CLAUDE.md')
+Add-AppLockBlock $CursorRule
+$RepoRulesMdc = Join-Path $UserHome '.cursor\rules\repo-rules.mdc'
+if (Test-Path -LiteralPath $RepoRulesMdc) { Add-AppLockBlock $RepoRulesMdc }
+Add-AppLockBlock $RootAgentsMd
 # Claude's instruction texts (instructions\ in the package) are pasted by hand; install never edits them.
 # Instructions for Claude are account-level (not on disk): only a reminder.
 # Cowork / Chat no longer write local memory (personal account verified 2026-11-03; work account unverified),

@@ -12,6 +12,7 @@
   From the manifest:
   - memory sections (between <!-- shared-memory:v1 --> markers) install created or appended; a file install created
     that holds nothing else is removed. A marked section that was already there stays, markers included,
+  - the Fusion / harness.design lock block (<!-- app-locks:v1 -->) only when the manifest says install added it,
   - in ~\.claude\settings.json: the SessionStart guard hook install added; autoMemoryDirectory put back to the value
     it had before install (or removed if there was none; left alone if it changed since); the 80% handoff hook
     entries (a re-pointed entry gets its old command back); the statusLine while it is still the one install set;
@@ -223,7 +224,22 @@ Write-Host "  User home     : $UserHome"
 Write-Host "  Projects root : $ProjectsRoot"
 Write-Host ''
 
+# Removes only an app-lock block the manifest says this package appended. The rest of the file stays.
+function Remove-AppLockBlock([string]$Path) {
+  if (-not (Test-Path -LiteralPath $Path)) { return }
+  $start = '<!-- app-locks:v1 -->'
+  $end = '<!-- /app-locks:v1 -->'
+  $t = [IO.File]::ReadAllText($Path)
+  if (-not $t.Contains($start)) { Note 'OK' "no app lock section: $Path"; return }
+  # Drop the block and one trailing newline. Leave the line above it so two words are not glued together.
+  $pattern = '(?s)' + [regex]::Escape($start) + '.*?' + [regex]::Escape($end) + '[ \t]*\r?\n?'
+  $new = [regex]::Replace($t, $pattern, '')
+  if ($new.Contains($start)) { Note 'WARN' "app lock start marker without end marker, left alone: $Path"; return }
+  $nl = if ($t.Contains("`r`n")) { "`r`n" } else { "`n" }
+  Invoke-Change "remove app lock section from: $Path" { Backup-File $Path; [IO.File]::WriteAllText($Path, ($new.TrimEnd() + $nl), $Utf8NoBom) }
+}
 # 1. Rule files
+foreach ($rec in @($ManifestJson | Where-Object { $_.kind -eq 'app-locks' -and $_.path })) { Remove-AppLockBlock ([string]$rec.path) }
 Remove-MemoryBlock (Join-Path $DotClaude 'CLAUDE.md')
 Remove-MemoryBlock (Join-Path $UserHome '.cursor\rules\claude-shared-memory.mdc')
 Remove-MemoryBlock (Join-Path $WorkingMem 'CLAUDE.md')

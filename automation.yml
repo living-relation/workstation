@@ -112,9 +112,9 @@ automations:
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File claude/tests/test-claude-setup.ps1
   - id: workstation-shortcuts
     script: [workstation/shortcuts/claude-root-start.ps1, workstation/shortcuts/claude-root-stop.ps1, workstation/shortcuts/retire-cursor-worker.ps1, workstation/shortcuts/workstation-status.ps1, workstation/shortcuts/dashboard.ps1, workstation/shortcuts/pull.ps1, pull.cmd, workstation/shortcuts/rc-generate.ps1, workstation/shortcuts/rc-open.ps1, workstation/shortcuts/rc-close.ps1, workstation/shortcuts/rc-restart-all.ps1]
-    helpers: [workstation/shortcuts/workstation-common.ps1, workstation/shortcuts/claude-auth-status.ps1, workstation/shortcuts/tests/test-claude-auth-status.ps1, workstation/shortcuts/rc-lib.ps1, workstation/shortcuts/tests/test-rc-shortcuts.ps1, workstation/paths.ps1, workstation/repo-status.ps1, workstation/repo-branch.ps1]
+    helpers: [workstation/shortcuts/workstation-common.ps1, workstation/shortcuts/claude-auth-status.ps1, workstation/shortcuts/tests/test-claude-auth-status.ps1, workstation/shortcuts/rc-lib.ps1, workstation/shortcuts/tests/test-rc-shortcuts.ps1, workstation/shortcuts/tests/test-app-locks.ps1, workstation/paths.ps1, workstation/repo-status.ps1, workstation/repo-branch.ps1]
     trigger: manual
-    reads: [LOCALAPPDATA Workstation workstation.json, project repos (read-only status)]
+    reads: [LOCALAPPDATA Workstation workstation.json, project repos (read-only status), Windows profiles' agent instruction files (workstation-status.ps1 -Locks, read-only)]
     writes: [LOCALAPPDATA Workstation Claude remote state file (retire-cursor-worker.ps1 deletes the old stop flag); pull.cmd/pull.ps1 fast-forward this clone only; shortcuts/rc/*.lnk gitignored from rc-generate.ps1]
     committed: no
     auto_commit: false
@@ -164,10 +164,10 @@ automations:
     enabled: true
   - id: fusion-lock
     script: workstation/fusion-lock/fusion-lock.ps1
-    helpers: [workstation/fusion-lock/tests/test-fusion-lock.ps1, workstation/paths.ps1]
+    helpers: [workstation/fusion-lock/tests/test-fusion-lock.ps1, workstation/fusion-lock/tests/test-harness-lock.ps1, workstation/paths.ps1]
     trigger: manual
-    reads: [LOCALAPPDATA Workstation fusion.lock, AutodeskFusionMCP add-in at 127.0.0.1:8765 (read-only document list, check only)]
-    writes: [LOCALAPPDATA Workstation fusion.lock and fusion-lock.log; hidden pinger process (acquire -StartPinger)]
+    reads: [LOCALAPPDATA Workstation fusion.lock (default) or harness-design.lock (-Name harness-design), AutodeskFusionMCP add-in at 127.0.0.1:8765 (Fusion check only), harness.design.exe window titles (harness.design check only)]
+    writes: [LOCALAPPDATA Workstation fusion.lock and fusion-lock.log by default; harness-design.lock and harness-design-lock.log when -Name harness-design; hidden pinger process (acquire -StartPinger)]
     committed: no
     auto_commit: false
     enabled: true
