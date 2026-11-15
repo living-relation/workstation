@@ -1,9 +1,14 @@
 # Shared rules for the Desktop Commander phone remote. Dot-source only.
 # One remote per PC. It serves every chat and project. Manual start only.
 # Windows PowerShell 5.1, ASCII only.
-# A copy is healthy when its parent process is alive AND its console is alive.
-# The copy we keep is the newest healthy one. Every other copy is a leftover
-# (a duplicate, or a stale copy whose parent or console is gone).
+# On Windows one copy is a chain: cmd -> npx node -> cmd -> node remote.
+# That chain is one copy. The wrappers are not extra copies.
+# A copy is healthy when the remote's parent is alive AND its console is alive.
+# Leave a working copy alone. Offer to stop a copy whose terminal is gone,
+# or an extra copy when more than one remote is running (keep the newest).
+# Stopping uses taskkill /T on that copy's own outer cmd, never on a wrapper
+# of the copy we are keeping. Claude's Desktop Commander plugin (no remote
+# argument) is not a copy.
 
 function Get-TrackedProcesses {
     if ($env:WORKSTATION_FAKE_PROCS) {
@@ -59,11 +64,98 @@ function Test-ConsoleAlive($Proc, $Procs) {
     return $false
 }
 
+function Get-DcProcIndex($Procs) {
+    $byId = @{}
+    $kids = @{}
+    foreach ($p in @($Procs)) {
+        $id = 0
+        try { $id = [int]$p.ProcessId } catch { continue }
+        if ($id -le 0) { continue }
+        $byId["$id"] = $p
+        $pp = 0
+        try { $pp = [int]$p.ParentProcessId } catch { $pp = 0 }
+        $pk = "$pp"
+        if (-not $kids.ContainsKey($pk)) { $kids[$pk] = New-Object System.Collections.Generic.List[string] }
+        [void]$kids[$pk].Add("$id")
+    }
+    return @{ ById = $byId; Kids = $kids }
+}
+
+# Descendant process ids (not including StartId). Keys are strings.
+function Get-DcDescendantIds([int]$StartId, $Kids) {
+    $seen = @{}
+    $pending = New-Object System.Collections.Generic.List[string]
+    [void]$pending.Add("$StartId")
+    $i = 0
+    $guard = 0
+    while ($i -lt $pending.Count -and $guard -lt 10000) {
+        $guard++
+        $id = $pending[$i]
+        $i++
+        if (-not $Kids.ContainsKey($id)) { continue }
+        foreach ($c in @($Kids[$id])) {
+            $ck = "$c"
+            if ($ck -eq "$StartId" -or $seen.ContainsKey($ck)) { continue }
+            $seen[$ck] = $true
+            [void]$pending.Add($ck)
+        }
+    }
+    return $seen
+}
+
+# A candidate with another candidate under it is a wrapper, not its own copy.
+function Get-DcLeafProcs($Candidates, $Index) {
+    $ids = @($Candidates | ForEach-Object { "$([int]$_.ProcessId)" })
+    $leaves = @()
+    foreach ($c in @($Candidates)) {
+        $id = "$([int]$c.ProcessId)"
+        $desc = Get-DcDescendantIds ([int]$id) $Index.Kids
+        $child = $false
+        foreach ($other in $ids) {
+            if ($other -ne $id -and $desc.ContainsKey($other)) { $child = $true; break }
+        }
+        if (-not $child) { $leaves += $c }
+    }
+    return @($leaves)
+}
+
+# Outer cmd of this copy only. Does not climb into another copy or into Claude.
+function Get-DcChainRootId([int]$LeafId, $Index, [string[]]$LeafIds) {
+    $root = $LeafId
+    $cur = "$LeafId"
+    for ($n = 0; $n -lt 8; $n++) {
+        $proc = $Index.ById[$cur]
+        if (-not $proc) { break }
+        $pp = 0
+        try { $pp = [int]$proc.ParentProcessId } catch { break }
+        if ($pp -le 0 -or "$pp" -eq $cur) { break }
+        $parent = $Index.ById["$pp"]
+        if (-not $parent) { break }
+        $pname = "$($parent.Name)"
+        $isCmd = $pname -match '^(cmd|npx)(\.exe)?$'
+        $isNode = $pname -match '^node(\.exe)?$'
+        if (-not $isCmd -and -not $isNode) { break }
+        if ($isNode -and -not (Test-DcRemoteCommand "$($parent.CommandLine)")) { break }
+        $desc = Get-DcDescendantIds $pp $Index.Kids
+        $foreign = $false
+        foreach ($lid in @($LeafIds)) {
+            if ($lid -and $lid -ne "$LeafId" -and $desc.ContainsKey($lid)) { $foreign = $true; break }
+        }
+        if ($foreign) { break }
+        $root = $pp
+        $cur = "$pp"
+    }
+    return [int]$root
+}
+
 function Get-DcRemoteRows {
     param($Procs)
     if ($null -eq $Procs) { $Procs = @(Get-TrackedProcesses) }
-    $raw = @($Procs | Where-Object { Test-DcRemoteCommand "$($_.CommandLine)" })
-    $ordered = @($raw | Sort-Object @{ Expression = { Get-ProcStartTime $_ } }, @{ Expression = { [int]$_.ProcessId } })
+    $index = Get-DcProcIndex $Procs
+    $cands = @($Procs | Where-Object { Test-DcRemoteCommand "$($_.CommandLine)" })
+    $leaves = @(Get-DcLeafProcs $cands $index)
+    $leafIds = @($leaves | ForEach-Object { "$([int]$_.ProcessId)" })
+    $ordered = @($leaves | Sort-Object @{ Expression = { Get-ProcStartTime $_ } }, @{ Expression = { [int]$_.ProcessId } })
     $newestId = 0
     if ($ordered.Count) { $newestId = [int]$ordered[-1].ProcessId }
     $rows = @()
@@ -71,15 +163,17 @@ function Get-DcRemoteRows {
         $parentOk = Test-ParentAlive $p $Procs
         $consoleOk = Test-ConsoleAlive $p $Procs
         $healthy = $parentOk -and $consoleOk
+        $leafPid = [int]$p.ProcessId
         $rows += [pscustomobject]@{
-            Pid          = [int]$p.ProcessId
+            Pid          = $leafPid
+            StopPid      = (Get-DcChainRootId $leafPid $index $leafIds)
             Name         = "$($p.Name)"
             CommandLine  = "$($p.CommandLine)"
             StartTime    = Get-ProcStartTime $p
             ParentAlive  = [bool]$parentOk
             ConsoleAlive = [bool]$consoleOk
             Healthy      = [bool]$healthy
-            Newest       = ([int]$p.ProcessId -eq $newestId)
+            Newest       = ($leafPid -eq $newestId)
         }
     }
     $keepId = 0
@@ -98,6 +192,17 @@ function Get-DcRemoteRows {
 function Get-DcRemoteKeep($Rows) {
     $hit = @($Rows | Where-Object { $_.Keep }) | Select-Object -First 1
     return $hit
+}
+
+# taskkill /T target: the outer cmd of this copy, or the remote itself when it has no chain.
+function Get-DcStopPid($Row) {
+    if ($null -eq $Row) { return 0 }
+    if ($Row.PSObject.Properties.Name -contains 'StopPid') {
+        $n = 0
+        try { $n = [int]$Row.StopPid } catch { $n = 0 }
+        if ($n -gt 0) { return $n }
+    }
+    try { return [int]$Row.Pid } catch { return 0 }
 }
 
 # Leftovers Start will stop: every copy except the one healthy newest copy.

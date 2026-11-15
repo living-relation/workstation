@@ -18,17 +18,21 @@ Runtime files live in `%LOCALAPPDATA%\Workstation\`, never in the clone.
 **Nothing starts on its own.** No sign-in links, no scheduled tasks, no Run key.
 
 **Desktop Commander (manual, one phone remote per PC).** It serves every chat and project. The MCP plugin that
-Claude starts is separate and is not changed here. `install.ps1` creates three links in `shortcuts\` (gitignored):
+Claude starts is separate and is not changed here. `install.ps1` creates these manual links in `shortcuts\` (gitignored). Nothing starts at sign-in:
 
+- **Health check** runs `workstation\health\workstation-status.ps1`.
 - **Start Desktop Commander** runs `workstation\desktop-commander-remote\start-dc-remote.ps1 -Show`. It stops stale or duplicate phone-remote copies, then starts exactly one with `npx.cmd @wonderwhy-er/desktop-commander@latest remote`, or says the healthy copy is already online. It does not launch or remove the Desktop Commander desktop app. The MCP plugin is separate and starts with Claude.
 - **Stop Desktop Commander** stops the phone remote.
 - **DC remote status** lists each copy: PID, start time, whether its parent and console are alive, and an online / stale / duplicate verdict, plus the line `one copy serves all chats`.
+- **Kill orphaned remote processes** lists leftovers and asks once per item.
 
-A healthy copy has a live parent and a live console. Any extra copy is leftover. **Kill orphaned remote processes** (`workstation\kill-orphans.ps1`) lists leftovers and asks once per item. `-WhatIf` only lists. `-Force` stops them but never stops the newest remote unless you also pass `-IncludeActiveRemote`. The single healthy copy is never listed. Health check (`workstation\health\workstation-status.ps1`) says OK when zero or one remote is running, and warns only when extra copies or other leftovers are present. It also checks that the remote does not start at sign-in.
+On Windows one phone remote is a chain: cmd, then npx's node, then cmd, then the node remote. That chain is one copy. A healthy copy has a live parent and a live console. Leave that copy alone. Kill orphaned remote processes offers a copy whose terminal is gone, and extra copies when more than one remote is running (it keeps the newest and asks first). `-WhatIf` only lists. `-Force` stops the listed copies but never stops the newest remote unless you also pass `-IncludeActiveRemote`. Stopping uses taskkill /T on that copy's own chain, so a yes does not take down the healthy remote. The single healthy copy is never listed. Claude's Desktop Commander plugin is not listed. Health check says OK when zero or one remote is running, and warns only when extra copies or other leftovers are present. It also checks that the remote does not start at sign-in.
+
+`install.ps1` removes `shortcuts\rc` only when that folder is empty. A folder that still has files, or that is a link, is left alone.
 
 Logs: `%LOCALAPPDATA%\Workstation\desktop-commander-remote\`. No token is stored in this repo.
 
-On a PC that still has the old local setup, run `cleanup-legacy.ps1 -WhatIf`, then without `-WhatIf`. It backs up with SHA256 hashes first. It does not stop the phone remote and does not archive that state folder. Then run `install.ps1` so the three manual links exist again.
+On a PC that still has the old local setup, run `cleanup-legacy.ps1 -WhatIf`, then without `-WhatIf`. It backs up with SHA256 hashes first. A log the old server still has open is skipped instead of aborting the run. It says it would stop the old web server only when that process is actually running. It does not stop the phone remote and does not archive that state folder. Then run `install.ps1` so the manual links, including Health check, exist again.
 WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `bash setup.sh`.
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).

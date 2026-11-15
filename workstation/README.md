@@ -1,6 +1,6 @@
 # Workstation helpers
 
-- `health/` - Health check (`workstation-status.ps1`). Read-only: memory, hooks, skills, app locks, and the Desktop Commander phone remote. `-Locks` checks only the locks.
+- `health/` - Health check (`workstation-status.ps1`). Read-only: memory, hooks, skills, app locks, and the Desktop Commander phone remote. `-Locks` checks only the locks. install also makes a manual Health check shortcut. No sign-in item.
 - `desktop-commander-remote/` - manual Start, Stop, and status. One phone remote per PC. No sign-in item. Start does not launch the desktop app.
 - `kill-orphans.ps1` - lists leftover processes and asks before stopping each one.
 - `fusion-lock/` - one Fusion lock and one harness.design lock per PC. `-Repo` is recorded and shown. It does not change who is blocked.

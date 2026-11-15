@@ -29,7 +29,8 @@ $PrMergeRule = 'Merging pull requests in Daniel''s own GitHub repos (github.com/
 
 function Say([string]$Msg) { Write-Host $Msg }
 function Hash-File([string]$Path) {
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLower()
+    try { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256 -ErrorAction Stop).Hash.ToLower() }
+    catch { return $null }
 }
 function Get-IsAdmin {
     try {
@@ -47,8 +48,9 @@ function Add-TreeHashes([string]$Path) {
     if ($item.PSIsContainer) { $files = @(Get-ChildItem -LiteralPath $Path -Recurse -File -Force -ErrorAction SilentlyContinue) }
     else { $files = @($item) }
     foreach ($f in $files) {
-        $rel = $f.FullName
-        $hashes.Add(("{0}  {1}" -f (Hash-File $f.FullName), $rel))
+        $hash = Hash-File $f.FullName
+        if (-not $hash) { Say "  skipped hash (file in use): $($f.FullName)"; continue }
+        $hashes.Add(("{0}  {1}" -f $hash, $f.FullName))
     }
 }
 
@@ -58,19 +60,29 @@ Say "  state: $StateDir"
 if ($WhatIf) { Say '  mode: WhatIf (no changes)' }
 
 # 1. Stop the old local web server from this clone only. Never the phone remote.
+# Windows PowerShell 5.1: Join-Path takes only two path arguments.
 $dashScript = Join-Path $CloneRoot 'workstation\dashboard\server.py'
 Say 'stop old local web server (this clone only)'
-if ($WhatIf) { Say "  WOULD stop a python process whose command line contains $dashScript" }
-elseif (Get-Command Get-CimInstance -ErrorAction SilentlyContinue) {
-    $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-        "$($_.CommandLine)" -like "*$dashScript*"
-    })
-    foreach ($p in $procs) {
+$dashProcs = $null
+if ($env:WORKSTATION_FAKE_PROCS) {
+    if ($env:WORKSTATION_FAKE_PROCS -eq 'none') { $dashProcs = @() }
+    else { try { $dashProcs = @($env:WORKSTATION_FAKE_PROCS | ConvertFrom-Json) } catch { $dashProcs = @() } }
+} elseif (Get-Command Get-CimInstance -ErrorAction SilentlyContinue) {
+    $dashProcs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+}
+$dashHits = @()
+if ($null -ne $dashProcs) {
+    $dashHits = @($dashProcs | Where-Object { "$($_.CommandLine)" -like "*$dashScript*" })
+}
+if ($null -eq $dashProcs) { Say '  process list not available; skipped' }
+elseif (-not $dashHits.Count) { Say '  not running' }
+else {
+    foreach ($p in $dashHits) {
+        if ($WhatIf) { Say "  WOULD stop pid $($p.ProcessId)"; continue }
         Say "  stopping pid $($p.ProcessId)"
-        Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+        if (-not $env:WORKSTATION_FAKE_PROCS) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
     }
-    if (-not $procs) { Say '  not running' }
-} else { Say '  process list not available; skipped' }
+}
 
 # 2. Shortcut links this clone generated.
 $linkRoot = Join-Path $CloneRoot 'shortcuts'
@@ -82,7 +94,7 @@ if ($WhatIf) { Say ("  WOULD archive {0} link file(s)" -f $lnks.Count) }
 elseif ($lnks.Count) {
     New-Item -ItemType Directory -Path (Join-Path $Archive 'shortcuts') -Force | Out-Null
     foreach ($l in $lnks) {
-        $dest = Join-Path $Archive 'shortcuts' $l.Name
+        $dest = Join-Path (Join-Path $Archive 'shortcuts') $l.Name
         Move-Item -LiteralPath $l.FullName -Destination $dest -Force
         Say "  archived $($l.FullName)"
     }

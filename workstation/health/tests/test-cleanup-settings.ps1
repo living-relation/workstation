@@ -27,4 +27,65 @@ Check 'hook kept' ($s.hooks.Stop[0].hooks[0].command) 'context-guard.ps1'
 Check 'statusLine kept' $s.statusLine.command 'context-guard.ps1 statusline'
 Check 'phone remote state kept' (Test-Path (Join-Path $state 'desktop-commander-remote')) True
 Check 'old folder archived' (Test-Path (Join-Path $state 'dashboard')) False
-if ($fail) { exit 1 } else { 'ALL PASS'; exit 0 }
+
+# Windows PowerShell 5.1 Join-Path accepts only two path arguments.
+$tokens = $null; $parseErr = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$tokens, [ref]$parseErr)
+Check 'cleanup parses' @($parseErr).Count 0
+$badJoins = 0
+$joins = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Join-Path' }, $true))
+foreach ($cmd in $joins) {
+    $pos = 0
+    $els = @($cmd.CommandElements | Select-Object -Skip 1)
+    for ($i = 0; $i -lt $els.Count; $i++) {
+        if ($els[$i] -is [System.Management.Automation.Language.CommandParameterAst]) {
+            if (($i + 1) -lt $els.Count -and -not ($els[$i + 1] -is [System.Management.Automation.Language.CommandParameterAst])) { $i++ }
+            continue
+        }
+        $pos++
+    }
+    if ($pos -gt 2) { $badJoins++ }
+}
+Check 'no three-arg Join-Path' $badJoins 0
+
+function New-CleanupRoot {
+    $r = Join-Path ([IO.Path]::GetTempPath()) ("cl-" + [guid]::NewGuid().ToString('N'))
+    $u = Join-Path $r 'home'
+    $s = Join-Path $r 'state'
+    New-Item -ItemType Directory -Path (Join-Path $u '.claude'), $s | Out-Null
+    return @{ Root = $r; User = $u; State = $s }
+}
+$env:WORKSTATION_FAKE_PROCS = 'none'
+$w = New-CleanupRoot
+$dash = Join-Path $w.State 'dashboard'
+New-Item -ItemType Directory -Path $dash | Out-Null
+Set-Content (Join-Path $dash 'keep.txt') 'ok'
+$locked = Join-Path $dash 'server.log'
+Set-Content $locked 'log'
+& chmod a-r $locked
+$what = & pwsh -NoProfile -File $script -UserHome $w.User -StateDir $w.State -CloneRoot $w.Root -WhatIf 2>&1
+$whatText = $what -join "`n"
+Check 'whatif exits 0' $LASTEXITCODE 0
+Check 'whatif says not running' ($whatText -match 'not running') True
+Check 'whatif does not invent a stop' ($whatText -match 'WOULD stop') False
+Check 'whatif skips locked log' ($whatText -match 'skipped hash') True
+Check 'whatif leaves dashboard' (Test-Path $dash) True
+
+$dashScript = Join-Path $w.Root 'workstation\dashboard\server.py'
+$env:WORKSTATION_FAKE_PROCS = (@{ ProcessId = 42; CommandLine = "python $dashScript" } | ConvertTo-Json -Compress)
+$what2 = & pwsh -NoProfile -File $script -UserHome $w.User -StateDir $w.State -CloneRoot $w.Root -WhatIf 2>&1
+Check 'whatif names the running server' (($what2 -join "`n") -match 'WOULD stop pid 42') True
+
+$env:WORKSTATION_FAKE_PROCS = 'none'
+$m = New-CleanupRoot
+$lnkDir = Join-Path $m.Root 'shortcuts\rc'
+New-Item -ItemType Directory -Path $lnkDir -Force | Out-Null
+Set-Content (Join-Path $lnkDir 'old.lnk') 'x'
+& pwsh -NoProfile -File $script -UserHome $m.User -StateDir $m.State -CloneRoot $m.Root | Out-Null
+Check 'lnk archive exits 0' $LASTEXITCODE 0
+Check 'lnk moved' (Test-Path (Join-Path $lnkDir 'old.lnk')) False
+$archived = @(Get-ChildItem -LiteralPath (Join-Path $m.State 'backups') -Recurse -Filter 'old.lnk' -ErrorAction SilentlyContinue)
+Check 'lnk archived' $archived.Count 1
+Remove-Item Env:WORKSTATION_FAKE_PROCS -ErrorAction SilentlyContinue
+
+if ($fail) { "FAILED: $fail"; exit 1 } else { 'ALL PASS'; exit 0 }
