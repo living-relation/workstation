@@ -1,7 +1,7 @@
-# Shared paths for the Workstation toolkit. Dot-sourced by shortcuts\workstation-common.ps1
+# Shared paths for the Workstation toolkit. Dot-sourced by health\workstation-common.ps1
 # and repo-status.ps1. Windows PowerShell 5.1 compatible. Keep this file ASCII-only.
 # The toolkit runs straight from the workstation repo clone (<Projects>\active\workstation\workstation); nothing is
-# copied under <Projects>. Runtime files (config, Claude remote state; the retired Cursor worker's old logs) go to
+# copied under <Projects>. Runtime files (config and logs) go to
 # %LOCALAPPDATA%\<StateFolder>, never into the clone, so the clone stays clean.
 $WsToolkitDir    = $PSScriptRoot
 $WsPackageDir    = Split-Path -Parent $WsToolkitDir
@@ -19,7 +19,6 @@ if (Test-Path -LiteralPath $WsTkDef) {
 }
 $WsStateDir   = Join-Path $env:LOCALAPPDATA $WsStateName
 $WsConfigPath = Join-Path $WsStateDir $WsConfigName
-$WsStopFlag   = Join-Path $WsStateDir 'workers-stopped.flag'
 
 # Projects root: from the config file install.ps1 writes (projectsRoot); else from the clone's own location
 # (<Projects>\active\<repo>\workstation -> <Projects>).

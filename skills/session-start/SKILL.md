@@ -36,7 +36,6 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 3. `README.md`.
 4. Before any other work, read in full every doc the agent guide names as state, open items, decisions or source of truth; list each in the note with its last-changed date. Excerpts or skims don't count. The decisions file is never skipped. Any named doc you couldn't read, or read only partly, goes in the note as a gap. If none, write "none named".
 5. `.cursor/rules/*.mdc` with `alwaysApply: true`, if present.
-6. Session tracker `%LOCALAPPDATA%\Workstation\tracker\tracker.json` (tool: `workstation/tracker/`). If missing, say so.
 
 Skip: `node_modules`, build output, caches, archive/`old` folders, other worktrees' copies, other modules' agent files.
 
@@ -47,11 +46,11 @@ Check each sign. Any one = **"last session stopped early"**.
 
 | Sign | How to check |
 |---|---|
-| A lock is still held | lock files (e.g. `*.lock`, app locks) that name an agent or session |
+| A lock is still held | lock files inside this repo, or any app lock (Fusion or harness.design) held on this PC; say which repo/holder holds it |
 | Outputs newer than the log | files changed after the log's last line (`git status`, file times) |
 | Last transcript entry isn't a final reply | last entry of the newest session file is a tool call, tool result or plan, not an answer |
 | Sure usage-limit stop | last entry has `"model":"<synthetic>"` **and** text like "hit your … limit" |
-| Unapproved plan | a plan in `~/.claude/plans/` newer than the log |
+| Unapproved plan | a plan in `~/.claude/plans/` newer than the log that names this repo's path or name; ignore others |
 
 Session files: Claude Code keeps them under `~/.claude/projects/<project>/*.jsonl`. Read only the last few lines of each.
 
@@ -73,7 +72,7 @@ Decisions or plans that exist only in a chat, memory, email or another machine. 
 Check files outside the repo that agents load (a parent-folder `AGENTS.md`, the memory index) against this repo's sources of truth. Flag mismatches and any unsigned memory-index lines (missing `-- <agent>, YYYY-MM-DD`).
 
 ### 6. If the last session stopped early
-Ask the user: "Last session stopped early (<sign>). Run **agent-handoff-pack** to rebuild where it stopped?" On yes, run the skill (it updates the repo state file only) to rebuild where things stopped. Include leftover plans in `~/.claude/plans/`, locks, outputs newer than the log, open PRs and branches. The old session doesn't need to do anything. Never release a lock or finish someone's step without the user's yes.
+Ask the user: "Last session stopped early (<sign>). Run **agent-handoff-pack** to rebuild where it stopped?" On yes, run the skill (it updates the repo state file only) to rebuild where things stopped. Include this repo's leftover plans (as scoped in step 2) and any held locks, outputs newer than the log, open PRs and branches. The old session doesn't need to do anything. Never release a lock or finish someone's step without the user's yes.
 
 ### 7. Write one short state note
 Put it in the repo's state file (the one `AGENTS.md` names, for example `STATE.md`) if one exists and writing it is allowed; otherwise just show it in chat. Never write this note to memory, `CLAUDE.local.md`, a global `CLAUDE.md` / `AGENTS.md`, or a file outside the repo. Keep it under ~20 lines:

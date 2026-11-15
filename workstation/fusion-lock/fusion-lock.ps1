@@ -6,7 +6,8 @@
 # Windows PowerShell 5.1, ASCII only.
 #
 #   fusion-lock.ps1 [-Name fusion|harness-design] status
-#   fusion-lock.ps1 [-Name fusion|harness-design] acquire -Holder <name> -Kind claude-code|cursor|remote [-Files a,b] [-StartPinger] [-ParentPid N]
+#   fusion-lock.ps1 [-Name fusion|harness-design] acquire -Holder <name> -Kind claude-code|cursor|remote [-Repo <repo path>] [-Files a,b] [-StartPinger] [-ParentPid N]
+# -Repo is recorded and shown by status. It does not decide who is blocked. One lock per PC still blocks every other session.
 #   fusion-lock.ps1 [-Name fusion|harness-design] checkin -Holder <name> [-Files a,b]
 #   fusion-lock.ps1 [-Name fusion|harness-design] release -Holder <name>
 #   fusion-lock.ps1 [-Name fusion|harness-design] check   [-StaleMinutes 15]     # stale check; never clears on time alone
@@ -20,6 +21,7 @@ param(
     [ValidateSet('fusion', 'harness-design')][string]$Name = 'fusion',
     [string]$Holder,
     [ValidateSet('claude-code', 'cursor', 'remote')][string]$Kind = 'remote',
+    [string]$Repo = '',
     [string[]]$Files = @(),
     [switch]$StartPinger,
     [int]$ParentPid = 0,
@@ -220,7 +222,9 @@ switch ($Command) {
         $L = Read-Lock
         if (-not $L) { Out-Result ([ordered]@{ state = 'free'; lock = $LockPath }) 0 }
         if ($L -eq 'corrupt') { Out-Result ([ordered]@{ state = 'corrupt'; lock = $LockPath; next = 'ask the owner' }) 1 }
-        Out-Result ([ordered]@{ state = 'held'; holder = $L.holder; kind = $L.kind; started = $L.started; last_checkin = $L.last_checkin
+        $repoShown = ''
+        if ($L.PSObject.Properties['repo'] -and $null -ne $L.repo) { $repoShown = [string]$L.repo }
+        Out-Result ([ordered]@{ state = 'held'; holder = $L.holder; kind = $L.kind; repo = $repoShown; started = $L.started; last_checkin = $L.last_checkin
             minutes_since_checkin = (Get-AgeMinutes $L); files = @($L.files); pinger_pid = $L.pinger_pid; pinger_alive = (Test-Pinger ([int]$L.pinger_pid)) }) 1
     }
     'acquire' {
@@ -228,8 +232,12 @@ switch ($Command) {
         $out = Invoke-Locked {
             $L = Read-Lock
             if ($L -eq 'corrupt') { return @{ ok = $false; why = 'lock file is unreadable; ask the owner' } }
+            # -Repo is informational only. A different repo does not take the lock from another holder.
             if ($L -and $L.holder -ne $Holder) { return @{ ok = $false; why = "held by $($L.holder) ($($L.kind)), last check-in $($L.last_checkin)" } }
-            $new = [ordered]@{ holder = $Holder; kind = $Kind; started = $(if ($L) { $L.started } else { Now }); last_checkin = (Now)
+            $repoValue = ''
+            if ($Repo) { $repoValue = $Repo }
+            elseif ($L -and $L.PSObject.Properties['repo'] -and $null -ne $L.repo) { $repoValue = [string]$L.repo }
+            $new = [ordered]@{ holder = $Holder; kind = $Kind; repo = $repoValue; started = $(if ($L) { $L.started } else { Now }); last_checkin = (Now)
                 files = @($(if ($Files.Count) { $Files } elseif ($L) { @($L.files) } else { @() })); pinger_pid = $(if ($L) { [int]$L.pinger_pid } else { 0 }); parent_pid = 0; computer = $env:COMPUTERNAME }
             Write-Lock $new
             return @{ ok = $true; renewed = [bool]$L; lock = $new }
@@ -242,10 +250,31 @@ switch ($Command) {
                 $pp = $(if ($ParentPid -gt 0) { $ParentPid } else { Find-SessionPid })
                 if ($pp -le 0) { Write-Host 'WARN: no session process found; pass -ParentPid <pid>. No pinger started.' }
                 else {
-                    # Fusion (the default) keeps this argument string unchanged. harness-design adds -Name.
-                    if ($Name -eq 'fusion') { $a = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$Self`" pinger -Holder `"$Holder`" -ParentPid $pp -IntervalSec $IntervalSec" }
-                    else { $a = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$Self`" pinger -Name $Name -Holder `"$Holder`" -ParentPid $pp -IntervalSec $IntervalSec" }
-                    $p = Start-Process -FilePath 'powershell.exe' -ArgumentList $a -WindowStyle Hidden -PassThru
+                    # Fusion (the default) keeps this argument string unchanged on Windows. harness-design adds -Name.
+                    $onWindows = ($env:OS -eq 'Windows_NT')
+                    $win = $(if ($onWindows) { '-WindowStyle Hidden ' } else { '' })
+                    if ($Name -eq 'fusion') { $a = "-NoProfile -ExecutionPolicy Bypass ${win}-File `"$Self`" pinger -Holder `"$Holder`" -ParentPid $pp -IntervalSec $IntervalSec" }
+                    else { $a = "-NoProfile -ExecutionPolicy Bypass ${win}-File `"$Self`" pinger -Name $Name -Holder `"$Holder`" -ParentPid $pp -IntervalSec $IntervalSec" }
+                    $hostExe = 'powershell.exe'
+                    if (-not $onWindows) { $hostExe = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName }
+                    if ($onWindows) { $p = Start-Process -FilePath $hostExe -ArgumentList $a -WindowStyle Hidden -PassThru }
+                    else {
+                        # Detach so this PowerShell can exit without waiting for the pinger.
+                        $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $Self, 'pinger', '-Holder', $Holder, '-ParentPid', "$pp", '-IntervalSec', "$IntervalSec")
+                        if ($Name -ne 'fusion') { $argList += @('-Name', $Name) }
+                        $q = ($argList | ForEach-Object { "'" + ($_ -replace "'", "'\''") + "'" }) -join ' '
+                        $sh = "setsid -- $hostExe $q < /dev/null > /dev/null 2>&1 & echo `$!"
+                        $psi = New-Object System.Diagnostics.ProcessStartInfo
+                        $psi.FileName = 'bash'
+                        $psi.UseShellExecute = $false
+                        $psi.RedirectStandardOutput = $true
+                        [void]$psi.ArgumentList.Add('-c')
+                        [void]$psi.ArgumentList.Add($sh)
+                        $bash = [Diagnostics.Process]::Start($psi)
+                        $pidText = $bash.StandardOutput.ReadToEnd()
+                        $bash.WaitForExit()
+                        $p = [pscustomobject]@{ Id = [int]$pidText.Trim() }
+                    }
                     Invoke-Locked { $L = Read-Lock; if ($L -and $L -ne 'corrupt' -and $L.holder -eq $Holder) { $L.pinger_pid = $p.Id; $L.parent_pid = $pp; Write-Lock $L } }
                     Write-Log "PINGER $Holder pid=$($p.Id) parent=$pp"
                 }
@@ -261,6 +290,9 @@ switch ($Command) {
             if (-not $L -or $L -eq 'corrupt' -or $L.holder -ne $Holder) { return $false }
             $L.last_checkin = Now
             if ($Files.Count) { $L.files = @($Files) }
+            if ($Repo) {
+                if ($L.PSObject.Properties['repo']) { $L.repo = $Repo } else { $L | Add-Member -NotePropertyName repo -NotePropertyValue $Repo }
+            }
             Write-Lock $L; return $true
         }
         if (-not $ok) { Write-Host "REFUSED: $Holder does not hold the lock (run status)."; exit 2 }

@@ -18,9 +18,7 @@
     entries (a re-pointed entry gets its old command back); the statusLine while it is still the one install set;
     pluginConfigs > <agents-md plugin> > options.instructionFiles put back to its value before install (or removed,
     with the empty parent objects install created; left alone if it changed since); the PostToolUse pr-closeout-nudge
-    hook install added; the autoMode.allow living-relation PR-merge rule (and "$defaults" / autoMode object only
-    if install created them and nothing else remains); remoteControlAtStartup put back to its value before install
-    (or removed if there was none; left alone if it is no longer false),
+    hook install added,
   - in ~\.claude.json: MCP servers install added, only while they still match the fingerprint install recorded
     (a server the user changed is left alone); servers install did not add stay,
   - Claude Code plugins install newly installed (claude plugin uninstall); ones that were already there stay,
@@ -32,9 +30,8 @@
     folders install created (only if empty). The toolkit itself runs from the repo clone; uninstall never touches
     the clone's files. Runtime logs under %LOCALAPPDATA%\<StateFolder> stay (that folder is kept while not empty),
   - junctions install created (the link only; the notes stay in the store),
-  - the shortcuts and shortcut folder install created (in the package's shortcuts\ folder, or an older Desktop one) (only while they still run the toolkit scripts),
+  - the manual shortcuts and shortcut folder install created (only while a link still runs its script),
   - the Cursor.lnk autostart if install created it. Existing Cursor autostarts are never touched.
-  Prints the admin commands for scheduled tasks left by older installs.
   Every changed or removed file is copied first to <Projects>\_archive\automation-uninstall-backup-<time>\.
   Keeps: the memory store, Cursor's copy, all notes, the Projects layout folders, all projects.
   Scheduled tasks need admin: the commands are printed for you to run in an admin PowerShell.
@@ -315,60 +312,6 @@ if (Test-Path -LiteralPath $SettingsPath) {
       elseif ($m.kind -eq 'statusline') { Note 'WARN' "statusLine changed since install; left alone: $cur" }
     }
     if ($s.PSObject.Properties['hooks'] -and $s.hooks -and @($s.hooks.PSObject.Properties).Count -eq 0 -and $changes.Count) { $s.PSObject.Properties.Remove('hooks') }
-    # autoMode.allow: remove only the exact PR-merge rule install added. Other allow entries and
-    # keys (environment, soft_deny, hard_deny) stay. "$defaults" / allow / autoMode are removed
-    # only when install created them and they are empty after the rule is gone.
-    foreach ($amr in @($ManifestJson | Where-Object { $_.kind -eq 'automode-allow' })) {
-      if (-not $s.PSObject.Properties['autoMode'] -or -not $s.autoMode) { Note 'INFO' 'autoMode already removed'; continue }
-      $am = $s.autoMode
-      if (-not $am.PSObject.Properties['allow'] -or $null -eq $am.allow) {
-        if ($amr.createdAutoMode -and @($am.PSObject.Properties).Count -eq 0) { $s.PSObject.Properties.Remove('autoMode'); $changes += 'remove empty autoMode (install created it)' }
-        else { Note 'INFO' 'autoMode.allow already removed' }
-        continue
-      }
-      $allow = New-Object System.Collections.Generic.List[string]
-      foreach ($e in @($am.allow)) { if ($null -ne $e) { [void]$allow.Add([string]$e) } }
-      $rule = [string]$amr.rule
-      $removed = $false
-      for ($i = $allow.Count - 1; $i -ge 0; $i--) {
-        if ($allow[$i] -ceq $rule) { $allow.RemoveAt($i); $removed = $true; break }
-      }
-      if ($amr.addedRule) {
-        if ($removed) { $changes += 'remove autoMode.allow living-relation PR-merge rule' }
-        else { Note 'WARN' 'autoMode.allow PR-merge rule changed since install; left alone' }
-      }
-      if ($amr.addedDefaults) {
-        $onlyDefaults = ($allow.Count -eq 1 -and $allow[0] -ceq '$defaults')
-        if ($onlyDefaults -or $allow.Count -eq 0) {
-          $allow.Clear()
-          $changes += 'remove autoMode.allow $defaults (install added it)'
-        }
-      }
-      if ($allow.Count -eq 0) {
-        if ($amr.createdAllow) {
-          $am.PSObject.Properties.Remove('allow')
-          $changes += 'remove autoMode.allow (there was none before install)'
-        } else { $am.allow = [string[]]@() }
-      } else {
-        $am.allow = [string[]]$allow.ToArray()
-      }
-      if ($amr.createdAutoMode -and @($am.PSObject.Properties).Count -eq 0) {
-        $s.PSObject.Properties.Remove('autoMode'); $changes += 'remove autoMode (there was none before install)'
-      }
-    }
-    # remoteControlAtStartup: put back what was there before install (true, or no key), only while it is still false.
-    foreach ($rm in @($ManifestJson | Where-Object { $_.kind -eq 'rc-startup' })) {
-      if (-not $s.PSObject.Properties['remoteControlAtStartup']) { Note 'INFO' 'remoteControlAtStartup already removed'; continue }
-      if (-not ($s.remoteControlAtStartup -is [bool]) -or $s.remoteControlAtStartup) { Note 'WARN' 'remoteControlAtStartup changed since install; left alone'; continue }
-      if ($rm.hadPrior) { $s.remoteControlAtStartup = $rm.prior; $changes += "restore remoteControlAtStartup = $($rm.prior)" }
-      else { $s.PSObject.Properties.Remove('remoteControlAtStartup'); $changes += 'remove remoteControlAtStartup (there was none before install)' }
-    }
-    if (@($ManifestJson | Where-Object { $_.kind -eq 'rc-startup-preexisting' }).Count -and -not @($ManifestJson | Where-Object { $_.kind -eq 'rc-startup' }).Count) {
-      Note 'OK' 'remoteControlAtStartup was already false before install; left as is'
-    }
-    if (@($ManifestJson | Where-Object { $_.kind -eq 'automode-allow-preexisting' }).Count -and -not @($ManifestJson | Where-Object { $_.kind -eq 'automode-allow' }).Count) {
-      Note 'OK' 'autoMode.allow PR-merge rule was already set before install; left as is'
-    }
     if ($changes.Count) {
       $bak = Get-FreePath "$SettingsPath.bak-$Stamp"
       Invoke-Change ("update $SettingsPath (" + ($changes -join '; ') + "; backup $bak)") { Write-JsonChecked $SettingsPath $s $rawS $bak }
@@ -591,38 +534,11 @@ if (-not $testMode) {
   }
 }
 
-# 6a. Old-named and retired links (toolkit.psd1 RenamedShortcuts, RetiredShortcuts) an older install made in the shortcuts folder: removed only
-# while they still run the same script (and arguments, when listed).
-if (-not $testMode) {
-  $scDirOld = Join-Path $PkgRoot $TK.ShortcutFolder
-  foreach ($r in @(@($TK.RenamedShortcuts) + @($TK.RetiredShortcuts))) {
-    if (-not $r) { continue }
-    $lp = Join-Path $scDirOld ([string]$r.Old + '.lnk')
-    if (-not (Test-Path -LiteralPath $lp)) { continue }
-    if (-not $wsh) { $wsh = New-Object -ComObject WScript.Shell }
-    $sc = $wsh.CreateShortcut($lp)
-    $runs = $sc.TargetPath -match 'powershell\.exe$' -and $sc.Arguments -match [regex]::Escape([string]$r.Script)
-    if ($runs -and $r.Args) { $runs = $sc.Arguments.TrimEnd().EndsWith([string]$r.Args) }
-    if ($runs) { Invoke-Change "remove old-named shortcut (added by an older install): $lp" { Backup-File $lp; Remove-Item -LiteralPath $lp -Force } }
-    else { Note 'OK' "not installed by this package, left alone: $lp" }
-  }
-}
-
-# 6b. Workstation-Watcher task (registered by install-admin.ps1): removed here when this window may, else printed below.
-if (-not $testMode) {
-  if (Get-ScheduledTask -TaskName 'Workstation-Watcher' -ErrorAction SilentlyContinue) {
-    Invoke-Change 'remove scheduled task Workstation-Watcher' { Unregister-ScheduledTask -TaskName 'Workstation-Watcher' -Confirm:$false -ErrorAction Stop }
-  } else { Note 'OK' 'task Workstation-Watcher is not registered' }
-}
-
-# 7. Admin-only and optional items: print the commands
+# 7. Older memory-sync task, if a previous install left one. Admin PowerShell.
 Write-Host ''
-Write-Host 'Scheduled tasks need admin. In PowerShell opened with "Run as admin" (same account), run:' -ForegroundColor White
-Write-Host "  Unregister-ScheduledTask -TaskName 'Workstation-Watcher' -Confirm:`$false   # only if it is still listed (step above)"
-Write-Host "  Remove-NetFirewallRule -DisplayName 'Workstation dashboard tailnet'   # only if you do not want phone access any more"
-Write-Host ''
-Write-Host 'Older installs only (this repo no longer ships it): if task Claude-Memory-To-Cursor-Sync exists, remove it in the same admin PowerShell:' -ForegroundColor White
+Write-Host 'Older installs only: if task Claude-Memory-To-Cursor-Sync exists, remove it in an admin PowerShell:' -ForegroundColor White
 Write-Host "  Unregister-ScheduledTask -TaskName 'Claude-Memory-To-Cursor-Sync' -Confirm:`$false"
+Write-Host 'A PC that still has the old local web UI should run cleanup-legacy.ps1 ( -WhatIf first ).'
 
 Write-Host ''
 Write-Host 'Kept on purpose: memory store, the legacy Cursor Notes folder if it is still there (and any old Cursor copy), every note, the Projects layout folders, all projects, the workstation repo clone (the toolkit runs from it), and any toolkit / _claude script that was there before install.'

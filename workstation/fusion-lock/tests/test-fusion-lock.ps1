@@ -8,14 +8,18 @@ $realLocal = $env:LOCALAPPDATA
 $env:LOCALAPPDATA = $tmp
 $env:WORKSTATION_FUSION_MCP_URL = 'http://127.0.0.1:9/mcp'   # dead port: never the real add-in
 $fail = 0
-function Run { param([Parameter(ValueFromRemainingArguments = $true)]$A) $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $script @A 2>&1; @{ code = $LASTEXITCODE; out = ($o -join "`n") } }
+$pwsh = @(Get-Command powershell, pwsh -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+if (-not $pwsh) { 'FAIL powershell not found'; exit 1 }
+function Run { param([Parameter(ValueFromRemainingArguments = $true)]$A) $o = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $script @A 2>&1; @{ code = $LASTEXITCODE; out = ($o -join "`n") } }
 function Check([string]$What, $Got, $Want) { if ($Got -eq $Want) { "PASS $What" } else { "FAIL $What (got '$Got', want '$Want')"; $script:fail++ } }
 $lock = Join-Path $tmp 'Workstation\fusion.lock'
 function Age-Lock([int]$Min) { $j = Get-Content $lock -Raw | ConvertFrom-Json; $j.last_checkin = (Get-Date).ToUniversalTime().AddMinutes(-$Min).ToString('o'); Set-Content $lock ($j | ConvertTo-Json) }
 try {
     Check 'status free' (Run status).code 0
-    Check 'acquire A' (Run acquire -Holder A -Kind cursor -Files 'C:\x\Bracket.f3d').code 0
+    Check 'acquire A' (Run acquire -Holder A -Kind cursor -Files 'C:\x\Bracket.f3d' -Repo 'C:\work\widget').code 0
     Check 'lock file in temp' (Test-Path $lock) $true
+    Check 'repo recorded' ([string](Get-Content $lock -Raw | ConvertFrom-Json).repo) 'C:\work\widget'
+    Check 'other repo does not steal the lock' (Run acquire -Holder B -Kind remote -Repo 'C:\work\other').code 2
     Check 'status held' (Run status).code 1
     Check 'acquire B refused' (Run acquire -Holder B -Kind remote).code 2
     Check 'checkin B refused' (Run checkin -Holder B).code 2
@@ -37,7 +41,7 @@ try {
     Check 'release B' (Run release -Holder B).code 0
     $env:WORKSTATION_FUSION_FAKE_DOCS = 'none'
     # pinger: tie it to a short-lived parent; it must check in, then exit when the parent dies
-    $parent = Start-Process powershell -ArgumentList '-NoProfile -Command Start-Sleep 6' -WindowStyle Hidden -PassThru
+    $parent = Start-Process $pwsh -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep 8') -PassThru
     Check 'acquire C with pinger' (Run acquire -Holder C -Kind claude-code -StartPinger -ParentPid $parent.Id -IntervalSec 2).code 0
     $pp = [int](Get-Content $lock -Raw | ConvertFrom-Json).pinger_pid
     Check 'pinger running' ([bool](Get-Process -Id $pp -ErrorAction SilentlyContinue)) $true

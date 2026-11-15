@@ -2,80 +2,19 @@
 
 The one state file for this repo. Rules live in `AGENTS.md`; this file holds only current status.
 
-**Goal now:** dashboard task actions (4 features). 1 (full text + GitHub link), 2 (answer) and
-3 (hand to Claude) are done; 4 (done / snooze) is next.
+**Goal now:** shared memory, handoff and context tools, guards, the two app locks, and a manual Desktop Commander phone remote (one copy per PC). The old shortcut set is gone from the repo.
 
 ## Open items
-- 2026-11-13: harness.design desktop lock is the same script as Fusion, with `-Name harness-design` (default remains fusion). Lock file `%LOCALAPPDATA%\Workstation\harness-design.lock`. Rule: `agents/projects-AGENTS.md` section 5b. Window titles are conservative (any title other than the app name counts as an open editor). MCP cloud tools do not need the lock; an agent delete goes through the desktop app under the lock. Install appends `<!-- app-locks:v1 -->` to Claude Code `CLAUDE.md`, the Cursor memory rule, an existing `repo-rules.mdc`, and the Projects `AGENTS.md` when that text is missing. Account instruction boxes are still pasted by hand. After merge: Pull + Install on both PCs, re-paste the instruction texts if those boxes are still in use, then run `powershell -NoProfile -ExecutionPolicy Bypass -File workstation\shortcuts\workstation-status.ps1 -Locks` on each PC (read-only, PASS/FAIL, exit 1 if anything fails).
-- 2026-11-12: Claude remote Start was a false success. `claude --bg --remote-control` prints "backgrounded" and exits 0 as soon as the background service accepts the session. On a cold start that same launch also starts the service, Claude then replaces claude.exe (it checks for updates on startup), and the service logs `self-restarting for upgrade` and `post-takeover prewarm burst ... refused`. The session is gone. The next click works because the service is already on the new binary. Start (per-project and the projects-root Phone access session) now runs `claude update` first when the service is down or on another version, starts the service and waits until `claude daemon status` shows that version with a stable pid, then starts the session, and only says OK when `claude agents --json` still lists it. If it does not, it starts once more. Shortcuts are only for a real git repo (`.git` is a directory). Worktrees (`.git` is a file) and plain folders are skipped; Make Claude remote shortcuts removes those old pairs. After merge: Update from GitHub, then Make Claude remote shortcuts, on both PCs.
-- 2026-11-05: Memory policy (owner): two stores, different jobs. The local Working Memory folder is the shared project source of truth (Claude Code, Cowork, Cursor); Claude account Memory is a separate, allowed store for general prefs (duplicates OK, no sync, never the project source of truth). Templates `working-memory-CLAUDE.md`, `claude-global-memory-section.md`, `projects-AGENTS.md`, `claude-shared-memory.mdc` and `MEMORY.md` updated. Install only appends a marked section when the marker is missing, and creates `MEMORY.md` only if it is missing, so existing installs need the same lines by hand (the first two templates were done on this PC 2026-11-05; `projects-AGENTS.md`, `claude-shared-memory.mdc` and an existing `MEMORY.md` index header still need the same hand edit).
-- 2026-10-28: Claude-importable skill zips live at `skills/<name>.zip` (generated, beside the skill folders). A GitHub Action rebuilds them on same-repo PRs that touch skills (commits onto the PR branch, never onto main, and never if the PR head is main). If main is stale it resets `chore/skill-zips` to `origin/main` and force-with-lease that bot branch only. Local `scripts/pack-skill-zips.ps1` / `.sh` is optional. Do not edit zips by hand. Skill YAML descriptions were shortened; dropped detail is in each skill's **When to use** section. Description over 200 chars is a `::warning` only (never fails). `deploy-project-watcher` YAML description has no angle-bracket tags; `<project>` placeholders stay in the body. Owner must keep **Allow GitHub Actions to create and approve pull requests** on, and a ruleset on `main` that blocks direct pushes.
-- 2026-10-28: Per-project Claude remote-control shortcuts and per-repo lines in Workstation Status are in PR #55 (https://github.com/living-relation/workstation/pull/55), open. This PC's shortcuts\rc\ links are already generated. After merge, switch this clone back to main. The other PC runs Generate RC shortcuts once after pull.
-- 2026-10-27: Feature 4 - **Done** starts Claude through the same launcher with a "mark done / fold
-  in" task; **Snooze** hides a row locally for N days (default 7, `snooze.json` in the dashboard's
-  local folder, never git).
-- 2026-10-27: actions are off until the home PC has the local `settings.json`
-  (`{"writeActions": true, "ownerName": ...}`); see `workstation/dashboard/README.md`.
-- 2026-10-27: later - the older dashboard POST buttons (toggles, Health, send) don't check the
-  `X-Workstation-Dashboard` header yet.
-- 2026-10-27: Workstation Status prerequisite check reported Claude Code as not logged in when
-  `claude auth status` JSON was multi-line or mixed with extra output. Parse now joins lines, slices
-  the JSON object, WARNs on timeout or unparseable output, and FAILs only when loggedIn is false.
-  preflight.ps1 has no login check (version only).
-- 2026-10-28: After merge of the skill first-pass checks — re-upload the repo-cleanup,
-  iterative-cleaning and session-start skill zips to Claude desktop, and run Pull + Install on
-  both PCs.
-- 2026-10-29: `pr-closeout` and `iap-ship-workflow` live under `skills/` so install can
-  junction them on both PCs. After merge: remove the old loose copies of those two skills on
-  each PC (they block the new links), then Pull + Install on both PCs (skill linking is now the
-  default; no `-LinkSkills`). Exact leftover paths are in the earlier PR body; do not delete
-  them from here.
-- 2026-10-29: install now makes both PCs' Claude Code setups match: MCP connectors in
-  `~/.claude.json` (from `claude/mcp-servers.json`; no firecrawl), the 24 DansPC
-  official-marketplace plugins in `claude/plugins.json` (that file is the source of
-  truth), and DansPC's `pr-closeout-nudge.ps1` copied + wired as PostToolUse in
-  `~/.claude/settings.json`. After merge: Pull + Install on both PCs. Set
-  `GITHUB_PERSONAL_ACCESS_TOKEN` (or `GITHUB_TOKEN`) before install, or paste when
-  prompted; missing keys skip that server. Install never prompts for Firecrawl.
-- 2026-10-29: firecrawl dropped from `claude/mcp-servers.json` (not used). Merge-style
-  install still leaves an existing firecrawl entry in `~/.claude.json` alone.
-- 2026-10-29: `install.ps1` links skills every run (opt out with `-NoLinkSkills`; `-LinkSkills` is
-  a no-op). End of install shows a Windows popup to upload `skills/*.zip` in Claude desktop
-  (Settings > Capabilities > Skills); skipped for `-WhatIf`, `-UserHome`, `-NoPopup`/`-Quiet`, and
-  CI. Changed zip names are tracked in `%LOCALAPPDATA%\Workstation\skill-zips.json`.
+- 2026-11-15: After merge, on each PC that still has the old local setup: `powershell -NoProfile -ExecutionPolicy Bypass -File cleanup-legacy.ps1 -WhatIf`, review, then run it (admin only for the old firewall rule, and only if the script says it skipped that step). Then `git pull --ff-only` and `install.ps1`. Health check: `workstation\health\workstation-status.ps1 -NoPause` (0 FAIL, 0 WARN). Locks: same script with `-Locks`. Start Desktop Commander is manual: it cleans leftover phone-remote copies, then keeps exactly one phone remote (`npx.cmd @wonderwhy-er/desktop-commander@latest remote`). It does not launch the desktop app. No sign-in item.
+- 2026-11-13: harness.design desktop lock is the same script as Fusion, with `-Name harness-design` (default remains fusion). Lock file `%LOCALAPPDATA%\Workstation\harness-design.lock`. Rule: `agents/projects-AGENTS.md` section 5b. `-Repo` on acquire is recorded and shown. It does not change who is blocked. One lock per PC still blocks every other session. Window titles are conservative. MCP cloud tools do not need the lock; an agent delete goes through the desktop app under the lock.
+- 2026-11-05: Memory policy (owner): two stores, different jobs. The local Working Memory folder is the shared project source of truth (Claude Code, Cowork, Cursor); Claude account Memory is a separate, allowed store for general prefs (duplicates OK, no sync, never the project source of truth). Install only appends a marked section when the marker is missing.
+- 2026-10-28: Claude-importable skill zips live at `skills/<name>.zip` (generated). A GitHub Action rebuilds them on same-repo PRs that touch skills. Do not edit zips by hand.
+- 2026-10-29: `pr-closeout` and `iap-ship-workflow` live under `skills/`. Install links skills by default.
+- 2026-10-29: install makes Claude Code MCP connectors and official-marketplace plugins match `claude\mcp-servers.json` and `claude\plugins.json`. The Fusion connector url is `http://127.0.0.1:8765/mcp`.
+- 2026-11-03: The `~\.claude\working-memory` link stays retired. Install does not create or check it. Local Working Memory (the store path) is still the project source of truth.
 
-- 2026-10-29: Fusion lock (`workstation/fusion-lock/fusion-lock.ps1`, rule in `agents/projects-AGENTS.md` section 5). After merge: Pull on both PCs; the old router-project lock (`rtr-v2-router\_coordination\`) should be retired and that project's rules pointed at section 5 (owner's yes needed; not done here).
-
-- 2026-10-30: Process check no longer treats Kapture's shared detached server, a young `claude -p`
-  background job, or one Desktop Commander MCP per Claude window as a stray/orphan. Two Kapture
-  servers, a `claude -p` job older than `backgroundJobMaxAgeHours` (default 2), and two Desktop
-  Commander copies under the same Claude session still warn. Local `processCheck.expected` still
-  appends to the built-in list. After merge: Pull on both PCs (the Dashboard shortcut already
-  fast-forwards this clone).
-
-- 2026-10-31: install section 7 merges a Claude Code `autoMode.allow` rule so auto mode may merge PRs
-  in living-relation/* when required checks have passed or are queued via `gh pr merge --auto`.
-  Existing `autoMode` keys and allow entries stay; `"$defaults"` is put first. No
-  `permissions.allow` `Bash(gh pr merge*)` rule. After merge: Pull + Install on both PCs.
-
-- 2026-10-31: Plain shortcut names, same words on the dashboard: Start/Stop Claude remote - <folder>, Start/Stop
-  phone access (dashboard toggle "Phone access (Desktop Commander + Claude)"), Start/Stop Desktop
-  Commander, Start/Stop phone alerts watcher, Update from GitHub, Check for stray
-  processes, Health check, Make Claude remote shortcuts. New click-only "Stop and start all Claude remotes" shortcut
-  and dashboard button (rc-restart-all.ps1). Process check output now labels each process (repo/folder, session,
-  who started it). After merge: Update from GitHub + Install, then Make Claude remote shortcuts, on both PCs.
-
-- 2026-10-31: Cursor workers feature removed (Cursor's built-in Remote Control replaces it): no Start/Stop Cursor
-  workers shortcuts, no `workstation/cursor-worker/`; the Phone access toggle is now Desktop Commander + the
-  projects-root Claude remote (claude-root-start/stop.ps1; Stop matches only that session). Install stops the old
-  worker it started (retire-cursor-worker.ps1), deletes the old links it made, adds no Cursor autostart any more, and
-  sets `remoteControlAtStartup` false (add-only, backup; uninstall restores it) so the only Claude phone-remote method
-  is our shortcuts. Same PR #69.
-
-- 2026-11-03: The `~\.claude\working-memory` link stays retired. Install, preflight, Health check, uninstall and memory-link-guard do not create or check it. A leftover junction is harmless and is not deleted. This does not replace the 2026-11-05 two-store policy: local Working Memory (the store path, not that link) is still the project source of truth for Claude Code, Cowork and Cursor. Account Memory stays a separate allowed store (no sync). Project progress stays in each repo's state file. After merge: Pull + Install on both PCs. Old notes that lived only in a former Cowork app-data folder can be copied into the store or imported with the app's Import memory button. Re-paste instruction texts if those boxes are still in use. Work-account desktop behavior is unverified.
-
-**Last added:** 2026-11-13 harness.design desktop lock (`-Name harness-design` on the Fusion lock script) and `-Locks` on Health check.
+**Last added:** 2026-11-15 manual Desktop Commander Start (one phone remote only), status shortcut, kill-orphans, cleanup-legacy, and informational `-Repo` on the app locks.
 
 **Kept branches:** none
-**Hook:** state-check, comment mode (warn only), 2026-10-27
-**Last cleanup:** 2026-10-27 @ 18ebd4d
+**Hook:** state-check, comment mode (warn only)
+**Last cleanup:** 2026-11-15

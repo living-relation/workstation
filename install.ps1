@@ -23,17 +23,14 @@
   - Sets Claude Code's Project instructions to claude-md-and-agents-md (read CLAUDE.md AND AGENTS.md) in
     ~\.claude\settings.json > pluginConfigs (plugin cc-plugin-agents-md@builtin, or agents-md@builtin before
     Claude Code 2.1.285). WARN if Claude Code is older than 2.1.281. uninstall.ps1 reverts only that key.
-  - Merges Claude Code autoMode.allow in ~\.claude\settings.json (user-scope only; project autoMode is ignored):
-    keeps existing autoMode keys (e.g. environment) and existing allow entries; puts "$defaults" first;
-    adds the living-relation PR-merge allow rule only when that exact string is missing. Never removes
-    or overwrites autoMode entries. Does not add a permissions.allow Bash(gh pr merge*) rule.
+  - Does not change Claude Code autoMode, and does not write a remote-control startup flag.
   - The Projects root guide is AGENTS.md (memory section appended there). A root CLAUDE.md is merged into it
     by hand (REORGANIZE.md step 5), never by install.
   - Does NOT copy the toolkit anywhere: it runs from this package's toolkit folder (PackageFolder in toolkit.psd1,
     e.g. <clone>\workstation\). Writes %LOCALAPPDATA%\<StateFolder>\<ConfigFile> (projectsRoot) so the scripts find
     the Projects root; runtime files (stop flag, worker logs/state) also go under %LOCALAPPDATA%\<StateFolder>\,
-    never into the clone. Then runs the toolkit's shortcuts installer (Health check, Phone access, Claude remote
-    and other links in this package's shortcuts\ folder, gitignored, + prerequisite checks).
+    never into the clone. Then creates manual shortcuts (Start, Stop, and status for Desktop Commander, and
+    the orphan tool) in this package's shortcuts\ folder. Those links are gitignored. Nothing starts at sign-in.
     An old installed copy (<Projects>\_workstation or _bridge, LegacyFolders) is only reported, never moved.
   - Does not create, check or remove ~\.claude\working-memory. That junction only let Cowork / Chat
     pointer lines find the store. Claude desktop no longer writes local memory files (personal account
@@ -51,16 +48,9 @@
     message, not a failed install. Then installs Claude Code plugins at user scope from claude\plugins.json
     (Anthropic official marketplace). That file is the source of truth for plugin names.
   - Adds no autostart: nothing of this package starts at sign-in or app launch. An existing Cursor sign-in entry is
-    only reported (WARN), never added or removed.
-  - Retires the old Cursor worker (removed 2026-10-31; Cursor's built-in Remote Control replaces it): stops only the
-    supervisor / agent worker the old Start Cursor workers or Phone access started, deletes its stop flag, and removes
-    the old Start/Stop Cursor workers links (only ones that still run those scripts).
-  - Sets remoteControlAtStartup to false in ~\.claude\settings.json (add-only: only when it is missing or true; backup
-    first), so the only Claude phone-remote method is this package's Claude remote shortcuts. uninstall.ps1 puts back
-    the earlier value (or removes the key when there was none).
+    only reported (WARN), never added or removed. Desktop Commander is a manual shortcut only.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
   - Does NOT migrate old memory. See MIGRATION.md.
-  Scheduled tasks need admin: run install-admin.ps1 afterwards in an elevated PowerShell.
   - Ends by running Health check (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts,
     then a Windows popup reminding you to upload skills\*.zip to the Claude desktop app for each Claude account
     (Settings > Capabilities > Skills). Click OK to open skills\ in Explorer. The popup is skipped for -NoPopup
@@ -71,7 +61,7 @@
 
 .PARAMETER ProjectsRoot
   Projects root folder. Default: the projectsRoot saved by the last install, else %USERPROFILE%\Projects,
-  else C:\projects (the first that has _claude; same as install-admin.ps1).
+  else C:\projects (the first that has _claude).
 
 .PARAMETER WhatIf
   Dry run. Shows what would change and changes nothing.
@@ -142,7 +132,7 @@ if (-not $UserHome) { $UserHome = $realHome }
 $UserHome = [IO.Path]::GetFullPath($UserHome).TrimEnd('\')
 if (-not $ProjectsRoot -and $testMode) { $ProjectsRoot = Join-Path $UserHome 'Projects' }
 if (-not $ProjectsRoot) {
-  # Same detection as install-admin.ps1: this script's saved runtime config first, then
+  # Saved runtime config first, then
   # %USERPROFILE%\Projects, then C:\projects; the first one that has _claude wins.
   $cfg = Join-Path (Join-Path $env:LOCALAPPDATA $(if ($TK.StateFolder) { $TK.StateFolder } else { 'Workstation' })) $(if ($TK.ConfigFile) { $TK.ConfigFile } else { 'workstation.json' })
   try { if (Test-Path -LiteralPath $cfg) { $ProjectsRoot = [string](Get-Content -LiteralPath $cfg -Raw | ConvertFrom-Json).projectsRoot } } catch { }
@@ -452,74 +442,6 @@ function Merge-HookCommand($Container, [string]$Event, [string]$Leaf, [string]$C
   $Changes.Value += "$Event += $Leaf"
 }
 
-# Claude Code auto-mode classifier rule (https://code.claude.com/docs/en/auto-mode-config).
-# "$defaults" must stay in the list or the built-in allow rules are replaced. Prose, not a tool pattern.
-$AutoModeDefaultsToken = '$defaults'
-$AutoModePrMergeAllow = 'Merging pull requests in Daniel''s own GitHub repos (github.com/living-relation/*) is allowed without the user typing an explicit merge instruction, as long as the PR''s required checks have passed or are queued via gh pr merge --auto (via gh pr merge or the GitHub MCP merge tool). This does NOT allow --admin, bypassing branch protection or required checks, force-pushing, --no-verify, or deleting anything other than the merged PR''s own head branch.'
-
-# Add-only merge of autoMode.allow. Keeps every other autoMode key and every existing allow entry.
-# Puts "$defaults" first (insert or move); appends $Rule only when that exact string is missing.
-function Merge-AutoModeAllow($Settings, [string]$Rule, [System.Collections.Generic.List[object]]$Pending, [ref]$Changes, [bool]$FirstInstall) {
-  $token = $AutoModeDefaultsToken
-  $createdAutoMode = $false
-  $hadAM = [bool]($Settings.PSObject.Properties['autoMode'] -and $Settings.autoMode)
-  if (-not $hadAM) {
-    if ($Settings.PSObject.Properties['autoMode']) { $Settings.autoMode = New-Object psobject }
-    else { $Settings | Add-Member -NotePropertyName autoMode -NotePropertyValue (New-Object psobject) }
-    $createdAutoMode = $true
-  }
-  $am = $Settings.autoMode
-  $hadAllow = [bool]$am.PSObject.Properties['allow']
-  $createdAllow = -not $hadAllow
-  $allow = New-Object System.Collections.Generic.List[string]
-  if ($hadAllow -and $null -ne $am.allow) {
-    foreach ($e in @($am.allow)) { if ($null -ne $e) { [void]$allow.Add([string]$e) } }
-  }
-
-  $addedDefaults = $false
-  $movedDefaults = $false
-  $idx = -1
-  for ($i = 0; $i -lt $allow.Count; $i++) { if ($allow[$i] -ceq $token) { $idx = $i; break } }
-  if ($idx -lt 0) {
-    $allow.Insert(0, $token)
-    $addedDefaults = $true
-  } elseif ($idx -gt 0) {
-    $allow.RemoveAt($idx)
-    $allow.Insert(0, $token)
-    $movedDefaults = $true
-  }
-
-  $addedRule = $false
-  $hasRule = $false
-  foreach ($e in $allow) { if ($e -ceq $Rule) { $hasRule = $true; break } }
-  if (-not $hasRule) { [void]$allow.Add($Rule); $addedRule = $true }
-
-  if (-not $addedDefaults -and -not $movedDefaults -and -not $addedRule) {
-    Note 'OK' 'autoMode.allow already has $defaults first and the living-relation PR-merge rule'
-    if ($FirstInstall) { Add-ManifestJson @{ kind = 'automode-allow-preexisting'; target = 'claude'; rule = $Rule } }
-    return
-  }
-
-  $arr = [string[]]$allow.ToArray()
-  if ($hadAllow) { $am.allow = $arr } else { $am | Add-Member -NotePropertyName allow -NotePropertyValue $arr }
-
-  $bits = @()
-  if ($addedDefaults) { $bits += '$defaults first' }
-  elseif ($movedDefaults) { $bits += 'move $defaults first' }
-  if ($addedRule) { $bits += 'living-relation PR-merge rule' }
-  $Changes.Value += ('autoMode.allow += ' + ($bits -join ', '))
-  $Pending.Add(@{
-    kind = 'automode-allow'
-    target = 'claude'
-    rule = $Rule
-    addedDefaults = $addedDefaults
-    movedDefaults = $movedDefaults
-    addedRule = $addedRule
-    createdAutoMode = $createdAutoMode
-    createdAllow = $createdAllow
-  })
-}
-
 # ---------------------------------------------------------------- final Health check
 # Runs Health check -NoPause (read-only, never prompts) and reports the FAIL / WARN counts.
 # The manual steps (admin command, the two pastes, sign-ins) are walked through by the installing
@@ -532,8 +454,8 @@ function Invoke-StatusCheck {
     Write-Host ('  ' + $(if ($WhatIf) { 'Dry run' } else { 'Test mode (-UserHome)' }) + ': not running Health check.') -ForegroundColor Cyan
     return
   }
-  $statusRel = @($TK.Shortcuts | Where-Object { $_.Name -eq 'Health check' } | ForEach-Object { $_.Script }) | Select-Object -First 1
-  if (-not $statusRel) { $statusRel = 'shortcuts\workstation-status.ps1' }
+  $statusRel = [string]$TK.HealthScript
+  if (-not $statusRel) { $statusRel = 'health\workstation-status.ps1' }
   $statusPs = Join-Path $BridgeDir $statusRel
   Write-Host ''
   Write-Host "Health check: $statusPs -NoPause" -ForegroundColor White
@@ -639,7 +561,8 @@ Write-Host "  Toolkit (runs from the clone): $BridgeDir"
 Write-Host "  Runtime folder: $StateDir"
 Write-Host ''
 
-$isAdmin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole((New-Object Security.Principal.SecurityIdentifier 'S-1-5-32-544'))
+$isAdmin = $false
+try { $isAdmin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole((New-Object Security.Principal.SecurityIdentifier 'S-1-5-32-544')) } catch { $isAdmin = $false }
 if ($isAdmin) { Note 'WARN' 'running elevated. This script is meant for a normal PowerShell window; files will still go to the current user.' }
 if (-not (Test-Path -LiteralPath $Templates)) { Note 'ERROR' "templates folder not found next to this script: $Templates"; exit 1 }
 
@@ -758,7 +681,7 @@ if ($CursorHookOk) { Copy-HomeFile (Join-Path $HandoffPkg 'cursor\handoff-at-80.
 else { Note 'WARN' "py -3 (Python 3.7+) not available: Cursor 80% handoff hook skipped ($CursorHookDest, $CursorHooksJson unchanged). Install Python 3, then re-run install.ps1." }
 # The skill the hooks trigger is agent-handoff-pack (skills\), linked by default in section 9b.
 
-# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart/PreToolUse guard hook + handoff hooks/statusLine + PostToolUse pr-closeout-nudge + autoMode.allow PR-merge rule + remoteControlAtStartup false), keep everything else
+# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart/PreToolUse guard hook + handoff hooks/statusLine + PostToolUse pr-closeout-nudge), keep everything else. Does not change autoMode or a remote-control startup flag.
 $settings = $null; $settingsOk = $true; $settingsExisted = Test-Path -LiteralPath $SettingsPath
 if ($AutoMemAtStore) {
   $settingsOk = $false
@@ -885,26 +808,6 @@ if ($settingsOk) {
     $pendingS.Add(@{ kind = 'plugin-config'; target = 'claude'; plugin = $ap; value = $ReadBoth; hadPrior = $hadIF; prior = $(if ($hadIF) { $curIF } else { $null }); createdPluginConfigs = (-not $hadPC); createdPlugin = (-not $hadP); createdOptions = (-not $hadO) })
   }
 
-  # autoMode.allow: add-only. Keep environment / other keys and existing allow entries.
-  # "$defaults" first; living-relation PR-merge rule only if that exact string is missing.
-  # Does not add permissions.allow (no Bash(gh pr merge*) rule).
-  Merge-AutoModeAllow $settings $AutoModePrMergeAllow $pendingS ([ref]$changes) $firstInstall
-
-  # remoteControlAtStartup = false: one Claude phone-remote method (this package's Claude remote shortcuts), not also
-  # Claude's built-in "Remote Control for all sessions". Only a missing key or true is changed; uninstall restores it.
-  $hadRcs = [bool]$settings.PSObject.Properties['remoteControlAtStartup']
-  $curRcs = $null; if ($hadRcs) { $curRcs = $settings.remoteControlAtStartup }
-  if ($hadRcs -and $curRcs -is [bool] -and -not $curRcs) {
-    Note 'OK' 'remoteControlAtStartup already false'
-    if ($firstInstall) { Add-ManifestJson @{ kind = 'rc-startup-preexisting'; target = 'claude' } }
-  } elseif ($hadRcs -and -not ($curRcs -is [bool])) {
-    Note 'WARN' "remoteControlAtStartup is '$curRcs' (not true/false); left alone"
-  } else {
-    if ($hadRcs) { $settings.remoteControlAtStartup = $false } else { $settings | Add-Member -NotePropertyName remoteControlAtStartup -NotePropertyValue $false }
-    $changes += 'remoteControlAtStartup = false'
-    $pendingS.Add(@{ kind = 'rc-startup'; target = 'claude'; value = $false; hadPrior = $hadRcs; prior = $(if ($hadRcs) { $curRcs } else { $null }) })
-  }
-
   if ($changes.Count -gt 0) {
     $bak = Get-FreePath "$SettingsPath.bak-$Stamp"
     $what = "update $SettingsPath (" + ($changes -join '; ') + ')' + $(if ($settingsExisted) { "; backup $bak" } else { '' })
@@ -1029,30 +932,23 @@ elseif (Test-Path -LiteralPath $WsConfig) {
 }
 $shortcutScript = Join-Path $BridgeDir $TK.ShortcutsInstaller
 $scDir = [IO.Path]::GetFullPath((Join-Path $PkgRoot $TK.ShortcutFolder)).TrimEnd('\')
-$shortcutPlan = "create or update '$scDir' with " + (($TK.Shortcuts | ForEach-Object { $_.Name }) -join ', ') + "; remove old copies (loose Desktop links and links in the old Desktop '" + ($TK.LegacyShortcutFolders -join "', '") + "' folders, only links that run these scripts, then those folders once empty); then run the read-only prerequisite checks"
-if ($testMode) { Note 'SKIP' "test mode (-UserHome): not running $(Split-Path $shortcutScript -Leaf), it cleans old links on the real Desktop. It would $shortcutPlan" }
+$shortcutPlan = "create manual links in '$scDir': " + (($TK.Shortcuts | ForEach-Object { $_.Name }) -join ', ') + '. No sign-in link.'
+if ($testMode) { Note 'SKIP' "test mode (-UserHome): not running $(Split-Path $shortcutScript -Leaf). It would $shortcutPlan" }
 elseif ($WhatIf) { Note 'WOULD' "run $shortcutScript -LinkDir `"$scDir`" -NoPause: $shortcutPlan" }
 elseif (-not (Test-Path -LiteralPath $shortcutScript)) { Note 'ERROR' "not found: $shortcutScript" }
 else {
-  Write-Host ''
-  # Record only the links (and the folder) this run creates, so uninstall removes exactly those.
   $scDirPre = Test-Path -LiteralPath $scDir
   $scPre = @{}; foreach ($sc in $TK.Shortcuts) { $scPre[$sc.Name] = Test-Path -LiteralPath (Join-Path $scDir "$($sc.Name).lnk") }
-  # Links an earlier install recorded (it created them): when they are re-pointed, record the new script too, so
-  # uninstall still recognizes them.
   $scRecorded = @()
   if (Test-Path -LiteralPath $ManifestPath) {
     foreach ($ln in @([IO.File]::ReadAllLines($ManifestPath) | Where-Object { $_ -like 'json|*' })) {
       try { $j = $ln.Substring(5) | ConvertFrom-Json; if ($j.kind -eq 'shortcut') { $scRecorded += $j } } catch { }
     }
   }
-  $suPre = @{}; foreach ($u in @($TK.StartupLinks)) { $suPre[$u.Name] = Test-Path -LiteralPath (Join-Path $StartupFolder "$($u.Name).lnk") }
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $shortcutScript -LinkDir $scDir -StartupDir $StartupFolder -NoPause
+  $hostExe = 'powershell.exe'
+  if ($env:OS -ne 'Windows_NT') { $hostExe = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName }
+  & $hostExe -NoProfile -ExecutionPolicy Bypass -File $shortcutScript -LinkDir $scDir -StartupDir $StartupFolder -NoPause
   $scExit = $LASTEXITCODE
-  foreach ($u in @($TK.StartupLinks)) {
-    $lp = Join-Path $StartupFolder "$($u.Name).lnk"
-    if (-not $suPre[$u.Name] -and (Test-Path -LiteralPath $lp)) { Add-ManifestJson @{ kind = 'startup-link'; path = $lp; script = (Join-Path $BridgeDir $u.Script) } }
-  }
   if (-not $scDirPre -and (Test-Path -LiteralPath $scDir)) { Add-ManifestJson @{ kind = 'shortcut-dir'; path = $scDir } }
   foreach ($sc in $TK.Shortcuts) {
     $lp = Join-Path $scDir "$($sc.Name).lnk"
@@ -1060,7 +956,7 @@ else {
     $rec = @($scRecorded | Where-Object { [string]$_.path -ieq $lp })
     if ((Test-Path -LiteralPath $lp) -and (-not $scPre[$sc.Name] -or ($rec.Count -and -not @($rec | Where-Object { [string]$_.script -ieq $want }).Count))) { Add-ManifestJson @{ kind = 'shortcut'; path = $lp; script = $want } }
   }
-  if ($scExit -eq 0) { Note 'DONE' "shortcuts in $scDir (prerequisite results are listed above)" }
+  if ($scExit -eq 0) { Note 'DONE' "manual shortcuts in $scDir (they do not start at sign-in)" }
   else { Note 'WARN' "$(Split-Path $shortcutScript -Leaf) reported failures (exit $scExit). See its output above." }
 }
 # An old installed toolkit copy (LegacyFolders) is never moved or deleted; it is only reported.
@@ -1075,24 +971,6 @@ foreach ($lf in @($TK.LegacyFolders | Where-Object { $_ })) {
 $cs = @($Preflight.CursorStartup)
 if ($cs.Count) { foreach ($e in $cs) { Note 'WARN' "Cursor starts at sign-in (not added by this install; remove it by hand if unwanted): $($e.Path)" } }
 else { Note 'OK' 'Cursor does not start at sign-in (install adds no autostart)' }
-
-# 9c. Retire the old Cursor worker (feature removed 2026-10-31; Cursor's built-in Remote Control replaces it): stop
-#     only the supervisor / agent worker the old Start Cursor workers or Phone access started, and delete its stop
-#     flag. The old Start/Stop Cursor workers links go in section 9 (toolkit.psd1 RetiredShortcuts).
-$retireScript = Join-Path $BridgeDir 'shortcuts\retire-cursor-worker.ps1'
-if ($testMode) { Note 'SKIP' 'test mode (-UserHome): not checking for the old Cursor worker' }
-elseif (-not (Test-Path -LiteralPath $retireScript)) { Note 'ERROR' "not found: $retireScript" }
-else {
-  $ErrorActionPreference = 'Continue'
-  $rArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $retireScript); if ($WhatIf) { $rArgs += '-WhatIf' }
-  $rOut = @(& powershell.exe @rArgs 2>&1)
-  $ErrorActionPreference = 'Stop'
-  foreach ($ln in $rOut) {
-    $s = [string]$ln; if (-not $s.Contains('|')) { continue }
-    $k, $v = $s -split '\|', 2
-    switch ($k) { 'STOPPED' { Note 'DONE' $v } 'WOULD' { Note 'WOULD' $v } 'WARN' { Note 'WARN' $v } default { Note 'OK' $v } }
-  }
-}
 
 # 9b. Skills (default): link (junction) this repo's skills\ into ~\.claude\skills only (Cursor reads it too);
 #     old links from this repo in ~\.cursor\skills are removed (link only) so skills are not listed twice.
@@ -1151,10 +1029,7 @@ if ($attention.Count) {
 }
 Write-Host ''
 if ($WhatIf) { Write-Host 'Dry run only. Nothing was changed. Run again without -WhatIf to apply.' -ForegroundColor Cyan }
-else {
-  Write-Host 'Next: open PowerShell with "Run as admin" (same Windows account) and run this one command:' -ForegroundColor White
-  Write-Host ('  powershell -NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $PkgRoot 'install-admin.ps1') + '" -ProjectsRoot "' + $ProjectsRoot + '"')
-}
+else { Write-Host 'Nothing starts at sign-in. Desktop Commander runs only from its manual shortcut. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
 Invoke-StatusCheck
 Show-SkillZipPopup
 if (@($Summary | Where-Object Status -eq 'ERROR').Count) { exit 1 }
