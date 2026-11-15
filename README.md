@@ -12,34 +12,23 @@ git clone <repo-url> <Projects>\active\workstation
 powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1      # hooks, gitleaks, models folder, local.toml
 powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -ProjectsRoot <Projects> -WhatIf   # then without -WhatIf
 ```
-The Workstation toolkit (`workstation\`: Phone access, Claude remote shortcuts, Health check, Dashboard) runs
-straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`, since the
-shortcuts run whatever is checked out. Runtime files (the config install.ps1 writes, the Claude remote state file)
-live in `%LOCALAPPDATA%\Workstation\`, never in the clone.
-**Nothing starts on its own.** No sign-in links, no scheduled tasks, no Cursor autostart: everything here starts from a
-shortcut, a dashboard toggle or button. Cursor's phone access is Cursor's own built-in Remote Control (the old
-Cursor workers feature was removed 2026-10-31; Install stops the old worker it started and deletes the old Start/Stop
-Cursor workers links, listed in `toolkit.psd1` RetiredShortcuts). Claude's phone access is this package's Claude
-remote shortcuts only: Install sets `remoteControlAtStartup` to `false` in `~\.claude\settings.json` (add-only, backup
-first; uninstall.ps1 puts the old value back), so Claude's built-in "Remote Control for all sessions" doesn't double up.
-**Shortcuts and sign-in links** are generated, never committed (`*.lnk` is gitignored). Their definitions are
-`Shortcuts` and `StartupLinks` in `toolkit.psd1`; `workstation\shortcuts\install-shortcuts.ps1` (run by install.ps1)
-creates them pointing at this clone:
-- `shortcuts\rc\`: one **Start Claude remote - `<folder>`** link and one **Stop Claude remote - `<folder>`** link per git repo directly in `active\` (`.git` must be a directory; worktrees, whose `.git` is a file, and plain folders are skipped; names starting with a dot are skipped). Make Claude remote shortcuts rewrites this folder (and removes the old `RC <folder>` / `Close RC <folder>` links, plus a pair for a folder that is no longer a repo) and does not start a session.
-- `shortcuts\`: Health check, Dashboard, Update from GitHub (`git pull --ff-only` of this clone only; or double-click root `pull.cmd`), Install (runs this clone's `install.ps1` with any arguments passed through; or double-click root `install.cmd`), Start Desktop Commander (`-Show`)
-  and Stop Desktop Commander, Start phone access / Stop phone access (the dashboard's **Phone access (Desktop Commander + Claude)** toggle: Desktop Commander Remote plus the projects-root Claude remote control; Stop touches only those two), Check for stray processes, Start phone alerts watcher / Stop phone alerts watcher,
-  Make Claude remote shortcuts, and Stop and start all Claude remotes (stops the per-project Claude remotes that are
-  running, then starts fresh ones for the same folders, e.g. after a Claude Code update; the dashboard has the same
-  button). Each shortcut uses the same words as its dashboard toggle or button. Install deletes the links it made under
-  the old names (Workers Start, Remote On, Pull, ...; listed in `toolkit.psd1` RenamedShortcuts) only while they still
-  run the same script.
-- Startup folder: nothing. Desktop Commander Remote runs only while the dashboard's Phone access toggle is on (or from the Start phone access / Start Desktop Commander shortcuts); install removes the old `Desktop Commander Remote.lnk` sign-in link (backup first). The Dashboard does not start at sign-in;
-  only the Dashboard shortcut starts it.
-  A Startup link of the same name is replaced only if it already runs the same script, after a backup to
-  `%LOCALAPPDATA%\Workstation\backups\startup-links-<time>\`.
-- Desktop Commander remote (`workstation\desktop-commander-remote\`) runs `npx @wonderwhy-er/desktop-commander@<pinned version>
-  remote`; it keeps no token in the repo (the device login is held by Desktop Commander itself), and its logs go to
-  `%LOCALAPPDATA%\Workstation\desktop-commander-remote\`.
+The Workstation toolkit (`workstation\`: Health check, app locks, and the manual Desktop Commander shortcuts) runs
+straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`.
+Runtime files live in `%LOCALAPPDATA%\Workstation\`, never in the clone.
+**Nothing starts on its own.** No sign-in links, no scheduled tasks, no Run key.
+
+**Desktop Commander (manual, one phone remote per PC).** It serves every chat and project. The MCP plugin that
+Claude starts is separate and is not changed here. `install.ps1` creates three links in `shortcuts\` (gitignored):
+
+- **Start Desktop Commander** runs `workstation\desktop-commander-remote\start-dc-remote.ps1 -Show`. It stops stale or duplicate phone-remote copies, then starts exactly one with `npx.cmd @wonderwhy-er/desktop-commander@latest remote`, or says the healthy copy is already online. It does not launch or remove the Desktop Commander desktop app. The MCP plugin is separate and starts with Claude.
+- **Stop Desktop Commander** stops the phone remote.
+- **DC remote status** lists each copy: PID, start time, whether its parent and console are alive, and an online / stale / duplicate verdict, plus the line `one copy serves all chats`.
+
+A healthy copy has a live parent and a live console. Any extra copy is leftover. **Kill orphaned remote processes** (`workstation\kill-orphans.ps1`) lists leftovers and asks once per item. `-WhatIf` only lists. `-Force` stops them but never stops the newest remote unless you also pass `-IncludeActiveRemote`. The single healthy copy is never listed. Health check (`workstation\health\workstation-status.ps1`) says OK when zero or one remote is running, and warns only when extra copies or other leftovers are present. It also checks that the remote does not start at sign-in.
+
+Logs: `%LOCALAPPDATA%\Workstation\desktop-commander-remote\`. No token is stored in this repo.
+
+On a PC that still has the old local setup, run `cleanup-legacy.ps1 -WhatIf`, then without `-WhatIf`. It backs up with SHA256 hashes first. It does not stop the phone remote and does not archive that state folder. Then run `install.ps1` so the three manual links exist again.
 WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `bash setup.sh`.
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).
@@ -66,7 +55,7 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   the packer only treats directories that contain `SKILL.md` as skills and ignores `.zip` files. Limit
   violations are reported as warnings; skill files are never edited. Untracked `SKILL.md` fails the packer.
 - Ownership notes: `install.ps1` runs `ownership-notes.ps1`, which adds a README.md/AGENTS.md ("owned by the workstation repo")
-  to each folder it creates (`%LOCALAPPDATA%\Workstation` and its subfolders, `<Projects>\_claude`, `shortcuts\`). In the shared
+  to each folder it creates (`%LOCALAPPDATA%\Workstation` and its subfolders, `<Projects>\_claude`). In the shared
   skill folders it adds only `README-workstation.md`, which lists the links this repo owns. Existing files are never changed.
 - `claude/` - Claude Code user-scope setup that `install.ps1` applies on each PC (merge; backup first; never
   removes or overwrites servers/plugins/hooks it did not add). `mcp-servers.json` is the connector list merged
@@ -83,8 +72,6 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   Cowork / Chat do not write local memory files. Install does not create or check `~\.claude\working-memory`;
   a leftover junction is harmless. Stranded local Cowork notes can be copied into the store or brought in
   with the app's Import memory button. See `MIGRATION.md`.
-  Section 7 also merges `autoMode.allow` there (keeps existing `autoMode` keys such as `environment` and
-  existing allow entries; puts `"$defaults"` first; adds the living-relation PR-merge rule only when that
-  exact string is missing). It does not add a `permissions.allow` `Bash(gh pr merge*)` rule.
+  Install does not change `autoMode` and does not write a remote-control startup flag. `cleanup-legacy.ps1` removes that flag and the one living-relation pull-request merge allow rule from a PC that already has them. The Fusion MCP url in `claude\mcp-servers.json` is `http://127.0.0.1:8765/mcp` (the add-in's port).
 - `agents/projects-AGENTS.md` - the shared agent rules file for a projects root.
 - `install.ps1`, `preflight.ps1`, `uninstall.ps1`, `toolkit.psd1` - imported as they were; they are rewritten to read the pin file in a later PR.

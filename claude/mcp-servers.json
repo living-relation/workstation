@@ -21,7 +21,7 @@
       "name": "autodesk-fusion-mcp",
       "scope": "user",
       "type": "http",
-      "url": "http://127.0.0.1:27182/mcp"
+      "url": "http://127.0.0.1:8765/mcp"
     },
     {
       "name": "githits",

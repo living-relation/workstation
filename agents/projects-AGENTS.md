@@ -39,7 +39,7 @@ would bypass one, stop and ask.
 ## 5. Fusion lock (one agent drives Autodesk Fusion at a time)
 One lock per PC: `%LOCALAPPDATA%\Workstation\fusion.lock` (outside every repo); log `fusion-lock.log` beside it.
 Script: `<Projects>\active\workstation\workstation\fusion-lock\fusion-lock.ps1` (call it with `powershell -NoProfile -ExecutionPolicy Bypass -File`).
-- Before driving Fusion (MCP add-in or by hand), run `status`. Free: `acquire -Holder <your name> -Kind claude-code|cursor|remote -Files <files you will open>`. Held by someone else: wait or ask the owner; never drive Fusion.
+- Before driving Fusion (MCP add-in or by hand), run `status`. Free: `acquire -Holder <your name> -Kind claude-code|cursor|remote -Repo <repo path> -Files <files you will open>`. Held by someone else: wait or ask the owner; never drive Fusion. One lock per PC: any session in any repo waits while someone else holds it. `-Repo` is stored and shown by `status`. It does not change who is blocked.
 - Claude Code / Cursor: add `-StartPinger`; a hidden pinger checks in every 5 min and exits when your session process ends.
 - Remote agents (cloud Claude via Desktop Commander, Grok bots): run `checkin -Holder <name>` at least every 10 min while working.
 - Done: save your work, then `release -Holder <name>`.
@@ -51,8 +51,8 @@ Same script as the Fusion lock, with `-Name harness-design`: `<Projects>\active\
 Desktop app only: an agent clicking the app (computer-use) or Dan driving it by hand. The harness.design MCP cloud tools do not need this lock. An agent delete is the exception: it goes through the desktop app and needs the lock.
 harness.design autosaves to the cloud, so unsaved work cannot be detected. `check` clears a lock only when the last check-in was 15+ minutes ago AND `harness.design.exe` (`%LOCALAPPDATA%\Programs\harness-design-desktop\harness.design.exe`) has no open editor. Window titles are conservative: any visible title other than the app name counts as an open editor, because the Windows title text was not confirmed (macOS lists windows by harness name). Otherwise it says ask the owner. Never delete the lock file by hand, and never clear a lock on time alone.
 `-Files` is harness document ids or titles (PowerShell passes `rBjB,QjYZ` as two values).
-- Acquire before using the desktop app (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\fusion-lock\fusion-lock.ps1 acquire -Name harness-design -Holder <your name> -Kind claude-code|cursor|remote -Files rBjB,QjYZ`
+- Acquire before using the desktop app (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\fusion-lock\fusion-lock.ps1 acquire -Name harness-design -Holder <your name> -Kind claude-code|cursor|remote -Repo <repo path> -Files rBjB,QjYZ`
 - Check in at least every 10 min while working (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\fusion-lock\fusion-lock.ps1 checkin -Name harness-design -Holder <your name>`
 - Release when done (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\fusion-lock\fusion-lock.ps1 release -Name harness-design -Holder <your name>`
 - Claude Code / Cursor may add `-StartPinger` on acquire (same as Fusion; a hidden pinger checks in every 5 min). Remote agents run the check-in line themselves.
-- To confirm both locks are installed for every account on this PC (read-only, PASS/FAIL, nonzero if anything fails): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\shortcuts\workstation-status.ps1 -Locks`
+- To confirm both locks are installed for every account on this PC (read-only, PASS/FAIL, nonzero if anything fails): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\health\workstation-status.ps1 -Locks`

@@ -9,7 +9,9 @@ $realLocal = $env:LOCALAPPDATA
 $env:LOCALAPPDATA = $tmp
 $env:WORKSTATION_FUSION_MCP_URL = 'http://127.0.0.1:9/mcp'
 $fail = 0
-function Run { param([Parameter(ValueFromRemainingArguments = $true)]$A) $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $script @A 2>&1; @{ code = $LASTEXITCODE; out = ($o -join "`n") } }
+$pwsh = @(Get-Command powershell, pwsh -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+if (-not $pwsh) { 'FAIL powershell not found'; exit 1 }
+function Run { param([Parameter(ValueFromRemainingArguments = $true)]$A) $o = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $script @A 2>&1; @{ code = $LASTEXITCODE; out = ($o -join "`n") } }
 function Check([string]$What, $Got, $Want) { if ($Got -eq $Want) { "PASS $What" } else { "FAIL $What (got '$Got', want '$Want')"; $script:fail++ } }
 $fusion = Join-Path $tmp 'Workstation\fusion.lock'
 $harness = Join-Path $tmp 'Workstation\harness-design.lock'
@@ -28,7 +30,7 @@ try {
     Check 'harness lock not created by fusion acquire' (Test-Path $harness) $false
     $held = Run status
     Check 'fusion status held' $held.code 1
-    Check 'fusion held keys' (Status-Keys $held.out) 'state,holder,kind,started,last_checkin,minutes_since_checkin,files,pinger_pid,pinger_alive'
+    Check 'fusion held keys' (Status-Keys $held.out) 'state,holder,kind,repo,started,last_checkin,minutes_since_checkin,files,pinger_pid,pinger_alive'
     Check 'harness still free while fusion held' (Run status -Name harness-design).code 0
     Check 'fusion check fresh held' (Run check).code 1
     Age-Lock $fusion 600
@@ -43,12 +45,14 @@ try {
     # harness.design: acquire, status, check-in, release, two holders, stale clear and ask-the-owner.
     Remove-Item Env:WORKSTATION_FUSION_FAKE_DOCS -ErrorAction SilentlyContinue
     $env:WORKSTATION_HARNESS_FAKE_WINDOWS = 'none'
-    $null = & powershell -NoProfile -ExecutionPolicy Bypass -File $script acquire -Name harness-design -Holder A -Kind cursor -Files rBjB,QjYZ 2>&1
+    $null = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $script acquire -Name harness-design -Holder A -Kind cursor -Repo 'C:\work\harness' -Files rBjB,QjYZ 2>&1
     Check 'harness acquire A' $LASTEXITCODE 0
     Check 'harness lock exists' (Test-Path $harness) $true
     Check 'fusion lock still absent' (Test-Path $fusion) $false
     $hj = Get-Content $harness -Raw | ConvertFrom-Json
     Check 'harness files count' @($hj.files).Count 2
+    Check 'harness repo recorded' ([string]$hj.repo) 'C:\work\harness'
+    Check 'other repo does not steal harness' (Run acquire -Name harness-design -Holder B -Kind remote -Repo 'C:\work\other').code 2
     $hs = Run status -Name harness-design
     Check 'harness status held' $hs.code 1
     Check 'harness status shows id' ($hs.out -like '*rBjB*') $true

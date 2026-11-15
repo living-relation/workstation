@@ -95,9 +95,9 @@ $toolkitLeaves = @(Get-ChildItem -LiteralPath $pkgToolkit -Recurse -File -Filter
 $legacyLeaves = @($TK.LegacyScripts | Where-Object { $toolkitLeaves -notcontains $_ })
 $OurLeaves = @('memory-link-guard.ps1', 'context-guard.ps1', 'pr-closeout-nudge.ps1', 'handoff-at-80.py') + $toolkitLeaves + $legacyLeaves | Select-Object -Unique
 $OurScriptRx  = '(?i)(^|[\\/"\s])(' + (($OurLeaves | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
-$RetiredRx    = '(?i)sync-claude-memory-to-cursor|_claude\\run-hidden\.vbs|watch-pull|cursor-worker|run-worker\.ps1|ClaudeCode-?RemoteControl|watcher\.py'
-$RetiredNameRx = '(?i)Claude-Memory-To-Cursor-Sync|watch-?pull|cursor-?worker|ClaudeCode-?RemoteControl|Workstation-Watcher'
-$SimilarNameRx = '(?i)memory.?sync|sync.?memory|sync-?pull|sync-?push|handoff|context-?guard|remote-?control'
+$RetiredRx    = '(?i)sync-claude-memory-to-cursor|_claude\\run-hidden\.vbs'
+$RetiredNameRx = '(?i)Claude-Memory-To-Cursor-Sync'
+$SimilarNameRx = '(?i)memory.?sync|sync.?memory|handoff|context-?guard'
 $CursorExeRx  = '(?i)(^|[\\/"\s])cursor\.exe\b'
 
 # ---------------------------------------------------------------- helpers
@@ -230,9 +230,10 @@ function Get-InstructionFiles($S, [string]$Plugin) {
   $f = $o.Value.PSObject.Properties['instructionFiles']; if (-not $f) { return $null }
   return [string]$f.Value
 }
-$isAdmin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole((New-Object Security.Principal.SecurityIdentifier 'S-1-5-32-544'))
+$isAdmin = $false
+try { $isAdmin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole((New-Object Security.Principal.SecurityIdentifier 'S-1-5-32-544')) } catch { $isAdmin = $false }
 if ($isAdmin) { Add-Finding 'WARN' 'prereq' 'elevation' 'this window is elevated. install.ps1 is meant for a normal PowerShell window.' }
-else { Add-Finding 'OK' 'prereq' 'elevation' 'normal window (right for install.ps1). install-admin.ps1 needs an elevated PowerShell afterwards (you run that one).' }
+else { Add-Finding 'OK' 'prereq' 'elevation' 'normal window (right for install.ps1).' }
 
 # ---------------------------------------------------------------- 2. scheduled tasks
 # No memory sync task any more (Claude-Memory-To-Cursor-Sync is retired; see $RetiredNameRx).
@@ -253,7 +254,7 @@ if ($null -ne $tasks) {
       $actX = ([Environment]::ExpandEnvironmentVariables($act) -replace '/', '\').ToLower()
       foreach ($w in $want) { if ($actX.Contains($w.ToLower())) { $hit = $true } }
       if ($hit) { Add-Finding 'ALREADY-INSTALLED' 'tasks' $label "state $($t.State); runs $act" }
-      else { Add-Finding 'WARN' 'tasks' $label "runs '$act', not this install's script ($($want -join ' or ')). install-admin.ps1 re-registers it under the same name." }
+      else { Add-Finding 'WARN' 'tasks' $label "runs '$act', not the expected command ($($want -join ' or '))." }
     } elseif ($name -eq 'Claude-Memory-To-Cursor-Sync' -and "$($t.State)" -eq 'Disabled') {
       Add-Finding 'OK' 'tasks' $label "retired memory sync task, disabled (fine; nothing to do). Optional cleanup in an admin PowerShell: Unregister-ScheduledTask -TaskName '$name' -Confirm:`$false"
     } elseif ($name -eq 'Claude-Memory-To-Cursor-Sync') {
@@ -266,7 +267,7 @@ if ($null -ne $tasks) {
       Add-Finding 'WARN' 'tasks' $label "similar name or purpose; check it is not a duplicate: '$act'"
     }
   }
-  foreach ($k in $knownTasks.Keys) { if (-not $seen[$k]) { Add-Finding 'OK' 'tasks' $k 'not registered yet (install-admin.ps1 adds it)' } }
+  foreach ($k in $knownTasks.Keys) { if (-not $seen[$k]) { Add-Finding 'OK' 'tasks' $k 'not registered' } }
 }
 
 # ---------------------------------------------------------------- 3. Run / RunOnce / Startup folders
@@ -342,7 +343,8 @@ if ($CursorStartup.Count -eq 0) {
 
 # ---------------------------------------------------------------- 5. running processes
 $procs = $null
-try { $procs = @(Get-CimInstance Win32_Process -ErrorAction Stop) } catch { Add-Finding 'WARN' 'processes' 'process list' "could not read: $($_.Exception.Message)" }
+if (-not (Get-Command Get-CimInstance -ErrorAction SilentlyContinue)) { Add-Finding 'OK' 'processes' 'process list' 'not available here' }
+else { try { $procs = @(Get-CimInstance Win32_Process -ErrorAction Stop) } catch { Add-Finding 'WARN' 'processes' 'process list' "could not read: $($_.Exception.Message)" } }
 if ($null -ne $procs) {
   $hidden = @($procs | Where-Object { -not $_.CommandLine }).Count
   $hits = 0
@@ -350,14 +352,7 @@ if ($null -ne $procs) {
     $cl = [string]$p.CommandLine
     if (-not $cl -or $p.ProcessId -eq $PID) { continue }
     $id = "$($p.Name) pid $($p.ProcessId)"
-    if ($cl -match '(?i)watch-pull') { $hits++; Add-Finding 'CONFLICT' 'processes' $id "retired watch-pull loop is running (stop it by hand): $cl" }
-    elseif ($cl -match '(?i)cursor-worker\\run-worker\.ps1|run-worker\.ps1') {
-      $hits++
-      if ($cl.ToLower().Contains((Join-Path $BridgeDir $TK.WorkerFolder).ToLower())) { Add-Finding 'WARN' 'processes' $id "retired Cursor worker from this toolkit is still running; install.ps1 stops it (Cursor's built-in Remote Control replaces it): $cl" }
-      elseif (@($LegacyDirs | Where-Object { $cl.ToLower().Contains($_.ToLower() + '\') }).Count) { Add-Finding 'WARN' 'processes' $id "Cursor worker running from the LEGACY toolkit folder; stop it (old Stop Cursor workers); the Cursor worker is retired, Cursor's built-in Remote Control replaces it: $cl" }
-      else { Add-Finding 'WARN' 'processes' $id "Cursor worker running from another toolkit folder; stop it with that toolkit's Stop Cursor workers (the Cursor worker is retired here): $cl" }
-    }
-    elseif ($cl -match $OurScriptRx) { $hits++; Add-Finding 'OK' 'processes' $id "short-lived package script running now: $cl" }
+    if ($cl -match $OurScriptRx) { $hits++; Add-Finding 'OK' 'processes' $id "short-lived package script running now: $cl" }
   }
   if (-not $hits) { Add-Finding 'OK' 'processes' 'package scripts' 'none running' }
   if ($hidden) { Add-Finding 'OK' 'processes' 'unreadable command lines' "$hidden process(es) of other accounts or the system cannot be read without admin (skipped)" }
@@ -691,8 +686,7 @@ foreach ($dk in @($desks | Where-Object { $_ -and (Test-Path -LiteralPath $_) })
     if ($runs -notmatch $bridgeScriptRx -and $newNames -notcontains $base -and $oldNames -notcontains $base) { continue }
     $scFound++
     $sp = $null; $m = [regex]::Match($runs, '(?i)"([^"]*' + $bridgeScriptRx.Substring(4) + ')"'); if ($m.Success) { $sp = Expand-UserPath $m.Groups[1].Value }
-    # Ours = the script is one of this package's shortcut folders OR anywhere inside this clone's toolkit
-    # (e.g. Dashboard.lnk -> <clone>\workstation\dashboard\start-dashboard.ps1).
+    # Ours = the script is one of this package's shortcut targets or anywhere inside this clone's toolkit.
     $ours = ($sp -and ($ourShortcutDirs -contains (Split-Path $sp -Parent).ToLower() -or (Test-Under $sp $BridgeDir)))
     $legacy = ($sp -and (@($LegacyDirs | Where-Object { Test-Under $sp $_ }).Count -or $legacyLeaves -contains (Split-Path $sp -Leaf)))
     $isNew = ($newNames -contains $base)
