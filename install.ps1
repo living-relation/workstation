@@ -989,6 +989,10 @@ else { try {
     elseif ($r.Action -eq 'unlinked') { Note 'DONE' "removed duplicate skill link $($r.Path) -> $($r.Target)" }
     elseif ($r.Action -eq 'would-retire') { Note 'WOULD' "move retired skill $($r.Path) to $($r.Target)" }
     elseif ($r.Action -eq 'retired') { Note 'DONE' "moved retired skill $($r.Path) to $($r.Target)" }
+    elseif ($r.Action -eq 'synced-skip') { Note 'OK' "no junction (claude.ai synced copy is present): $($r.Path)" }
+    elseif ($r.Action -eq 'synced-left-real') { Note 'OK' "left real folder alone (claude.ai synced copy is present): $($r.Path)" }
+    elseif ($r.Action -eq 'would-remove-synced-junction') { Note 'WOULD' "remove duplicate junction $($r.Path) -> $($r.Target)" }
+    elseif ($r.Action -eq 'removed-synced-junction') { Note 'DONE' "removed duplicate junction $($r.Path) -> $($r.Target)" }
     else { Note 'DONE' "skill $($r.Path) -> $($r.Target) ($($r.Action))"; Add-ManifestJson @{ kind = 'skill-link'; path = $r.Path; target = $r.Target; backup = $r.Backup } }
   }
 } catch { Note 'ERROR' ("link skills -- " + $_.Exception.Message) } }

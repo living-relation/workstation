@@ -1,8 +1,12 @@
 # link-skills.ps1 - link this repo's skills into ~\.claude\skills as junctions (a git pull updates them). Cursor also reads
 # ~\.claude\skills, so linking into ~\.cursor\skills too made every skill show up twice there.
+# A skill that is already in the claude.ai synced bucket (~.claude\skills\synced\<bucket>\<name>) is not linked,
+# so Claude Code does not load it twice. An existing junction for that skill is removed (the link only, never the
+# target, and never anything under synced\). Skills that are not on claude.ai still get a junction.
 # Usage: .\link-skills.ps1 [-From <skills folder>] [-WhatIf]   (default: this repo's skills\)
 # A same-name skill that is not already this link is moved to -BackupRoot first; never touches other skills.
-# The only delete: a junction into -From whose skill is gone (renamed or removed) is removed - the link only.
+# The only delete: a junction into -From whose skill is gone (renamed or removed) is removed - the link only,
+# plus a junction for a skill that now has a claude.ai synced copy (the link only).
 # -Retire: skill names that were merged or removed; a same-name folder or link in -Targets is moved to
 # -BackupRoot\<stamp>\retired\ (never deleted). -Unlink: folders (default ~\.cursor\skills) where an old junction into -From
 # is removed (the link only, never its target); anything else there is never touched. Stops if a skill name is in two sources. Output: one object per link (Path, Target, Action). install.ps1 runs it.
@@ -11,6 +15,7 @@ param([string[]]$From = @((Join-Path $PSScriptRoot 'skills')),
       [string[]]$Targets = @("$env:USERPROFILE\.claude\skills"),
       [string[]]$Unlink = @("$env:USERPROFILE\.cursor\skills"),
       [string]$BackupRoot = "$env:USERPROFILE\.skills-backup",
+      [string]$SyncedRoot = $(if ($env:USERPROFILE) { Join-Path $env:USERPROFILE '.claude\skills\synced' } else { '' }),
       [string[]]$Retire = @('handoff-sync-continue'))
 $ErrorActionPreference = 'Stop'
 # Claude-app-owned skills (harness.design plugin): names in <From>\EXCLUDE.txt, or any SKILL.md whose frontmatter has
@@ -37,6 +42,21 @@ function Test-Protected([string]$Name, [string]$Path) {
   if ($Path -and (Test-Path -LiteralPath $Path)) { return (Test-HarnessAppSkill $Path) }
   return $false
 }
+function Test-UnderSynced([string]$Path) {
+  if (-not $SyncedRoot) { return $false }
+  $root = $SyncedRoot.TrimEnd('\')
+  if (-not $root) { return $false }
+  $p = $Path.TrimEnd('\')
+  return ($p -eq $root) -or $p.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase) -or $p.StartsWith($root + '/', [StringComparison]::OrdinalIgnoreCase)
+}
+function Test-SyncedSkill([string]$Name) {
+  if (-not $SyncedRoot -or -not (Test-Path -LiteralPath $SyncedRoot -PathType Container)) { return $false }
+  foreach ($bucket in @(Get-ChildItem -LiteralPath $SyncedRoot -Directory -Force -ErrorAction SilentlyContinue)) {
+    $md = Join-Path (Join-Path $bucket.FullName $Name) 'SKILL.md'
+    if (Test-Path -LiteralPath $md -PathType Leaf) { return $true }
+  }
+  return $false
+}
 function Write-Skip([string]$Path, [string]$Why) {
   Write-Host "SKIP harness app skill: $Path ($Why)"
   [pscustomobject]@{ Path = $Path; Target = $null; Action = 'SKIP harness app skill' }
@@ -61,6 +81,33 @@ foreach ($s in $plan) {
     $dest = Join-Path $t $s.Name
     if (Test-Protected $s.Name $dest) { Write-Skip $dest 'target is a harness app skill'; continue }
     $item = Get-Item -LiteralPath $dest -Force -ErrorAction SilentlyContinue
+    if (Test-SyncedSkill $s.Name) {
+      if (Test-UnderSynced $dest) { Write-Skip $dest 'under synced'; continue }
+      $isJunction = ($item -and $item.LinkType -eq 'Junction')
+      $tgt = ''
+      if ($isJunction) { $tgt = "$(@($item.Target)[0])".TrimEnd('\') }
+      $pointsHere = $false
+      if ($isJunction) {
+        foreach ($src in $From) {
+          $root = (Resolve-Path -LiteralPath $src).Path.TrimEnd('\') + '\'
+          if (($tgt + '\').StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) { $pointsHere = $true }
+        }
+      }
+      if ($isJunction -and $pointsHere) {
+        if (-not $PSCmdlet.ShouldProcess($dest, "remove duplicate junction -> $tgt")) {
+          [pscustomobject]@{ Path = $dest; Target = $tgt; Action = 'would-remove-synced-junction' }; continue
+        }
+        [IO.Directory]::Delete($dest, $false)
+        Write-Host "removed duplicate junction (claude.ai synced copy is present): $dest -> $tgt"
+        [pscustomobject]@{ Path = $dest; Target = $tgt; Action = 'removed-synced-junction' }; continue
+      }
+      if ($item -and -not $isJunction) {
+        Write-Host "left $dest alone (real folder; claude.ai synced copy is present)"
+        [pscustomobject]@{ Path = $dest; Target = $want; Action = 'synced-left-real' }; continue
+      }
+      Write-Host "no junction for $($s.Name) (claude.ai synced copy is present)"
+      [pscustomobject]@{ Path = $dest; Target = $want; Action = 'synced-skip' }; continue
+    }
     if ($item -and $item.LinkType -eq 'Junction' -and (@($item.Target | ForEach-Object { $_.TrimEnd('\') }) -icontains $want)) {
       [pscustomobject]@{ Path = $dest; Target = $want; Action = 'ok' }; continue
     }
@@ -81,6 +128,7 @@ foreach ($s in $plan) {
 $roots = @($From | ForEach-Object { (Resolve-Path -LiteralPath $_).Path.TrimEnd('\') + '\' })
 foreach ($t in $Targets) {
   foreach ($item in @(Get-ChildItem -LiteralPath $t -Force -ErrorAction SilentlyContinue | Where-Object { $_.LinkType -eq 'Junction' })) {
+    if (Test-UnderSynced $item.FullName) { continue }
     $tgt = "$(@($item.Target)[0])".TrimEnd('\')
     if (-not @($roots | Where-Object { $tgt.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }).Count) { continue }
     if (Test-Path -LiteralPath (Join-Path $tgt 'SKILL.md')) { continue }
