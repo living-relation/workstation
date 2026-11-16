@@ -91,6 +91,28 @@ Check 'stale chain verdict' $rowsS[0].Verdict 'stale'
 Check 'stale chain is offered' @(Get-DcRemoteStopList $rowsS).Count 1
 Check 'one stale chain is not a health warning' @(Get-HealthOrphanWarnings $staleChain).Count 0
 
+# The launcher shell has exited. The chain is still cmd -> npx node -> cmd -> node.
+# Status and health must count that as one online copy. Claude's MCP process has no remote argument.
+function Q($Id, $Parent, $Name, $Cmd, $Start) {
+    [pscustomobject]@{ ProcessId = $Id; ParentProcessId = $Parent; Name = $Name; CommandLine = $Cmd; CreationDate = $Start }
+}
+$real = @(
+    (Q 2 0 'claude.exe' 'C:\Users\dan\AppData\Local\AnthropicClaude\claude.exe' '2026-01-01T00:00:00Z'),
+    (Q 3 2 'node.exe' 'C:\Program Files\nodejs\node.exe C:\Users\dan\AppData\Roaming\npm\node_modules\@wonderwhy-er\desktop-commander\dist\index.js' '2026-01-01T00:00:01Z'),
+    (Q 10 50 'cmd.exe' 'C:\Windows\System32\cmd.exe /c npx.cmd --yes @wonderwhy-er/desktop-commander@latest remote' '2026-01-02T00:00:01Z'),
+    (Q 11 10 'node.exe' 'C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\npm\bin\npx-cli.js --yes @wonderwhy-er/desktop-commander@latest remote' '2026-01-02T00:00:02Z'),
+    (Q 12 11 'cmd.exe' 'C:\Windows\System32\cmd.exe /d /s /c desktop-commander remote' '2026-01-02T00:00:03Z'),
+    (Q 13 12 'node.exe' 'C:\Program Files\nodejs\node.exe C:\Users\dan\AppData\Roaming\npm\node_modules\@wonderwhy-er\desktop-commander\dist\index.js remote' '2026-01-02T00:00:04Z')
+)
+$rowsR = @(Get-DcRemoteRows $real)
+Check 'dead launcher chain is one copy' $rowsR.Count 1
+Check 'dead launcher copy is the leaf node' $rowsR[0].Pid 13
+Check 'dead launcher copy is online' $rowsR[0].Verdict 'online'
+Check 'dead launcher console is alive' $rowsR[0].ConsoleAlive True
+Check 'mcp without remote stays unlisted' @($rowsR | Where-Object { $_.Pid -eq 3 }).Count 0
+Check 'dead launcher health is ok' @(Get-HealthOrphanWarnings $real).Count 0
+Check 'dead launcher stop list empty' @(Get-DcRemoteStopList $rowsR).Count 0
+
 $withWeb = @($term) + @($chain) + @($web)
 $webWarn = @(Get-HealthOrphanWarnings $withWeb)
 Check 'chain plus old server warns once' $webWarn.Count 1

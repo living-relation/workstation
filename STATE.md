@@ -15,7 +15,7 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
 - 2026-10-29: install makes Claude Code MCP connectors and official-marketplace plugins match `claude\mcp-servers.json` and `claude\plugins.json`. The Fusion connector url is `http://127.0.0.1:8765/mcp`.
 - 2026-11-03: The `~\.claude\working-memory` link stays retired. Install does not create or check it. Local Working Memory (the store path) is still the project source of truth.
 
-**Last added:** 2026-11-15 skills source of truth: repo zips uploaded at claude.ai, skills-drift shortcut, manual check-upstream (no schedule). Health check shortcut and the one-copy phone remote are on main.
+**Last added:** 2026-11-15 skills source of truth: repo zips uploaded at claude.ai, skills-drift shortcut, manual check-upstream (no schedule). DC remote status and health check count one phone-remote chain as one copy and say OK when that one chain is running.
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only)

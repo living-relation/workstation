@@ -24,6 +24,9 @@ if (-not $rows.Count) {
     exit 0
 }
 
+if ($rows.Count -eq 1) {
+    Write-Host '  OK one copy' -ForegroundColor Green
+}
 foreach ($r in $rows) {
     $started = if ($r.StartTime -and $r.StartTime.Year -gt 2000) { $r.StartTime.ToString('yyyy-MM-dd HH:mm:ss') } else { 'unknown' }
     $parent = if ($r.ParentAlive) { 'parent alive' } else { 'parent gone' }
