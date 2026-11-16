@@ -97,12 +97,12 @@ function Q($Id, $Parent, $Name, $Cmd, $Start) {
     [pscustomobject]@{ ProcessId = $Id; ParentProcessId = $Parent; Name = $Name; CommandLine = $Cmd; CreationDate = $Start }
 }
 $real = @(
-    (Q 2 0 'claude.exe' 'C:\Users\dan\AppData\Local\AnthropicClaude\claude.exe' '2026-01-01T00:00:00Z'),
-    (Q 3 2 'node.exe' 'C:\Program Files\nodejs\node.exe C:\Users\dan\AppData\Roaming\npm\node_modules\@wonderwhy-er\desktop-commander\dist\index.js' '2026-01-01T00:00:01Z'),
+    (Q 2 0 'claude.exe' 'C:\Program Files\Claude\claude.exe' '2026-01-01T00:00:00Z'),
+    (Q 3 2 'node.exe' 'C:\Program Files\nodejs\node.exe C:\pkg\@wonderwhy-er\desktop-commander\dist\index.js' '2026-01-01T00:00:01Z'),
     (Q 10 50 'cmd.exe' 'C:\Windows\System32\cmd.exe /c npx.cmd --yes @wonderwhy-er/desktop-commander@latest remote' '2026-01-02T00:00:01Z'),
     (Q 11 10 'node.exe' 'C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\npm\bin\npx-cli.js --yes @wonderwhy-er/desktop-commander@latest remote' '2026-01-02T00:00:02Z'),
     (Q 12 11 'cmd.exe' 'C:\Windows\System32\cmd.exe /d /s /c desktop-commander remote' '2026-01-02T00:00:03Z'),
-    (Q 13 12 'node.exe' 'C:\Program Files\nodejs\node.exe C:\Users\dan\AppData\Roaming\npm\node_modules\@wonderwhy-er\desktop-commander\dist\index.js remote' '2026-01-02T00:00:04Z')
+    (Q 13 12 'node.exe' 'C:\Program Files\nodejs\node.exe C:\pkg\@wonderwhy-er\desktop-commander\dist\index.js remote' '2026-01-02T00:00:04Z')
 )
 $rowsR = @(Get-DcRemoteRows $real)
 Check 'dead launcher chain is one copy' $rowsR.Count 1
