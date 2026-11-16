@@ -23,9 +23,10 @@ def _skill(d: Path, name: str, extra: str = ""):
 class LinkSkillsGuard(unittest.TestCase):
     script = SCRIPT
 
-    def run_link(self, src: Path, tgt: Path, backup: Path, retire: str):
+    def run_link(self, src: Path, tgt: Path, backup: Path, retire: str, synced: Path | None = None):
+        extra = f" -SyncedRoot '{synced}'" if synced is not None else ""
         cmd = (f"& '{self.script}' -From '{src}' -Targets '{tgt}' -Unlink '{tgt.parent / 'nounlink'}' "
-               f"-BackupRoot '{backup}' -Retire {retire} | Format-Table -AutoSize | Out-String -Width 400")
+               f"-BackupRoot '{backup}' -Retire {retire}{extra} | Format-Table -AutoSize | Out-String -Width 400")
         return subprocess.run([PS, "-NoProfile", "-NonInteractive", "-Command", cmd],
                               capture_output=True, text=True)
 
@@ -74,6 +75,38 @@ class LinkSkillsGuard(unittest.TestCase):
             self.assertFalse(os.path.lexists(tgt / "harness-design"), f"broken link kept\n{out}")
             self.assertTrue((tgt / "st185-pick-parts" / "notes.md").is_file(), f"live link touched\n{out}")
             self.assertTrue((live / "notes.md").is_file())
+
+    def test_synced_copy_skips_junction_and_keeps_synced_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp)
+            src, tgt, backup = t / "src", t / "tgt", t / "bak"
+            synced = t / "synced" / "acct" / "concise"
+            _skill(src / "concise", "concise")
+            _skill(synced, "concise")
+            (synced / "keep.txt").write_text("synced\n", encoding="utf-8")
+            _skill(tgt / "concise", "concise")
+            (tgt / "concise" / "local.txt").write_text("local\n", encoding="utf-8")
+            r = self.run_link(src, tgt, backup, "'none'", t / "synced")
+            out = r.stdout + r.stderr
+            self.assertEqual(r.returncode, 0, out)
+            self.assertIn("synced-left-real", out)
+            self.assertEqual((tgt / "concise" / "local.txt").read_text(encoding="utf-8"), "local\n")
+            self.assertEqual((synced / "keep.txt").read_text(encoding="utf-8"), "synced\n")
+            self.assertTrue((synced / "SKILL.md").is_file())
+
+    def test_synced_skill_with_no_local_link_creates_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp)
+            src, tgt, backup = t / "src", t / "tgt", t / "bak"
+            _skill(src / "concise", "concise")
+            _skill(t / "synced" / "acct" / "concise", "concise")
+            (t / "synced" / "acct" / "concise" / "keep.txt").write_text("synced\n", encoding="utf-8")
+            r = self.run_link(src, tgt, backup, "'none'", t / "synced")
+            out = r.stdout + r.stderr
+            self.assertEqual(r.returncode, 0, out)
+            self.assertIn("synced-skip", out)
+            self.assertFalse((tgt / "concise").exists(), out)
+            self.assertEqual((t / "synced" / "acct" / "concise" / "keep.txt").read_text(encoding="utf-8"), "synced\n")
 
 
 if __name__ == "__main__":

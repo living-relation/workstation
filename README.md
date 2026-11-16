@@ -45,6 +45,24 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   `skills/EXCLUDE.txt` lists Claude-app-owned skills (harness-design, st185-*); those, and any SKILL.md with
   `source: harness-design-app`, are never linked or zipped, and `link-skills.ps1` never moves or removes their folders.
   Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching `skills/<name>.zip` for upload to Claude.
+
+  **This repo is the source of truth for Dan's skills** (all 11 are his). `wizard` is his copy of
+  [claude-wizard](https://github.com/vlad-ko/claude-wizard) `skill/` at base `43756e1` (`skills/wizard/UPSTREAM.md`).
+  claude.ai does not read this repo. After a skill change merges:
+
+  1. Upload the new `skills/<name>.zip` at claude.ai: **Customize > Skills > Upload**, on each of Dan's two accounts.
+  2. Run `workstation\skills-drift.ps1` (or the **Skills drift** shortcut). It compares each account's synced copy
+     (`~\.claude\skills\synced\<bucket>\<name>`, the skill body only, because claude.ai rewrites the frontmatter)
+     with the repo and lists zips that still need that upload.
+
+  `link-skills.ps1` does not add a junction for a skill that is already in a synced bucket, so Claude Code does not
+  load it twice. It removes an old junction only (never the folder it points at, and never anything under `synced`).
+  Skills that are not on claude.ai still get a junction.
+
+  `workstation\check-upstream.ps1` is manual. For a skill with `metadata.upstream` it fetches upstream, shows
+  `base..HEAD`, three-way merges into Dan's copy, bumps `upstream-base`, and opens a PR. No schedule and no
+  sign-in item. The same check can be started by hand from Actions: workflow **check-upstream**
+  (`workflow_dispatch` only, no cron).
   `install.ps1` ends with a Windows popup reminding you to upload new or changed zips in Claude desktop
   (Settings > Capabilities > Skills); click OK to open `skills\` in Explorer. The popup is skipped for
   `-NoPopup` (alias `-Quiet`), `-WhatIf`, `-UserHome`, and CI. Changed zip names are tracked in

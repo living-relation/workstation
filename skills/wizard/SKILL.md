@@ -2,6 +2,10 @@
 name: wizard
 description: >-
   Use when implementing features, fixing bugs or refactoring across multiple files that need careful planning: architect-mode orchestration with TDD, phased tasks and PR review.
+metadata:
+  upstream: https://github.com/vlad-ko/claude-wizard
+  upstream-path: skill
+  upstream-base: 43756e1fe74672f35694ff2312847fc9aa037e04
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, SendMessage, TaskCreate, TaskUpdate, TaskGet, TaskList, ScheduleWakeup, PushNotification, TodoWrite, WebFetch, AskUserQuestion, Artifact, Monitor
 ---
 

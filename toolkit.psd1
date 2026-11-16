@@ -28,6 +28,7 @@
     @{ Name = 'Stop Desktop Commander';  Script = 'desktop-commander-remote\stop-dc-remote.ps1'; Icon = 131 }
     @{ Name = 'DC remote status';        Script = 'desktop-commander-remote\dc-remote-status.ps1'; Icon = 23 }
     @{ Name = 'Kill orphaned remote processes'; Script = 'kill-orphans.ps1'; Icon = 131 }
+    @{ Name = 'Skills drift'; Script = 'skills-drift.ps1'; Icon = 23 }
   )
 
   # No sign-in links. An old Startup link that still runs the start script is removed (backup first).
