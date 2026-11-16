@@ -46,4 +46,54 @@ Check 'web and watcher and dead session' $warn.Count 3
 Check 'live remote-control session stays' @($warn | Where-Object { $_.Pid -eq 18 }).Count 0
 Check 'cursor not listed' @($warn | Where-Object { $_.Name -eq 'Cursor' }).Count 0
 
+# One Windows launch is cmd -> npx node -> cmd -> node. That is one copy.
+function Chain($Base, $Parent, $Start, $Console) {
+    @(
+        (P $Base $Parent 'cmd' 'C:\Windows\System32\cmd.exe /c npx.cmd --yes @wonderwhy-er/desktop-commander@latest remote' $Start $Console),
+        (P ($Base + 1) $Base 'node' 'node C:\Program Files\nodejs\node_modules\npm\bin\npx-cli.js --yes @wonderwhy-er/desktop-commander@latest remote' $Start $Console),
+        (P ($Base + 2) ($Base + 1) 'cmd' 'C:\Windows\System32\cmd.exe /d /s /c desktop-commander.cmd remote' $Start $Console),
+        (P ($Base + 3) ($Base + 2) 'node' 'node C:\pkg\@wonderwhy-er\desktop-commander\dist\index.js remote' $Start $Console)
+    )
+}
+$plugin = P 20 1 'node' 'node C:\pkg\@wonderwhy-er\desktop-commander\dist\index.js' '2026-01-01T00:00:00Z' $true
+$pluginChild = P 21 20 'node' 'node C:\pkg\@wonderwhy-er\desktop-commander\dist\worker.js' '2026-01-01T00:00:00Z' $true
+$chain = Chain 100 1 '2026-01-02T00:00:00Z' $true
+$oneChain = @($term) + @($chain) + @($plugin, $pluginChild)
+$rowsC = @(Get-DcRemoteRows $oneChain)
+Check 'wrapper chain is one copy' $rowsC.Count 1
+Check 'copy pid is the node remote' $rowsC[0].Pid 103
+Check 'stop target is the outer cmd' $rowsC[0].StopPid 100
+Check 'one chain is online' $rowsC[0].Verdict 'online'
+Check 'one chain is not stopped' @(Get-DcRemoteStopList $rowsC).Count 0
+Check 'one chain health is ok' @(Get-HealthOrphanWarnings $oneChain).Count 0
+Check 'plugin stays unlisted' @($rowsC | Where-Object { $_.Pid -eq 20 -or $_.Pid -eq 21 }).Count 0
+Check 'wrappers are not leftovers' @($(Get-OrphanCandidates $oneChain) | Where-Object { $_.Kind -eq 'dc-remote' }).Count 0
+
+$oldChain = Chain 90 1 '2026-01-01T01:00:00Z' $true
+$newChain = Chain 100 1 '2026-01-02T00:00:00Z' $true
+$twoChains = @($term) + @($oldChain) + @($newChain)
+$rowsT = @(Get-DcRemoteRows $twoChains)
+$extra = @(Get-DcRemoteStopList $rowsT)
+Check 'two chains are two copies' $rowsT.Count 2
+Check 'newest chain kept' (Get-DcRemoteKeep $rowsT).Pid 103
+Check 'one extra chain' $extra.Count 1
+Check 'extra chain is the older remote' $extra[0].Pid 93
+Check 'extra stop target is its own cmd' $extra[0].StopPid 90
+Check 'health warns on the extra chain only' @(Get-HealthOrphanWarnings $twoChains).Count 1
+$extraOrph = @($(Get-OrphanCandidates $twoChains) | Where-Object { $_.Kind -eq 'dc-remote' })
+Check 'kill list is the extra copy' $extraOrph.Count 1
+Check 'kill target is not the healthy chain' $extraOrph[0].StopPid 90
+
+$staleChain = Chain 100 99 '2026-01-03T00:00:00Z' $false
+$rowsS = @(Get-DcRemoteRows $staleChain)
+Check 'stale chain is one copy' $rowsS.Count 1
+Check 'stale chain verdict' $rowsS[0].Verdict 'stale'
+Check 'stale chain is offered' @(Get-DcRemoteStopList $rowsS).Count 1
+Check 'one stale chain is not a health warning' @(Get-HealthOrphanWarnings $staleChain).Count 0
+
+$withWeb = @($term) + @($chain) + @($web)
+$webWarn = @(Get-HealthOrphanWarnings $withWeb)
+Check 'chain plus old server warns once' $webWarn.Count 1
+Check 'that warning is the old server' $webWarn[0].Kind 'old-web-server'
+
 if ($fail) { "FAILED: $fail"; exit 1 } else { 'ALL PASS'; exit 0 }

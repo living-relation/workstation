@@ -20,7 +20,7 @@ if (-not $rows.Count) {
     Write-Log 'not running'
 } else {
     foreach ($r in $rows) {
-        $stopped = Stop-TrackedPid $r.Pid
+        $stopped = Stop-TrackedPid (Get-DcStopPid $r)
         if ($env:WORKSTATION_FAKE_PROCS) { Write-Host "  would stop pid $($r.Pid)"; continue }
         if ($stopped -or -not (Get-Process -Id $r.Pid -ErrorAction SilentlyContinue)) {
             Write-Host "  stopped pid $($r.Pid)" -ForegroundColor Green
