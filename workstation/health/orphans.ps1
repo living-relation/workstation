@@ -1,7 +1,10 @@
 # Leftover-process list shared by Health check and kill-orphans.ps1. Dot-source only.
 # ASCII only. Does not stop anything.
-# Desktop Commander remote leftovers come from dc-remote-lib.ps1:
-# the single healthy newest copy is never listed. Duplicates and stale copies are.
+# Desktop Commander remote leftovers come from dc-remote-lib.ps1.
+# One cmd -> npx node -> cmd -> node chain is one copy. A working copy is never
+# listed. A copy whose terminal is gone is listed. When more than one copy is
+# running, the newest healthy copy stays and the extras are listed.
+# Claude's Desktop Commander plugin is not listed.
 # Other targets: the old local web server, the old watcher, and a Claude
 # remote-control session whose parent process is gone.
 
@@ -24,8 +27,9 @@ function Get-OrphanCandidates {
         $why = "Desktop Commander remote $($r.Verdict)"
         if (-not $r.ParentAlive) { $why += ', parent gone' }
         if (-not $r.ConsoleAlive) { $why += ', console gone' }
+        $stopAt = Get-DcStopPid $r
         $out += [pscustomobject]@{
-            Pid = [int]$r.Pid; Name = $r.Name; CommandLine = $r.CommandLine
+            Pid = [int]$r.Pid; StopPid = [int]$stopAt; Name = $r.Name; CommandLine = $r.CommandLine
             Kind = 'dc-remote'; Why = $why; IsNewest = ($r.Pid -eq $newestId)
         }
     }

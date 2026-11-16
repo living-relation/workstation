@@ -2,7 +2,8 @@
 # Manual tool. Lists leftover processes and asks once per item before stopping any.
 # -WhatIf lists only. -Force stops the listed items without asking, but never stops
 # the newest Desktop Commander remote unless -IncludeActiveRemote is also passed.
-# The one healthy remote (newest copy with a live parent and console) is never listed.
+# The one healthy remote (one cmd/npx/node chain with a live parent and console) is never listed.
+# Stopping a listed copy uses taskkill /T on that copy's own chain.
 # Does not start anything. Log: %LOCALAPPDATA%\Workstation\kill-orphans.log
 param([switch]$WhatIf, [switch]$Force, [switch]$IncludeActiveRemote, [switch]$NoPause)
 $ErrorActionPreference = 'Continue'
@@ -52,7 +53,9 @@ foreach ($c in $cands) {
             continue
         }
     }
-    $ok = Stop-TrackedPid $c.Pid
+    $target = [int]$c.Pid
+    if ($c.PSObject.Properties.Name -contains 'StopPid' -and [int]$c.StopPid -gt 0) { $target = [int]$c.StopPid }
+    $ok = Stop-TrackedPid $target
     if ($env:WORKSTATION_FAKE_PROCS) { Write-Host '    not stopped (fake process list)'; continue }
     if ($ok -or -not (Get-Process -Id $c.Pid -ErrorAction SilentlyContinue)) {
         Write-Host '    stopped' -ForegroundColor Green

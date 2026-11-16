@@ -8,15 +8,31 @@ $pkg = Split-Path -Parent $toolkit
 $tkFile = Join-Path $pkg 'toolkit.psd1'
 try { $TK = Import-PowerShellDataFile -LiteralPath $tkFile } catch { Write-Host "cannot read $tkFile"; exit 1 }
 $linkDir = [IO.Path]::GetFullPath($LinkDir).TrimEnd('\')
+# Old installs left shortcuts\rc behind after the per-project remote links were removed.
+# Remove that folder only when it is empty and is not a link.
+$rcDir = Join-Path $linkDir 'rc'
+if (Test-Path -LiteralPath $rcDir -PathType Container) {
+    $rcItem = Get-Item -LiteralPath $rcDir -Force
+    $rcLink = [bool]($rcItem.Attributes -band [IO.FileAttributes]::ReparsePoint)
+    # Windows PowerShell 5.1: @($null).Count is 1, so test the result itself.
+    $rcKids = Get-ChildItem -LiteralPath $rcDir -Force -ErrorAction SilentlyContinue
+    if ($rcLink) { Write-Host "left $rcDir alone (it is a link)" }
+    elseif (-not $rcKids) {
+        Remove-Item -LiteralPath $rcDir -Force -ErrorAction SilentlyContinue
+        Write-Host "removed empty folder $rcDir"
+    } else { Write-Host "left $rcDir alone (it still has files)" }
+}
 if (-not $StartupDir) {
     $StartupDir = [Environment]::GetFolderPath('Startup')
 }
-$psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-if (-not (Test-Path -LiteralPath $psExe)) {
+$psExe = $null
+if ($env:SystemRoot) { $psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe' }
+if (-not $psExe -or -not (Test-Path -LiteralPath $psExe)) {
     $self = Get-Process -Id $PID -ErrorAction SilentlyContinue
     if ($self -and $self.Path) { $psExe = $self.Path }
 }
-$shell32 = Join-Path $env:SystemRoot 'System32\shell32.dll'
+$shell32 = $null
+if ($env:SystemRoot) { $shell32 = Join-Path $env:SystemRoot 'System32\shell32.dll' }
 $wsh = $null
 try { $wsh = New-Object -ComObject WScript.Shell } catch {
     Write-Host 'Shortcut links need Windows. Nothing was created.'

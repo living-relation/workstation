@@ -29,8 +29,10 @@
   - Does NOT copy the toolkit anywhere: it runs from this package's toolkit folder (PackageFolder in toolkit.psd1,
     e.g. <clone>\workstation\). Writes %LOCALAPPDATA%\<StateFolder>\<ConfigFile> (projectsRoot) so the scripts find
     the Projects root; runtime files (stop flag, worker logs/state) also go under %LOCALAPPDATA%\<StateFolder>\,
-    never into the clone. Then creates manual shortcuts (Start, Stop, and status for Desktop Commander, and
-    the orphan tool) in this package's shortcuts\ folder. Those links are gitignored. Nothing starts at sign-in.
+    never into the clone. Then creates manual shortcuts (Health check, Start, Stop, and status for Desktop
+    Commander, and the orphan tool) in this package's shortcuts\ folder. Those links are gitignored.
+    An empty shortcuts\rc folder left by the old per-project links is removed. A folder that still has
+    files, or that is a link, is left alone. Nothing starts at sign-in.
     An old installed copy (<Projects>\_workstation or _bridge, LegacyFolders) is only reported, never moved.
   - Does not create, check or remove ~\.claude\working-memory. That junction only let Cowork / Chat
     pointer lines find the store. Claude desktop no longer writes local memory files (personal account
@@ -932,6 +934,20 @@ elseif (Test-Path -LiteralPath $WsConfig) {
 }
 $shortcutScript = Join-Path $BridgeDir $TK.ShortcutsInstaller
 $scDir = [IO.Path]::GetFullPath((Join-Path $PkgRoot $TK.ShortcutFolder)).TrimEnd('\')
+$rcDir = Join-Path $scDir 'rc'
+$rcState = 'absent'
+if (Test-Path -LiteralPath $rcDir -PathType Container) {
+  $rcItem = Get-Item -LiteralPath $rcDir -Force
+  if ($rcItem.Attributes -band [IO.FileAttributes]::ReparsePoint) { $rcState = 'link' }
+  elseif (-not (Get-ChildItem -LiteralPath $rcDir -Force -ErrorAction SilentlyContinue)) { $rcState = 'empty' }
+  else { $rcState = 'busy' }
+}
+if ($rcState -eq 'empty') {
+  if ($WhatIf) { Note 'WOULD' "remove empty folder $rcDir" }
+  elseif ($testMode) { Note 'SKIP' "test mode: would remove empty folder $rcDir" }
+  else { Remove-Item -LiteralPath $rcDir -Force -ErrorAction SilentlyContinue; Note 'DONE' "removed empty folder $rcDir" }
+} elseif ($rcState -eq 'link') { Note 'WARN' "left $rcDir alone (it is a link)" }
+elseif ($rcState -eq 'busy') { Note 'OK' "left $rcDir alone (it still has files)" }
 $shortcutPlan = "create manual links in '$scDir': " + (($TK.Shortcuts | ForEach-Object { $_.Name }) -join ', ') + '. No sign-in link.'
 if ($testMode) { Note 'SKIP' "test mode (-UserHome): not running $(Split-Path $shortcutScript -Leaf). It would $shortcutPlan" }
 elseif ($WhatIf) { Note 'WOULD' "run $shortcutScript -LinkDir `"$scDir`" -NoPause: $shortcutPlan" }

@@ -42,7 +42,7 @@ $keep = Get-DcRemoteKeep $rows
 foreach ($extra in @(Get-DcRemoteStopList $rows)) {
     Write-Log ("stop leftover pid $($extra.Pid) $($extra.Verdict)")
     if ($Show) { Write-Off "stopped leftover pid $($extra.Pid) ($($extra.Verdict))" }
-    if (-not $env:WORKSTATION_FAKE_PROCS) { Stop-TrackedPid $extra.Pid | Out-Null }
+    if (-not $env:WORKSTATION_FAKE_PROCS) { Stop-TrackedPid (Get-DcStopPid $extra) | Out-Null }
 }
 if ($keep) {
     Write-Log ("already online pid $($keep.Pid)")
