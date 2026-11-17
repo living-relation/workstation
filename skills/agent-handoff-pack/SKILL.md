@@ -7,7 +7,7 @@ description: >-
 
 Purpose: write the handoff, then stop. Do not do the job in this skill.
 
-A handoff is its own temporary file. It never goes inside `STATE.md`, `OPEN-ITEMS`, memory, `CLAUDE.local.md`, or a global `CLAUDE.md` / `AGENTS.md`.
+A handoff is its own temporary file. It never goes inside `STATE.md`, `OPEN-ITEMS`, memory, or `AGENTS.md`. `AGENTS.md` is the only agent instruction file.
 
 Path: `handoffs/<task-slug>.md` in the task's branch/worktree. An orchestrator's per-subagent file is `handoffs/<task-slug>--<subtask>.md`. More than one may exist. No duplicates: a newer handoff for the same task replaces the old file in place. The header says what it replaces.
 
