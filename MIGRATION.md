@@ -107,10 +107,9 @@ Say which notes you will skip as duplicates or stale. Wait for Dan's OK.
 - Add a pointer line to each `active\` project (template: `memory\templates\project-pointer-line.txt`,
   `{{PROJECT_SLUG}}` = the project's slug). The line names the store
   `<Projects>\_claude\Claude Projects\Working Memory\memory\<slug>\INDEX.md`. It does not use
-  `~\.claude\working-memory`.
-  - git repo: put it in `CLAUDE.local.md` and add `CLAUDE.local.md` to `.git\info\exclude` (not `.gitignore`);
-  - not a git repo: add it to the project's `CLAUDE.md`.
-  Skip a project that already has the line. An old line that still says `~\.claude\working-memory\`
+  `~\.claude\working-memory`. Put the line in the project's `AGENTS.md`. Do not create a `CLAUDE.md`
+  or `CLAUDE.local.md` for it.
+  Skip a project whose `AGENTS.md` already has the line. An old line that still says `~\.claude\working-memory\`
   keeps working only while a leftover junction is there. When you touch the line, point it at the store.
   Do not delete the leftover junction.
 

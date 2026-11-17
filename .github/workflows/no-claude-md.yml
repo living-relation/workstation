@@ -1,0 +1,33 @@
+# Fail if this commit tracks CLAUDE.md, CLAUDE.local.md, or .claude/CLAUDE.md.
+# Checks out the PR head (or the push SHA on main) and reads that commit's tree.
+# A file deleted on the branch is not a hit, even if the base branch still has it.
+name: no-claude-md
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: no-claude-md-${{ github.head_ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version-file: .python-version
+      - name: Fail if a tracked CLAUDE instruction file is in this commit
+        run: python3 scripts/check_no_claude_md.py
+      - name: Test the check
+        run: python3 scripts/test_check_no_claude_md.py

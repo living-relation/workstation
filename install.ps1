@@ -22,10 +22,12 @@
   - Backs up ~\.claude\settings.json and ~\.claude.json (timestamped .bak next to each) before changing them.
   - Sets Claude Code's Project instructions to claude-md-and-agents-md (read CLAUDE.md AND AGENTS.md) in
     ~\.claude\settings.json > pluginConfigs (plugin cc-plugin-agents-md@builtin, or agents-md@builtin before
-    Claude Code 2.1.285). WARN if Claude Code is older than 2.1.281. uninstall.ps1 reverts only that key.
+    Claude Code 2.1.285). This does not create a CLAUDE.md. It keeps AGENTS.md visible if a leftover
+    CLAUDE file would hide it. WARN if Claude Code is older than 2.1.281. uninstall.ps1 reverts only that key.
   - Does not change Claude Code autoMode, and does not write a remote-control startup flag.
-  - The Projects root guide is AGENTS.md (memory section appended there). A root CLAUDE.md is merged into it
-    by hand (REORGANIZE.md step 5), never by install.
+  - The Projects root guide is AGENTS.md (memory section appended there). Install does not create a root
+    CLAUDE.md and does not edit one. A leftover root CLAUDE.md is only warned: fold it into AGENTS.md by
+    hand (REORGANIZE.md step 5). It does not block the AGENTS.md section.
   - Does NOT copy the toolkit anywhere: it runs from this package's toolkit folder (PackageFolder in toolkit.psd1,
     e.g. <clone>\workstation\). Writes %LOCALAPPDATA%\<StateFolder>\<ConfigFile> (projectsRoot) so the scripts find
     the Projects root; runtime files (worker logs and instance notes) also go under %LOCALAPPDATA%\<StateFolder>\,
@@ -599,7 +601,7 @@ Write-Host ''
 Ensure-Dir $ProjectsRoot 'Projects root'
 foreach ($sub in @('active', '_archive', '_scratch', '_claude')) { Ensure-Dir (Join-Path $ProjectsRoot $sub) "layout folder $sub" }
 if (Test-Path -LiteralPath $ProjectsRoot) {
-  $extra = @(Get-ChildItem -LiteralPath $ProjectsRoot -Force | Where-Object { (@('active', '_archive', '_scratch', '_claude', '_refs', 'CLAUDE.md', 'AGENTS.md') + @($TK.LegacyFolders)) -notcontains $_.Name -and $_.Name -notlike '.*' })
+  $extra = @(Get-ChildItem -LiteralPath $ProjectsRoot -Force | Where-Object { (@('active', '_archive', '_scratch', '_claude', '_refs', 'AGENTS.md') + @($TK.LegacyFolders)) -notcontains $_.Name -and $_.Name -notlike '.*' })
   if ($extra.Count -gt 0) { Note 'INFO' ("$($extra.Count) other item(s) in the Projects root (not moved). See REORGANIZE.md: " + (($extra | Select-Object -First 8 | ForEach-Object Name) -join ', ')) }
 }
 
@@ -775,8 +777,9 @@ if ($settingsOk) {
     Add-ManifestJson @{ kind = 'note'; what = 'statusline-kept'; existing = $shown }
   }
 
-  # Project instructions: read CLAUDE.md AND AGENTS.md. Without this, any CLAUDE.md or CLAUDE.local.md (the memory
-  # pointer) at or above the working folder hides AGENTS.md. Honored only in the user settings file.
+  # Project instructions: read CLAUDE.md AND AGENTS.md so a leftover CLAUDE.md or CLAUDE.local.md does not
+  # hide AGENTS.md. This does not create those files. Repo and Projects-root guides are AGENTS.md.
+  # Honored only in the user settings file.
   $ReadBoth = 'claude-md-and-agents-md'
   $cv = $Preflight.ClaudeVer
   $ap = [string]$Preflight.AgentsPlugin; if (-not $ap) { $ap = 'cc-plugin-agents-md@builtin' }
@@ -877,17 +880,13 @@ if ($CursorHookOk) {
 # 8. Rule files: append the memory section where the marker is missing
 Add-MemoryBlock (Join-Path $DotClaude 'CLAUDE.md') 'claude-global-memory-section.md' -CreateIfMissing
 Add-MemoryBlock $CursorRule 'claude-shared-memory.mdc' -CreateIfMissing
-# Projects root: AGENTS.md is the one root guide. A root CLAUDE.md is merged into it by hand (REORGANIZE.md step 5).
-$RootClaudeMd = Join-Path $ProjectsRoot 'CLAUDE.md'
+# Projects root guide is AGENTS.md. Do not create or edit a root CLAUDE.md.
 $RootAgentsMd = Join-Path $ProjectsRoot 'AGENTS.md'
-$rootClaudeMarked = $false
+$RootClaudeMd = Join-Path $ProjectsRoot 'CLAUDE.md'
 if (Test-Path -LiteralPath $RootClaudeMd) {
-  $rootClaudeMarked = ([IO.File]::ReadAllText($RootClaudeMd)).Contains($Marker)
-  Note 'WARN' "root CLAUDE.md still exists: $RootClaudeMd. Merge it into AGENTS.md, then delete it (REORGANIZE.md step 5). Install never changes it."
+  Note 'WARN' "root CLAUDE.md still exists: $RootClaudeMd. Fold its content into AGENTS.md (keep every rule, drop exact duplicates), then delete the CLAUDE file. Install does not change that file."
 }
-$rootAgentsMarked = (Test-Path -LiteralPath $RootAgentsMd) -and ([IO.File]::ReadAllText($RootAgentsMd)).Contains($Marker)
-if ($rootClaudeMarked -and -not $rootAgentsMarked) { Note 'SKIP' "memory section not added to ${RootAgentsMd}: the root CLAUDE.md already has it (no second copy). It moves over with the merge." }
-else { Add-MemoryBlock $RootAgentsMd 'projects-AGENTS.md' -CreateIfMissing }
+Add-MemoryBlock $RootAgentsMd 'projects-AGENTS.md' -CreateIfMissing
 # Fusion + harness.design lock rules. Existing files get the block on the next install (the memory
 # marker is not rewritten). Paste texts in instructions\ are still updated by hand.
 Add-AppLockBlock (Join-Path $DotClaude 'CLAUDE.md')
