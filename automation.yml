@@ -188,3 +188,14 @@ automations:
     auto_commit: true
     enabled: true
     run_cmd: python3 scripts/pack-skill-zips.py --strict
+  - id: plugin-validate
+    script: .github/workflows/plugin-validate.yml
+    helpers: [scripts/check_cursor_plugin.py, scripts/test_plugin_manifests.py]
+    trigger: pr-check
+    reads: [.claude-plugin/**, .cursor-plugin/**, skills/**, scripts/check_cursor_plugin.py]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: claude plugin validate .
+    check_cmd: python3 scripts/check_cursor_plugin.py

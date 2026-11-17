@@ -1,0 +1,12 @@
+{
+  "name": "workstation-core",
+  "owner": {
+    "name": "living-relation"
+  },
+  "plugins": [
+    {
+      "name": "workstation-core",
+      "source": "."
+    }
+  ]
+}
