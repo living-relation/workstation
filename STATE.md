@@ -2,9 +2,10 @@
 
 The one state file for this repo. Rules live in `AGENTS.md`; this file holds only current status.
 
-**Goal now:** shared memory, handoff and context tools, guards, the two app locks, and a manual Desktop Commander phone remote (one copy per PC). The old shortcut set is gone from the repo.
+**Goal now:** shared memory, handoff and context tools, guards, the two app locks, a manual Desktop Commander phone remote (one copy per PC), and a manual Cursor worker (Start and Stop shortcuts only). The old shortcut set is gone from the repo.
 
 ## Open items
+- 2026-11-17: Cursor worker is manual only. On each PC, after this merges: `git pull --ff-only`, then `install.ps1` (that refreshes `shortcuts\Start Cursor worker.lnk` and `Stop Cursor worker.lnk`). Start lists folders in the detected `<Projects>\active` and starts one worker for the folder you pick. Stop lists workers this tool started. No scheduled task, Startup item, Run key, or hourly check. Health check may report running workers and does not warn when none is running. It warns if an autostart entry exists. If `agent` is missing: install the CLI and run `agent login` (see `workstation\cursor-worker\README.md`).
 - 2026-11-16: Concise skill updated with structured Done / Found / Next / Open replies, and project prefs can start the mode on. After this merges, upload `skills/concise.zip` at claude.ai Customize > Skills > Upload on each of Dan's two accounts, then run `workstation\skills-drift.ps1`.
 - 2026-11-15: Skills live in this repo. After a skill change merges, upload `skills/<name>.zip` at claude.ai Customize > Skills > Upload on each of Dan's two accounts, then run `workstation\skills-drift.ps1`. `check-upstream.ps1` is manual (no schedule). wizard tracks upstream vlad-ko/claude-wizard `skill/` at `43756e1`.
 - 2026-11-15: Health check is a manual shortcut again (`workstation\health\workstation-status.ps1`). No scheduled task, Startup item, or Run key. kill-orphans treats one cmd -> npx node -> cmd -> node phone remote as one copy and does not offer to stop the working copy. cleanup-legacy is safe on Windows PowerShell 5.1. install removes an empty `shortcuts\rc` folder only.
@@ -16,7 +17,7 @@ The one state file for this repo. Rules live in `AGENTS.md`; this file holds onl
 - 2026-10-29: install makes Claude Code MCP connectors and official-marketplace plugins match `claude\mcp-servers.json` and `claude\plugins.json`. The Fusion connector url is `http://127.0.0.1:8765/mcp`.
 - 2026-11-03: The `~\.claude\working-memory` link stays retired. Install does not create or check it. Local Working Memory (the store path) is still the project source of truth.
 
-**Last added:** 2026-11-16 concise skill v2 (Done / Found / Next / Open reply shape; project prefs can start the mode on). After merge, re-upload `skills/concise.zip` on both claude.ai accounts, then run `workstation\skills-drift.ps1`.
+**Last added:** 2026-11-17 manual Cursor worker (Start and Stop shortcuts only; one picked folder at a time; health check does not warn when it is stopped).
 
 **Kept branches:** none
 **Hook:** state-check, comment mode (warn only)

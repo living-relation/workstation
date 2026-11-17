@@ -3,6 +3,8 @@
 # -WhatIf prints every step and changes nothing.
 # Backs up first and writes SHA256 hashes, then archives (does not delete) the old runtime folders.
 # Does not stop the Desktop Commander phone remote and does not archive its state folder.
+# An old cursor-worker folder (no instances directory) is still archived.
+# A folder that has instances\ is the manual Cursor worker and is left in place.
 # Does not touch MCP servers, plugins, handoff or memory hooks, statusLine, Desktop Commander's
 # own config folders, or the PowerShell profile.
 param(
@@ -149,6 +151,10 @@ $moves = @(
 Say 'archive old runtime files'
 foreach ($p in $moves) {
     if (-not (Test-Path -LiteralPath $p)) { Say "  absent $p"; continue }
+    if ((Split-Path -Leaf $p) -eq 'cursor-worker' -and (Test-Path -LiteralPath (Join-Path $p 'instances') -PathType Container)) {
+        Say "  left in place (manual Cursor worker): $p"
+        continue
+    }
     Add-TreeHashes $p
     if ($WhatIf) { Say "  WOULD archive $p"; continue }
     New-Item -ItemType Directory -Path $Archive -Force | Out-Null
