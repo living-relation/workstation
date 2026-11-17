@@ -22,9 +22,12 @@ Official rules this encodes (no version field, by the approved plan):
   https://cursor.com/docs/reference/plugins
 - Cursor hook events and `"version": 1` live in that hooks file, not in
   plugin.json. https://cursor.com/docs/hooks
-- Claude Code loads `hooks/hooks.json` (different shape: PreToolUse / Stop,
-  `${CLAUDE_PLUGIN_ROOT}`). https://code.claude.com/docs/en/plugins-reference
+- Claude Code loads `hooks/hooks.json` (different shape: SessionStart /
+  PreToolUse / Stop, `${CLAUDE_PLUGIN_ROOT}`).
+  https://code.claude.com/docs/en/plugins-reference
   The two files stay separate so neither host parses the other's event names.
+- `agents-md-only-warn.ps1` is Claude SessionStart only. No Cursor variant
+  until decision C1.
 
 `skills` is `./skills/`, so every `skills/<name>/SKILL.md` is included.
 This does not run Cursor's importer. A passing check is not a live import.
@@ -173,6 +176,10 @@ def _check_cursor_hooks(root: Path, hooks_field):
             errors.append(f"{hooks_field}: missing {script}")
         elif not (root / "hooks" / script).is_file():
             errors.append(f"hooks/{script} is missing")
+    if "agents-md-only-warn.ps1" in text:
+        errors.append(
+            f"{hooks_field}: agents-md-only-warn is Claude-only until decision C1"
+        )
     return errors
 
 
@@ -191,6 +198,8 @@ def _check_claude_hooks(root: Path):
     events = data.get("hooks") if isinstance(data.get("hooks"), dict) else {}
     if "PreToolUse" not in events or "Stop" not in events:
         errors.append("hooks/hooks.json: needs PreToolUse and Stop")
+    if "SessionStart" not in events:
+        errors.append("hooks/hooks.json: needs SessionStart")
     if "preToolUse" in events or "stop" in events:
         errors.append("hooks/hooks.json: Cursor event names belong in the Cursor hooks file")
     text = path.read_text(encoding="utf-8")
@@ -205,9 +214,30 @@ def _check_claude_hooks(root: Path):
     for name in ("Write", "Edit", "NotebookEdit", "Bash", "PowerShell"):
         if name not in joined:
             errors.append(f"hooks/hooks.json: PreToolUse matcher is missing {name}")
-    for script in ("projects-root-guard.ps1", "projects-root-report.ps1"):
-        if not (root / "hooks" / script).is_file():
+    for script in (
+        "projects-root-guard.ps1",
+        "projects-root-report.ps1",
+        "agents-md-only-warn.ps1",
+    ):
+        if script not in text:
+            errors.append(f"hooks/hooks.json: missing {script}")
+        elif not (root / "hooks" / script).is_file():
             errors.append(f"hooks/{script} is missing")
+    wired = False
+    for entry in events.get("SessionStart") or []:
+        hooks = entry.get("hooks") if isinstance(entry, dict) else None
+        for hook in hooks or []:
+            cmd = hook.get("command") if isinstance(hook, dict) else ""
+            if (
+                "agents-md-only-warn.ps1" in cmd
+                and "${CLAUDE_PLUGIN_ROOT}" in cmd
+            ):
+                wired = True
+    if not wired:
+        errors.append(
+            "hooks/hooks.json: SessionStart must run agents-md-only-warn.ps1 "
+            "with ${CLAUDE_PLUGIN_ROOT}"
+        )
     return errors
 
 
