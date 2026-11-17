@@ -48,7 +48,7 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   `source: harness-design-app`, are never linked or zipped, and `link-skills.ps1` never moves or removes their folders.
   Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching `skills/<name>.zip` for upload to Claude.
 
-  **This repo is the source of truth for Dan's skills** (all 13 are his). `wizard` is his copy of
+  **This repo is the source of truth for Dan's skills** (all 12 are his). `wizard` is his copy of
   [claude-wizard](https://github.com/vlad-ko/claude-wizard) `skill/` at base `43756e1` (`skills/wizard/UPSTREAM.md`).
   claude.ai does not read this repo. After a skill change merges:
 
