@@ -2,7 +2,7 @@
 Before starting work or asking the maintainer anything, read in order: (1) this repo's agent guide
 (`AGENTS.md` / `CLAUDE.md`), (2) its binding rules / decisions file if it has one, (3) this repo's
 state file (the one the agent guide names, e.g. `STATE.md`: status, progress, next steps, PR and
-branch state, TODOs, handoffs), (4) the project's folder in the Claude Code shared memory store
+branch state, and TODOs; task handoffs are separate files at `handoffs/<task-slug>.md`, never inside the state file or OPEN-ITEMS), (4) the project's folder in the Claude Code shared memory store
 `<Projects>\_claude\Claude Projects\Working Memory\memory\<project>\INDEX.md` (preferences, rules
 and cross-project facts only; WSL: that same folder under the Windows Projects root). If a rule or
 note already answers a question, act on it and cite it - never ask the maintainer something the

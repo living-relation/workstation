@@ -48,7 +48,7 @@ Update that section after every step, before replying. Keep each item short: wha
 ## Rules
 
 - Evidence over suspicion: every "stale" claim names the newer file, commit or gate that contradicts it. If you cannot find one, write "unverified".
-- The sweep section is working notes inside the state file. Do not leave a second handoff file behind.
+- The sweep section is working notes inside the state file. A task handoff is `handoffs/<task-slug>.md`, not a copy of this sweep, and it is never written into the state file or OPEN-ITEMS.
 - A dated log or decision record is not stale just for being old; flag it only if it reads as current with no superseded banner.
 - If a later step shows an earlier verdict was wrong, correct the earlier item in the sweep section and say so.
 - Work inside the repo, never on a parent store folder. Do not commit or push unless asked; if asked to push to a protected default branch, use a branch.

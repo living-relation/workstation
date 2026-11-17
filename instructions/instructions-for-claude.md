@@ -49,10 +49,10 @@ Keep track of these, and flag changes:
 4. ❓ A numbered list of everything you need from me, including earlier unanswered items. Give multiple-choice options and your recommendation when practical. Only list things I actually need to answer or provide.
 
 ## Handoffs
-Every handoff must let a new session rebuild context fast. Write it into the repo state file. Always include the current task state, open blockers, and the last decisions made, plus anything you'd normally include. A paste block in chat is a copy, not a second store. Do not put the handoff in Memory.
+Every handoff must let a new session rebuild context fast. Write it with the agent-handoff-pack skill to `handoffs/<task-slug>.md` on the task branch. A paste block in chat is a copy, not a second store. Do not put the handoff in the state file, OPEN-ITEMS, or Memory.
 
 ## Context limits
-When you reach about 85% of the context window, tell me and give a compact state handoff.
+When context is near 80%, tell me and run agent-handoff-pack quick mode (update the handoff file and print the paste block).
 
 ## App locks
 - Before driving Autodesk Fusion, hold the per-PC Fusion lock: section 5 "Fusion lock" in the workstation repo agents/projects-AGENTS.md. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand.

@@ -1,8 +1,8 @@
 # 80% handoff hooks
 
 When a chat gets close to its context limit, these hooks make the agent run the
-`agent-handoff-pack` skill once in its quick mode (it replaced `handoff-sync-continue`): update the repo's state file (the one `AGENTS.md` names, for example `STATE.md`) and print a paste block for a new chat.
-Progress is not written to memory or to a file outside the repo. The skill does not commit or push.
+`agent-handoff-pack` skill once in its quick mode (it replaced `handoff-sync-continue`): write or update `handoffs/<task-slug>.md` on the task branch (never inside the state file or OPEN-ITEMS), commit that file, and print a paste block for a new chat.
+Progress is not written to memory or to a file outside the repo. The skill does not push to main.
 `context-guard.ps1` still copies the transcript to `~\.claude\compaction-backups\` before compaction. That copy is a backup of the chat, not the handoff record.
 
 | File | Installed to | Wired in |
@@ -18,6 +18,6 @@ Progress is not written to memory or to a file outside the repo. The skill does 
 - No `py -3` (Python 3.7+): the Cursor hook is skipped with a warning.
 - Cursor also runs `~\.claude\settings.json` hooks; `context-guard.ps1` ignores Cursor payloads, so only
   `handoff-at-80.py` fires in Cursor.
-- The skill never runs `git init`, never commits or pushes, and never commits memory or
-  memory pointer files (`CLAUDE.local.md`).
+- The skill never runs `git init`, never pushes to main, and never commits memory or
+  memory pointer files (`CLAUDE.local.md`). It does commit the handoff file on the task branch.
 - `uninstall.ps1` removes only what install added (listed in `<Projects>\_claude\automation-installed-files.txt`).

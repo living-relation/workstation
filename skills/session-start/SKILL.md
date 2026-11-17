@@ -8,7 +8,7 @@ description: >-
 **In one line:** figure out where the project really stands, change nothing, then say so in one short note.
 
 ## When to use
-Finds the project's true current state cheaply, detects whether the last session was cut off (usage limit, crash), runs git-checker and a cheap drift check, reports, then asks before each follow-up (repo-cleanup, iterative-cleaning, fixes, handoff, PR hook install). Nothing runs automatically. Any project folder.
+Finds the project's true current state cheaply, detects whether the last session was cut off (usage limit, crash), runs git-checker and a cheap drift check, lists `handoffs/*.md` and runs agent-handoff-pack resume mode on each, reports, then asks before each follow-up (repo-cleanup, iterative-cleaning, fixes, handoff, PR hook install). Those follow-ups do not run on their own. Any project folder.
 
 Works the same in Grok, Claude Code and Cursor. It runs only when the user calls it ("run session-start").
 
@@ -17,8 +17,8 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 ---
 
 ## Hard rules
-- **Steps 1-7 are read-only.** No edits, commits, pulls, pushes, deletes or lock releases. The only file written there is the state note, and only if allowed. Anything that changes the repo happens only in step 8, after the user says yes, through **safe-repo-preflight**: branch + PR, never force-push, never skip hooks, every deletion waits for the user's yes.
-- **Nothing is automatic.** Only the read-only checks run on their own. Every action step in step 8 is one clear question to the user, quoting the finding that triggered it; run it only on his yes. A no or a dismissed question is final for this session.
+- **Steps 1-7 are read-only**, except the state note (only if allowed) and a handoff file that resume mode updates after it verifies the claims. No other edits, commits, pulls, pushes, deletes or lock releases. Anything else that changes the repo happens only in step 8, after the user says yes, through **safe-repo-preflight**: branch + PR, never force-push, never skip hooks, every deletion waits for the user's yes. Deleting a verified-done handoff is the exception named in agent-handoff-pack.
+- **Follow-ups are not automatic.** The read-only checks run on their own, and step 1 runs agent-handoff-pack resume mode on each `handoffs/*.md`. Every action step in step 8 is one clear question to the user, quoting the finding that triggered it; run it only on his yes. A no or a dismissed question is final for this session.
 - **Only this skill offers the chain.** Every other skill run alone does only its own job and may just suggest the next one.
 - **Never read or print secrets** (`.env*` values, tokens, keys).
 - **The repo beats memory.** If Claude/Cursor memory disagrees with the repo, trust the repo and flag the stale memory.
@@ -36,6 +36,7 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 3. `README.md`.
 4. Before any other work, read in full every doc the agent guide names as state, open items, decisions or source of truth; list each in the note with its last-changed date. Excerpts or skims don't count. The decisions file is never skipped. Any named doc you couldn't read, or read only partly, goes in the note as a gap. If none, write "none named".
 5. `.cursor/rules/*.mdc` with `alwaysApply: true`, if present.
+6. List `handoffs/*.md` and run agent-handoff-pack resume mode on each.
 
 Skip: `node_modules`, build output, caches, archive/`old` folders, other worktrees' copies, other modules' agent files.
 
@@ -72,7 +73,7 @@ Decisions or plans that exist only in a chat, memory, email or another machine. 
 Check files outside the repo that agents load (a parent-folder `AGENTS.md`, the memory index) against this repo's sources of truth. Flag mismatches and any unsigned memory-index lines (missing `-- <agent>, YYYY-MM-DD`).
 
 ### 6. If the last session stopped early
-Ask the user: "Last session stopped early (<sign>). Run **agent-handoff-pack** to rebuild where it stopped?" On yes, run the skill (it updates the repo state file only) to rebuild where things stopped. Include this repo's leftover plans (as scoped in step 2) and any held locks, outputs newer than the log, open PRs and branches. The old session doesn't need to do anything. Never release a lock or finish someone's step without the user's yes.
+Ask the user: "Last session stopped early (<sign>). Run **agent-handoff-pack** to rebuild where it stopped?" On yes, run the skill in write mode. It writes `handoffs/<task-slug>.md` on the task branch and does not put the handoff in the state file. Include this repo's leftover plans (as scoped in step 2) and any held locks, outputs newer than the log, open PRs and branches. The old session doesn't need to do anything. Never release a lock or finish someone's step without the user's yes.
 
 ### 7. Write one short state note
 Put it in the repo's state file (the one `AGENTS.md` names, for example `STATE.md`) if one exists and writing it is allowed; otherwise just show it in chat. Never write this note to memory, `CLAUDE.local.md`, a global `CLAUDE.md` / `AGENTS.md`, or a file outside the repo. Keep it under ~20 lines:
@@ -96,7 +97,7 @@ Cleanup needed, see CLEANUP-PLAN.md      <- only if a threshold in step 8 is cro
 
 | # | Threshold | How to check |
 |---|---|---|
-| T1 | More than one file of the same type (state, decisions, plan, handoff) beyond the one the repo's rules name | case-insensitive file names (`state*`, `decisions*`, `*plan*`, `handoff*`, `open-items*`); the one named file per type is not a duplicate; part specs and CAD pages that only contain "plan" in the name count only if they hold status or decisions |
+| T1 | More than one file of the same type (state, decisions, plan) beyond the one the repo's rules name, or a handoff written inside `STATE.md` or OPEN-ITEMS | case-insensitive file names (`state*`, `decisions*`, `*plan*`, `open-items*`); the one named file per type is not a duplicate; part specs and CAD pages that only contain "plan" in the name count only if they hold status or decisions. Files in `handoffs/` are the handoff records (more than one is normal) |
 | T3 | Any non-main branch or worktree (merged, unmerged or prunable) not marked keep at the last cleanup | git-checker notes, `git branch -a`, `git worktree list`, `**Kept branches:**` in the state file |
 | T4 | Any `STALE-OUTPUT`, `ORPHAN-SCRIPT`, `UNDECLARED-OUTPUT` or `DUPLICATE-OUTPUT`, or scripts/workflows but no `automation.yml` | git-checker Generated outputs / registry check |
 | T5 | Docs changed since last cleanup commit | `git diff --name-only <last-cleanup>..HEAD -- '*.md' docs/` non-empty |
@@ -112,7 +113,7 @@ Report the findings first, then ask one question per step below, in order, each 
 **d. Fixes (T4 or approved cleanup results).** Ask: "Fix <item> on a branch + PR via **safe-repo-preflight**?" No force-push; each deletion is its own yes.
 **d2. Automation registry (T4).** If there's no `automation.yml`, ask: "This repo has <N> scripts/workflows and no automation registry. Run repo-cleanup's automation inventory to draft one (read-only until you approve)?" Installing `registry-check.py` with the hook is part of the hook question below.
 **e. Hook.** If no state-file hook is installed, show the git-checker **Install question** word for word (it explains what the hook checks, COMMENT vs BLOCK, escapes, the switch command, how to uninstall, and what "no" means). On yes, install the chosen mode as its own PR via safe-repo-preflight. On no: nothing is installed, note `Hook: declined <date>`, never re-ask this session; ask again only on a later session-start. Once merged, the hook runs on every PR by itself.
-**e2. Progress in local memory (T8).** The repo state file is the only place for that progress. Ask: "Local memory holds project progress: <note + line>. I will copy it into <repo state file>. Delete the local copy after that?" Copy it only on yes. Never delete a memory note without its own yes.
+**e2. Progress in local memory (T8).** Project progress goes in the repo state file. A handoff goes in `handoffs/<task-slug>.md`, never in that state file or OPEN-ITEMS. Ask: "Local memory holds project progress: <note + line>. I will copy it into <repo state file or handoffs/<task-slug>.md>. Delete the local copy after that?" Copy it only on yes. Never delete a memory note without its own yes.
 **f. Stopped early?** If this session runs out of room mid-chain, ask to run **agent-handoff-pack** (or say so in the last reply if no room to ask).
 
 ### 9. Tell the user, then start the real work
@@ -127,7 +128,7 @@ Tell the agent these, and follow them:
 3. **Log `PR #N opened`** right after creating a PR.
 4. **Every task card gets a status line** (`Status: open` / `Status: done <date>`).
 5. **Decisions go in one decisions file**, one dated line each.
-6. **Handoffs never go in throwaway folders** (`output/`, `tmp/`, scratch dirs).
+6. **Handoffs live in `handoffs/<task-slug>.md`** on the task branch, never in `STATE.md`, OPEN-ITEMS, or a throwaway folder (`output/`, `tmp/`, scratch dirs).
 7. **Finished to-dos:** delete from the to-do list; add one dated line to the decisions file or changelog.
 8. After each step, and before ending a turn or opening a PR, update the state/SoT docs that changed, on the same branch; if none changed, end with "State/SoT: no change."
 

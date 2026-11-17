@@ -1,6 +1,6 @@
 ## Memory
 Two stores, different jobs. Local Working Memory on each PC is the project source of truth for preferences, rules and cross-project facts (Claude Code, Cowork and Cursor). Account Memory (Settings > Your Claude > Memory) is allowed for general facts about me. Duplicates are OK. Never sync the two. Never treat account Memory as the project source of truth.
-Project status, progress, next steps, PR and branch state, TODOs and handoffs go in that project's repo state file (the one its AGENTS.md names, for example STATE.md).
+Project status, progress, next steps, PR and branch state, and TODOs go in that project's repo state file (the one its AGENTS.md names, for example STATE.md). Task handoffs go in `handoffs/<task-slug>.md` on the task branch, never in that state file or OPEN-ITEMS.
 Do not write project progress into either memory store. Do not look for a `~\.claude\working-memory` link. The local store's path is in that PC's Projects folder (`_claude\Claude Projects\Working Memory\memory`).
 
 ## Git and project folders

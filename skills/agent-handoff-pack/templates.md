@@ -1,54 +1,60 @@
-# Continuity notes
+# Handoff file
 
-Write these fields into the repo's one state file (the one `AGENTS.md` names, for example `STATE.md`). Do not create `docs/SESSION_STATE.md`, `docs/PHASE_HANDOFF.md`, or any other progress file. Do not put them in memory or outside the repo. The handoff skill updates the state file on disk only; it does not commit or push.
+One file per task: `handoffs/<task-slug>.md` on the task branch (in that task's worktree when the work is in a worktree). An orchestrator adds one file per subagent: `handoffs/<task-slug>--<subtask>.md`.
 
-If the project has no state file, say so and show the note in chat. Do not invent a second file. Offer to add the one file `AGENTS.md` should name, and wait for a yes.
+Never write this into `STATE.md`, `OPEN-ITEMS`, memory, or a file outside the repo. A newer handoff for the same task replaces this file in place. The header says what it replaces.
 
-## Fields to keep current in the state file
+## Status header
 
-Short continuity for the next session. Do not let it become a history dump.
+| Field | Value |
+|---|---|
+| Task | |
+| Owner | |
+| Status | active / frozen (reason, until) / done |
+| Branch/worktree | |
+| main hash | |
+| Last verified | date + hash |
+| Replaces | none, or the date and hash of the handoff this file replaced |
+| Next step | |
 
-- **Last updated** and **git tip** (SHA, branch, whether it matches origin, CI).
-- **Where the build stands** and **what just changed**.
-- **In flight** — anything another agent must not collide with.
-- **Next exact step** — one concrete slice.
-- **Gotchas** and **do not do**.
-- **Uncommitted, untracked, or unpushed work.**
+## START HERE
 
-## Next-chat paste block
+Current state, the exact next step, and what not to do. The next session runs agent-handoff-pack resume mode and verifies every claim against the repo before acting.
 
-Print this as a single markdown fenced block (` ```text `) so it copies cleanly. Fill from real state. No placeholders, no omitted sections. This block is for the next chat. The state file is the record.
+## Remaining steps
+
+- step — status: todo / in progress / blocked / verified
+
+When a step is finished, record its facts in the decisions file, a source-of-truth doc, or the tracker. Then remove the step and leave a pointer to where those facts went.
+
+## Open decisions
+
+## Rules and checks
+
+Pointers only. Name the file and the rule. Do not copy rule text.
+
+## Leftovers
+
+## Mistakes
+
+At most 8. Each one names the rule and the exact act.
+
+## Quick-save paste block
+
+Print this as one fenced `text` block when context is near 80%. Fill it from the file. No placeholders, no omitted lines.
 
 ```text
 NEXT CHAT HANDOFF — paste this as the first message in a new chat.
 
-Project: [name]
-Workspace: [absolute path]
-Clone: [git clone path, or "none, not a git repo (docs on disk only)"]
-Branch: [working branch] (do not push [protected] unless I explicitly order it)
-Tip: [short SHA] — local [matches / does not match] origin/[branch]
-CI: [green / waiting / skipped-owed / n/a]
-Test/deploy: [URL + SHA, or owed, or n/a]
+File: handoffs/[task-slug].md
+Task: [name]
+Owner: [who picks it up]
+Status: [active / frozen (reason, until) / done]
+Branch/worktree: [branch]
+main hash: [hash]
+Last verified: [date + hash]
+Replaces: [none, or date + hash]
+Next step: [one concrete step]
 
-Read first:
-1. [standing rules file]
-2. [repo state file named by AGENTS.md]
-
-What just landed:
-- [bullet]
-
-In flight (do not collide / finish this first):
-- [bullet, or "none"]
-
-Next exact step:
-[one concrete slice]
-
-Gotchas:
-- [bullet]
-
-Do not:
-- [frozen rules]
-
-Unpushed / unfinished:
-- [files, failed push, or "none"]
+Run agent-handoff-pack resume mode on this file before acting. Verify every claim against the repo. Do not fold this into STATE.md or OPEN-ITEMS.
 ```
