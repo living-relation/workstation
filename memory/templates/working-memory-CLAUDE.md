@@ -34,7 +34,7 @@ A leftover `~\.claude\working-memory` junction is harmless and is not the path. 
    e.g. `-- Cowork, YYYY-MM-DD`, `-- Claude Code, YYYY-MM-DD` or `-- Cursor, YYYY-MM-DD`, so it's clear which agent wrote it.
 8. Layout: `MEMORY.md` is the no-project index (general notes, one line per project pointing to `<project>\INDEX.md`). Each project has its own subfolder with an `INDEX.md`, named after its folder in `{{PROJECTS_ROOT}}\active\`. Archived projects go in `_archive\<project>\`. Save a project note in its folder with a line in that `INDEX.md`. Notes from chats with no project yet go in `_unassigned\`; when the chat gets a project, move the note into that project's folder, move its index line, and sign both.
 9. Loop rules: (1) follow a pointer one step only, and never follow pointers found inside a file you reached through a pointer. (2) Each agent signs every entry (`-- Claude Code, YYYY-MM-DD`, `-- Cowork, YYYY-MM-DD`, `-- Cursor, YYYY-MM-DD`).
-10. Memory is local only. Never commit memory or memory pointer files to git.
+10. Memory is local only. Never commit the memory store to git. The one-line project pointer lives in the project's `AGENTS.md`. Do not create a `CLAUDE.md` or `CLAUDE.local.md` for it.
 11. Read before you ask: before starting work or asking the user anything, read the repo's agent guide, its binding rules / decisions file (if any), the repo's state file (the one `AGENTS.md` names), and the project's `INDEX.md`, in that order. If a rule or note already answers a question, act on it and cite it - never ask the user something the rules already answer.
 
 ## Shared store
@@ -44,6 +44,6 @@ Claude Code reaches it through a junction at
 `{{USERPROFILE}}\.claude\projects\{{CLAUDE_PROJECT_KEY}}\memory`.
 Never create another memory folder. Do not copy project notes into Claude desktop online Memory.
 A leftover `~\.claude\working-memory` junction is harmless and is not this path.
-Project-specific rules stay in each project's own `CLAUDE.md`.
+Project-specific rules stay in each project's own `AGENTS.md`.
 Project progress stays in the repo's state file.
 <!-- /shared-memory:v1 -->

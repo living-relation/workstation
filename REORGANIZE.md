@@ -106,15 +106,16 @@ are not a letter or digit becomes `-` (for example `My Project.v2` -> `my-projec
 1. In the store `<Projects>\_claude\Claude Projects\Working Memory\memory\`:
    - a renamed or moved project: rename its memory folder to the new slug, and fix its line in `MEMORY.md`.
    Sign each change: `-- Grok Bot, yyyy-MM-dd`.
-2. Fix project pointer lines (`CLAUDE.local.md` in git repos, else `CLAUDE.md`) so the path in
+2. Fix project pointer lines in each project's `AGENTS.md` so the path in
    `Project memory: ...\INDEX.md` matches the new slug and names the store
    (`<Projects>\_claude\Claude Projects\Working Memory\memory\<slug>\INDEX.md`).
-   See `memory\templates\project-pointer-line.txt`. An old line that still says
+   See `memory\templates\project-pointer-line.txt`. Do not create or update a `CLAUDE.md` or
+   `CLAUDE.local.md` for the pointer. An old line that still says
    `~\.claude\working-memory\` works only while a leftover junction is there. When you touch the line,
    point it at the store. Do not delete that leftover junction.
 3. After a project moves, also update:
    - `active\README.md` (any line that still names the old path);
-   - any `CLAUDE.local.md` or `CLAUDE.md` memory pointer that still uses the old path;
+   - the pointer line in the project's `AGENTS.md` if it still uses the old path;
    - any scheduled task whose action still points at the old path.
    List each path you changed.
 4. Old paths inside Cursor or Claude settings (recent folders, workspaces) may break; list them for Dan.
@@ -148,4 +149,4 @@ sets Project instructions to `claude-md-and-agents-md` in `%USERPROFILE%\.claude
    - whether both files exist.
 
    Dan says yes or no per file. In a repo, the merge is a commit Dan makes himself, and nothing is pushed.
-3. Never touch `CLAUDE.local.md` (the memory pointer stays there) or `%USERPROFILE%\.claude\CLAUDE.md`.
+3. Do not create a `CLAUDE.md` or `CLAUDE.local.md` in a repo or at the Projects root. The memory pointer goes in the project's `AGENTS.md`. Leave `%USERPROFILE%\.claude\CLAUDE.md` alone.

@@ -19,13 +19,13 @@ install.ps1 fills these placeholders at install time. Nothing here holds memory 
 |---|---|---|
 | `claude-global-memory-section.md` | `~\.claude\CLAUDE.md` | appended if the marker is missing (file created if missing) |
 | `working-memory-CLAUDE.md` | `<Projects>\_claude\Claude Projects\Working Memory\CLAUDE.md` | created if missing, else appended if the marker is missing |
-| `projects-AGENTS.md` | `<Projects>\AGENTS.md` (the one root guide; there is no root `CLAUDE.md`) | created if missing, else only its marked memory + bridge section is appended if the marker is missing. Skipped (WARN) while a root `CLAUDE.md` that already has the marker still exists: merge it first (REORGANIZE.md step 5) |
+| `projects-AGENTS.md` | `<Projects>\AGENTS.md` (the one root guide; install does not create a root `CLAUDE.md`) | created if missing, else only its marked memory + bridge section is appended if the marker is missing. A leftover root `CLAUDE.md` is warned and not edited. It does not skip this file. Fold it into `AGENTS.md` by hand (REORGANIZE.md step 5) |
 | `claude-shared-memory.mdc` | `~\.cursor\rules\claude-shared-memory.mdc` | created if missing, else the body is appended if the marker is missing |
 | `app-locks.md` | `~\.claude\CLAUDE.md`, `~\.cursor\rules\claude-shared-memory.mdc`, an existing `repo-rules.mdc`, and `<Projects>\AGENTS.md` | appended when `<!-- app-locks:v1 -->` is missing and the file does not already say acquire, check in, and release for Fusion and harness.design. uninstall removes it only if install added it |
 | `MEMORY.md` | `<store>\MEMORY.md` | created only if missing |
 | `unassigned-INDEX.md` | `<store>\_unassigned\INDEX.md` | created only if missing |
-| `repo-agent-rule.md` | the top of each repo's `AGENTS.md` (or its `CLAUDE.md` when that is the only guide) | pasted by hand during migration, not by install.ps1; adapt the guide / decisions file names per repo. Existing installs are not refreshed: install only appends a marked block when the marker is missing |
-| `project-pointer-line.txt` | one line per project: `CLAUDE.local.md` in a git repo (add `CLAUDE.local.md` to `.git\info\exclude`), else `CLAUDE.md` | added during migration, not by install.ps1; only `{{PROJECT_SLUG}}` is filled |
+| `repo-agent-rule.md` | the top of each repo's `AGENTS.md` | pasted by hand during migration, not by install.ps1; adapt the guide / decisions file names per repo. Do not paste it into a `CLAUDE.md`. Existing installs are not refreshed: install only appends a marked block when the marker is missing |
+| `project-pointer-line.txt` | one line per project, in that project's `AGENTS.md` | added during migration, not by install.ps1; only `{{PROJECT_SLUG}}` is filled. Do not create a `CLAUDE.md` or `CLAUDE.local.md` for it |
 
 The project pointer line uses `<Projects>\_claude\Claude Projects\Working Memory\memory\<slug>\INDEX.md`.
 `<Projects>` stays written that way (it is the Projects root from install, not a filled placeholder). Only
