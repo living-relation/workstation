@@ -2,7 +2,7 @@
 
 **Root:** `{{PROJECTS_ROOT}}`
 
-This is the one guide for the Projects root, for Claude Code, Cursor and any other agent that reads `AGENTS.md`. There is no root `CLAUDE.md`: Claude Code reads this file because Project instructions is set to `claude-md-and-agents-md` in `~\.claude\settings.json`.
+This is the one guide for the Projects root, for Claude Code, Cursor and any other agent that reads `AGENTS.md`. There is no root `CLAUDE.md`: Claude Code reads this file because Project instructions is set to `claude-md-and-agents-md` in `~\.claude\settings.json`. If any `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` is found in a repo, fold its content into that repo's `AGENTS.md` (keep every rule, drop exact duplicates), then delete the CLAUDE file, in the same PR. That fold-and-delete is pre-approved by Dan.
 
 All durable work for this PC lives under this root. Prefer paths here over Downloads, Desktop or ad-hoc temp folders.
 

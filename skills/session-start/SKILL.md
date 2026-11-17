@@ -17,7 +17,8 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 ---
 
 ## Hard rules
-- **Steps 1-7 are read-only**, except the state note (only if allowed) and a handoff file that resume mode updates after it verifies the claims. No other edits, commits, pulls, pushes, deletes or lock releases. Anything else that changes the repo happens only in step 8, after the user says yes, through **safe-repo-preflight**: branch + PR, never force-push, never skip hooks, every deletion waits for the user's yes. Deleting a verified-done handoff is the exception named in agent-handoff-pack.
+- **Steps 1-7 are read-only**, except the state note (only if allowed), a handoff file that resume mode updates after it verifies the claims, and the CLAUDE fold-and-delete below. No other edits, commits, pulls, pushes, deletes or lock releases. Anything else that changes the repo happens only in step 8, after the user says yes, through **safe-repo-preflight**: branch + PR, never force-push, never skip hooks, every other deletion waits for the user's yes. Deleting a verified-done handoff is the exception named in agent-handoff-pack.
+- **`AGENTS.md` is the only agent instruction file.** If any `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` is found in the repo, fold its content into `AGENTS.md` (keep every rule, drop exact duplicates), then delete the CLAUDE file, in the same PR. That fold-and-delete is pre-approved by Dan. Do not read or write those CLAUDE files for any other reason. Do it on the task branch, with hooks. Do not do it on `main`.
 - **Follow-ups are not automatic.** The read-only checks run on their own, and step 1 runs agent-handoff-pack resume mode on each `handoffs/*.md`. Every action step in step 8 is one clear question to the user, quoting the finding that triggered it; run it only on his yes. A no or a dismissed question is final for this session.
 - **Only this skill offers the chain.** Every other skill run alone does only its own job and may just suggest the next one.
 - **Never read or print secrets** (`.env*` values, tokens, keys).
@@ -31,7 +32,7 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 ## Steps
 
 ### 1. Read the rules first (stop when you have the answer)
-1. Root `AGENTS.md`. `CLAUDE.md` or `CLAUDE.local.md` should import `@AGENTS.md` (+ Claude-only lines).
+1. Root `AGENTS.md`. If a `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` is in the repo, follow the fold-and-delete rule above before other work.
 2. The nearest nested `AGENTS.md` above the folder you'll work in (closest wins).
 3. `README.md`.
 4. Before any other work, read in full every doc the agent guide names as state, open items, decisions or source of truth; list each in the note with its last-changed date. Excerpts or skims don't count. The decisions file is never skipped. Any named doc you couldn't read, or read only partly, goes in the note as a gap. If none, write "none named".
@@ -40,7 +41,7 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 
 Skip: `node_modules`, build output, caches, archive/`old` folders, other worktrees' copies, other modules' agent files.
 
-**Orientation cost.** Count auto-loaded files (the `CLAUDE.md` chain, rules with no `paths:`, the first 200 lines of the memory index) and every "read X" step in read-first lists. Flag any that load lookup-only content.
+**Orientation cost.** Count auto-loaded files (`AGENTS.md`, rules with no `paths:`, the first 200 lines of the memory index) and every "read X" step in read-first lists. Flag any that load lookup-only content.
 
 ### 2. Did the last session stop early?
 Check each sign. Any one = **"last session stopped early"**.
@@ -76,7 +77,7 @@ Check files outside the repo that agents load (a parent-folder `AGENTS.md`, the 
 Ask the user: "Last session stopped early (<sign>). Run **agent-handoff-pack** to rebuild where it stopped?" On yes, run the skill in write mode. It writes `handoffs/<task-slug>.md` on the task branch and does not put the handoff in the state file. Include this repo's leftover plans (as scoped in step 2) and any held locks, outputs newer than the log, open PRs and branches. The old session doesn't need to do anything. Never release a lock or finish someone's step without the user's yes.
 
 ### 7. Write one short state note
-Put it in the repo's state file (the one `AGENTS.md` names, for example `STATE.md`) if one exists and writing it is allowed; otherwise just show it in chat. Never write this note to memory, `CLAUDE.local.md`, a global `CLAUDE.md` / `AGENTS.md`, or a file outside the repo. Keep it under ~20 lines:
+Put it in the repo's state file (the one `AGENTS.md` names, for example `STATE.md`) if one exists and writing it is allowed; otherwise just show it in chat. Never write this note to memory, to `AGENTS.md`, or to a file outside the repo. Keep it under ~20 lines:
 
 ```markdown
 **Goal now:** <one sentence: the current objective>
@@ -135,7 +136,7 @@ Tell the agent these, and follow them:
 ---
 
 ## If the basics are missing
-Offer (don't create without a yes): `AGENTS.md` (rules, under ~150 lines, concrete commands, no status), `CLAUDE.md` = `@AGENTS.md`, one state file (`STATE.md`), one log, one decisions file.
+Offer (don't create without a yes): `AGENTS.md` (rules, under ~150 lines, concrete commands, no status), one state file (`STATE.md`), one log, one decisions file. Do not create a second instruction file.
 
 ## Starting it
-the user invokes it by name ("run session-start") in Grok, Claude Code or Cursor. Never add a "run session-start first" line to `AGENTS.md`, `CLAUDE.md` or Cursor rules: it starts only when the user calls it. Once it has installed the hook, the hook covers every PR without anyone calling a skill.
+the user invokes it by name ("run session-start") in Grok, Claude Code or Cursor. Never add a "run session-start first" line to `AGENTS.md` or Cursor rules: it starts only when the user calls it. Once it has installed the hook, the hook covers every PR without anyone calling a skill.
