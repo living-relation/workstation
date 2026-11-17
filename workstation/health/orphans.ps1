@@ -5,6 +5,7 @@
 # listed. A copy whose terminal is gone is listed. When more than one copy is
 # running, the newest healthy copy stays and the extras are listed.
 # Claude's Desktop Commander plugin is not listed.
+# A Cursor worker this tool started is not listed. Stop that with Stop Cursor worker.
 # Other targets: the old local web server, the old watcher, and a Claude
 # remote-control session whose parent process is gone.
 
@@ -37,6 +38,7 @@ function Get-OrphanCandidates {
         if (Test-SkippedProcessName "$($p.Name)") { continue }
         $cmd = "$($p.CommandLine)"
         if (-not $cmd) { continue }
+        if ((Get-Command Test-OurWorkerCommand -ErrorAction SilentlyContinue) -and (Test-OurWorkerCommand $cmd)) { continue }
         $pidN = [int]$p.ProcessId
         if ($cmd -match 'dashboard[\\/]server\.py') {
             $out += [pscustomobject]@{ Pid = $pidN; Name = "$($p.Name)"; CommandLine = $cmd; Kind = 'old-web-server'; Why = 'old local web server'; IsNewest = $false }

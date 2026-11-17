@@ -7,6 +7,8 @@ $BridgeRoot = Split-Path -Parent $HealthDir
 . (Join-Path $BridgeRoot 'paths.ps1')
 . (Join-Path $HealthDir 'claude-auth-status.ps1')
 . (Join-Path $HealthDir 'orphans.ps1')
+$__cwLib = Join-Path (Join-Path $BridgeRoot 'cursor-worker') 'cursor-worker-lib.ps1'
+if (-not (Get-Command Get-CursorWorkerHealthLines -ErrorAction SilentlyContinue)) { . $__cwLib }
 $BridgeProjects = $WsProjectsRoot
 
 function Write-Title([string]$t) {
@@ -173,6 +175,14 @@ function Show-DcAutostart {
     }
     if ($hits) { Write-Warn ("Desktop Commander remote starts at sign-in: " + ($hits -join ', ')) }
     else { Write-Ok 'Desktop Commander remote does not start at sign-in' }
+}
+
+function Show-CursorWorker {
+    Write-Host ''
+    Write-Host 'Cursor worker' -ForegroundColor Cyan
+    foreach ($line in @(Get-CursorWorkerHealthLines)) {
+        if ($line.Level -eq 'WARN') { Write-Warn $line.Text } else { Write-Ok $line.Text }
+    }
 }
 
 function Show-Orphans {

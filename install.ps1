@@ -28,9 +28,10 @@
     by hand (REORGANIZE.md step 5), never by install.
   - Does NOT copy the toolkit anywhere: it runs from this package's toolkit folder (PackageFolder in toolkit.psd1,
     e.g. <clone>\workstation\). Writes %LOCALAPPDATA%\<StateFolder>\<ConfigFile> (projectsRoot) so the scripts find
-    the Projects root; runtime files (stop flag, worker logs/state) also go under %LOCALAPPDATA%\<StateFolder>\,
-    never into the clone. Then creates manual shortcuts (Health check, Start, Stop, and status for Desktop
-    Commander, and the orphan tool) in this package's shortcuts\ folder. Those links are gitignored.
+    the Projects root; runtime files (worker logs and instance notes) also go under %LOCALAPPDATA%\<StateFolder>\,
+    never into the clone. Then creates manual shortcuts (Health check, Start and Stop Cursor worker,
+    Start, Stop, and status for Desktop Commander, and the orphan tool) in this package's shortcuts\
+    folder. Those links are gitignored.
     An empty shortcuts\rc folder left by the old per-project links is removed. A folder that still has
     files, or that is a link, is left alone. Nothing starts at sign-in.
     An old installed copy (<Projects>\_workstation or _bridge, LegacyFolders) is only reported, never moved.
@@ -1049,7 +1050,7 @@ if ($attention.Count) {
 }
 Write-Host ''
 if ($WhatIf) { Write-Host 'Dry run only. Nothing was changed. Run again without -WhatIf to apply.' -ForegroundColor Cyan }
-else { Write-Host 'Nothing starts at sign-in. Desktop Commander runs only from its manual shortcut. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
+else { Write-Host 'Nothing starts at sign-in. Desktop Commander and the Cursor worker run only from their manual shortcuts. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
 Invoke-StatusCheck
 Show-SkillZipPopup
 if (@($Summary | Where-Object Status -eq 'ERROR').Count) { exit 1 }

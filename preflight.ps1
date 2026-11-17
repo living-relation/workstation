@@ -95,8 +95,11 @@ $toolkitLeaves = @(Get-ChildItem -LiteralPath $pkgToolkit -Recurse -File -Filter
 $legacyLeaves = @($TK.LegacyScripts | Where-Object { $toolkitLeaves -notcontains $_ })
 $OurLeaves = @('memory-link-guard.ps1', 'context-guard.ps1', 'pr-closeout-nudge.ps1', 'handoff-at-80.py') + $toolkitLeaves + $legacyLeaves | Select-Object -Unique
 $OurScriptRx  = '(?i)(^|[\\/"\s])(' + (($OurLeaves | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
-$RetiredRx    = '(?i)sync-claude-memory-to-cursor|_claude\\run-hidden\.vbs'
-$RetiredNameRx = '(?i)Claude-Memory-To-Cursor-Sync'
+# Old Cursor worker autostart (Run value CursorWorker, tasks Cursor-Worker and
+# Cursor-Worker-Health, run-worker.ps1, or a raw `agent worker` command).
+# The manual Start shortcut is not an autostart and is not matched here.
+$RetiredRx    = '(?i)sync-claude-memory-to-cursor|_claude\\run-hidden\.vbs|cursor-worker\\run-worker\.ps1|(^|[\\/"\s''])agent(\.ps1|\.cmd|\.exe)?\s+worker\b'
+$RetiredNameRx = '(?i)Claude-Memory-To-Cursor-Sync|^Cursor-Worker(-Health)?$|^CursorWorker$'
 $SimilarNameRx = '(?i)memory.?sync|sync.?memory|handoff|context-?guard'
 $CursorExeRx  = '(?i)(^|[\\/"\s])cursor\.exe\b'
 

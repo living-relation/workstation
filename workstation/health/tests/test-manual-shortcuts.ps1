@@ -11,6 +11,15 @@ $hc = @($tk.Shortcuts | Where-Object { $_.Name -eq 'Health check' })
 Check 'one health shortcut' $hc.Count 1
 Check 'health script path' $hc[0].Script 'health\workstation-status.ps1'
 Check 'health script exists' (Test-Path -LiteralPath (Join-Path $repo ('workstation\' + $hc[0].Script))) True
+foreach ($pair in @(
+    @{ Name = 'Start Cursor worker'; Script = 'cursor-worker\start-cursor-worker.ps1' },
+    @{ Name = 'Stop Cursor worker'; Script = 'cursor-worker\stop-cursor-worker.ps1' }
+)) {
+    $row = @($tk.Shortcuts | Where-Object { $_.Name -eq $pair.Name })
+    Check ("one " + $pair.Name) $row.Count 1
+    Check ($pair.Name + ' script') $row[0].Script $pair.Script
+    Check ($pair.Name + ' exists') (Test-Path -LiteralPath (Join-Path $repo ('workstation\' + $pair.Script))) True
+}
 $startup = 0
 if ($tk.StartupLinks) { $startup = @($tk.StartupLinks).Count }
 Check 'no startup links' $startup 0

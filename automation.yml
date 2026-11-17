@@ -104,7 +104,7 @@ automations:
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File claude/tests/test-claude-setup.ps1
   - id: health-check
     script: workstation/health/workstation-status.ps1
-    helpers: [workstation/health/workstation-common.ps1, workstation/health/claude-auth-status.ps1, workstation/health/orphans.ps1, workstation/health/tests/test-claude-auth-status.ps1, workstation/health/tests/test-app-locks.ps1, workstation/paths.ps1, workstation/repo-status.ps1, workstation/repo-branch.ps1]
+    helpers: [workstation/health/workstation-common.ps1, workstation/health/claude-auth-status.ps1, workstation/health/orphans.ps1, workstation/health/tests/test-claude-auth-status.ps1, workstation/health/tests/test-app-locks.ps1, workstation/health/tests/test-health-clean.ps1, workstation/cursor-worker/cursor-worker-lib.ps1, workstation/paths.ps1, workstation/repo-status.ps1, workstation/repo-branch.ps1]
     trigger: manual
     reads: [LOCALAPPDATA Workstation workstation.json, user .claude settings, skill links, app-lock rule files]
     writes: []
@@ -121,6 +121,16 @@ automations:
     committed: no
     auto_commit: false
     enabled: true
+  - id: cursor-worker
+    script: [workstation/cursor-worker/start-cursor-worker.ps1, workstation/cursor-worker/stop-cursor-worker.ps1]
+    helpers: [workstation/cursor-worker/cursor-worker-lib.ps1, workstation/cursor-worker/tests/test-cursor-worker.ps1]
+    trigger: manual
+    reads: [folders in the detected Projects active directory, Cursor CLI on PATH, processes this tool started]
+    writes: [LOCALAPPDATA Workstation cursor-worker logs and instance notes]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/cursor-worker/tests/test-cursor-worker.ps1
   - id: cleanup-legacy
     script: cleanup-legacy.ps1
     trigger: manual
