@@ -17,7 +17,16 @@ Official rules this encodes (no version field, by the approved plan):
 - Resolution looks for `<source>/.cursor-plugin/plugin.json`, using
   path.resolve(root, source). "." resolves to the repo root.
   https://github.com/cursor/plugins/blob/main/scripts/validate-plugins.mjs
+- Cursor plugin `hooks` is a path or an inline object. A set path replaces
+  default discovery of `hooks/hooks.json`.
+  https://cursor.com/docs/reference/plugins
+- Cursor hook events and `"version": 1` live in that hooks file, not in
+  plugin.json. https://cursor.com/docs/hooks
+- Claude Code loads `hooks/hooks.json` (different shape: PreToolUse / Stop,
+  `${CLAUDE_PLUGIN_ROOT}`). https://code.claude.com/docs/en/plugins-reference
+  The two files stay separate so neither host parses the other's event names.
 
+`skills` is `./skills/`, so every `skills/<name>/SKILL.md` is included.
 This does not run Cursor's importer. A passing check is not a live import.
 """
 import json
@@ -33,6 +42,7 @@ CLAUDE_PLUGIN = {
 CURSOR_PLUGIN = {
     "name": "workstation-core",
     "skills": "./skills/",
+    "hooks": "./hooks/cursor-hooks.json",
 }
 CURSOR_MARKETPLACE = {
     "name": "workstation-core",
@@ -118,9 +128,86 @@ def check(root: Path):
     for banned in ("bin",):
         if (root / banned).exists():
             errors.append(f"{banned}/ is present; the plugin must not ship a bin folder")
-    for banned in ("mcp.json", ".mcp.json", "hooks/hooks.json"):
+    for banned in ("mcp.json", ".mcp.json"):
         if (root / banned).exists():
-            errors.append(f"{banned} is present; this phase ships no MCP server and no hooks")
+            errors.append(f"{banned} is present; the plugin must not ship an MCP server")
+    cursor = loaded.get(".cursor-plugin/plugin.json")
+    if isinstance(cursor, dict):
+        errors.extend(_check_cursor_hooks(root, cursor.get("hooks")))
+    errors.extend(_check_claude_hooks(root))
+    return errors
+
+
+def _check_cursor_hooks(root: Path, hooks_field):
+    """Cursor hooks are a separate file. plugin.json `hooks` replaces hooks/hooks.json."""
+    errors = []
+    if not isinstance(hooks_field, str) or not hooks_field:
+        errors.append("cursor plugin hooks must be a path to the Cursor hooks file")
+        return errors
+    path = (root / hooks_field).resolve()
+    try:
+        path.relative_to(root.resolve())
+    except ValueError:
+        errors.append(f"cursor hooks path escapes the repo: {hooks_field}")
+        return errors
+    if not path.is_file():
+        errors.append(f"cursor hooks path {hooks_field} is missing")
+        return errors
+    try:
+        data = _load(path)
+    except ValueError as e:
+        errors.append(str(e))
+        return errors
+    if data.get("version") != 1:
+        errors.append(f"{hooks_field}: Cursor hooks file must set version 1")
+    events = data.get("hooks") if isinstance(data.get("hooks"), dict) else {}
+    if "preToolUse" not in events or "stop" not in events:
+        errors.append(f"{hooks_field}: needs preToolUse and stop")
+    if "PreToolUse" in events or "Stop" in events:
+        errors.append(f"{hooks_field}: Claude event names belong in hooks/hooks.json")
+    text = path.read_text(encoding="utf-8")
+    if "${CURSOR_PLUGIN_ROOT}" not in text:
+        errors.append(f"{hooks_field}: commands must use ${{CURSOR_PLUGIN_ROOT}}")
+    for script in ("projects-root-guard.ps1", "projects-root-report.ps1"):
+        if script not in text:
+            errors.append(f"{hooks_field}: missing {script}")
+        elif not (root / "hooks" / script).is_file():
+            errors.append(f"hooks/{script} is missing")
+    return errors
+
+
+def _check_claude_hooks(root: Path):
+    """Claude Code's default hooks file. Do not put Cursor event names here."""
+    errors = []
+    path = root / "hooks" / "hooks.json"
+    if not path.is_file():
+        errors.append("hooks/hooks.json is missing; Claude plugin hooks live there")
+        return errors
+    try:
+        data = _load(path)
+    except ValueError as e:
+        errors.append(str(e))
+        return errors
+    events = data.get("hooks") if isinstance(data.get("hooks"), dict) else {}
+    if "PreToolUse" not in events or "Stop" not in events:
+        errors.append("hooks/hooks.json: needs PreToolUse and Stop")
+    if "preToolUse" in events or "stop" in events:
+        errors.append("hooks/hooks.json: Cursor event names belong in the Cursor hooks file")
+    text = path.read_text(encoding="utf-8")
+    if "${CLAUDE_PLUGIN_ROOT}" not in text:
+        errors.append("hooks/hooks.json: commands must use ${CLAUDE_PLUGIN_ROOT}")
+    pre = events.get("PreToolUse") or []
+    matchers = []
+    for entry in pre:
+        if isinstance(entry, dict) and entry.get("matcher"):
+            matchers.append(entry["matcher"])
+    joined = " ".join(matchers)
+    for name in ("Write", "Edit", "NotebookEdit", "Bash", "PowerShell"):
+        if name not in joined:
+            errors.append(f"hooks/hooks.json: PreToolUse matcher is missing {name}")
+    for script in ("projects-root-guard.ps1", "projects-root-report.ps1"):
+        if not (root / "hooks" / script).is_file():
+            errors.append(f"hooks/{script} is missing")
     return errors
 
 

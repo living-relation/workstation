@@ -4,12 +4,13 @@
 (`skills/`: safe-repo-preflight, backup-dryrun-apply, agent-handoff-pack,
 wizard, iterative-cleaning, deploy-project-watcher,
 session-start, repo-cleanup, git-checker, concise, pr-closeout,
-iap-ship-workflow), their generated
+iap-ship-workflow, coordinator-kit), their generated
 `skills/<name>.zip` Claude import packages (the skill-zips CI bot rebuilds them
 on the PR; local `scripts/pack-skill-zips.ps1` / `.sh` is optional; do not edit by hand),
 `automations/` (routine texts, docs only), agent rules and instruction templates,
-workstation helper scripts, and the plugin manifests in `.claude-plugin/` and
-`.cursor-plugin/` (no `version` field; skills stay in `skills/`).
+workstation helper scripts, the plugin manifests in `.claude-plugin/` and
+`.cursor-plugin/` (no `version` field; skills stay in `skills/`), and the
+plugin hooks under `hooks/`.
 
 **Never:** CAD code or models (they belong to the CAD repo), part files, binaries, archives
 (except the generated Claude-importable `skills/<name>.zip` files owned by pack-skill-zips),

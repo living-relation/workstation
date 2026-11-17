@@ -188,6 +188,16 @@ automations:
     auto_commit: true
     enabled: true
     run_cmd: python3 scripts/pack-skill-zips.py --strict
+  - id: projects-root-hooks
+    script: [hooks/projects-root-guard.ps1, hooks/projects-root-report.ps1]
+    helpers: [hooks/projects-root-common.ps1, hooks/tests/test-projects-root-guard.ps1, hooks/hooks.json, hooks/cursor-hooks.json]
+    trigger: agent-hook:PreToolUse+Stop (Claude hooks/hooks.json; Cursor hooks/cursor-hooks.json)
+    reads: [tool payload on stdin, WORKSTATION_PROJECTS_ROOT, WORKSTATION_PROJECTS_DENY_KEYWORDS, the detected projects root]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-projects-root-guard.ps1
   - id: plugin-validate
     script: .github/workflows/plugin-validate.yml
     helpers: [scripts/check_cursor_plugin.py, scripts/test_plugin_manifests.py]

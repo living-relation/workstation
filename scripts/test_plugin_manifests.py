@@ -10,6 +10,67 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import check_cursor_plugin as chk  # noqa: E402
 
 
+def _write_hooks(root: Path):
+    hooks = root / "hooks"
+    hooks.mkdir()
+    (hooks / "projects-root-guard.ps1").write_text("# guard\n", encoding="utf-8")
+    (hooks / "projects-root-report.ps1").write_text("# report\n", encoding="utf-8")
+    (hooks / "hooks.json").write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Write|Edit|NotebookEdit|Bash|PowerShell",
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": 'powershell -File "${CLAUDE_PLUGIN_ROOT}/hooks/projects-root-guard.ps1"',
+                                }
+                            ],
+                        }
+                    ],
+                    "Stop": [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": 'powershell -File "${CLAUDE_PLUGIN_ROOT}/hooks/projects-root-report.ps1"',
+                                }
+                            ]
+                        }
+                    ],
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (hooks / "cursor-hooks.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "hooks": {
+                    "preToolUse": [
+                        {
+                            "command": 'powershell -File "${CURSOR_PLUGIN_ROOT}/hooks/projects-root-guard.ps1"',
+                            "matcher": "Write|Edit|NotebookEdit|Bash|PowerShell|Shell",
+                        }
+                    ],
+                    "stop": [
+                        {
+                            "command": 'powershell -File "${CURSOR_PLUGIN_ROOT}/hooks/projects-root-report.ps1"',
+                            "loop_limit": 1,
+                        }
+                    ],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def _write_good(root: Path):
     (root / ".claude-plugin").mkdir()
     (root / ".cursor-plugin").mkdir()
@@ -25,6 +86,7 @@ def _write_good(root: Path):
     (root / ".cursor-plugin" / "marketplace.json").write_text(
         json.dumps(chk.CURSOR_MARKETPLACE) + "\n", encoding="utf-8"
     )
+    _write_hooks(root)
 
 
 def test_repo_manifests_pass():
@@ -60,6 +122,27 @@ def test_version_field_fails(tmp_path):
 def test_parent_source_is_rejected(tmp_path):
     with pytest.raises(ValueError):
         chk.resolve_source(tmp_path, "..")
+
+
+def test_coordinator_kit_is_picked_up_with_the_other_skills():
+    folders = sorted(
+        p.name
+        for p in (ROOT / "skills").iterdir()
+        if p.is_dir() and (p / "SKILL.md").is_file()
+    )
+    assert "coordinator-kit" in folders
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert f"all {len(folders)} are his" in readme
+    cursor = json.loads((ROOT / ".cursor-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    assert cursor["skills"] == "./skills/"
+    excluded = set()
+    for line in (ROOT / "skills" / "EXCLUDE.txt").read_text(encoding="utf-8").splitlines():
+        name = line.split("#", 1)[0].strip()
+        if name:
+            excluded.add(name)
+    assert "coordinator-kit" not in excluded
+    packer = (ROOT / "scripts" / "pack-skill-zips.py").read_text(encoding="utf-8")
+    assert "SKILL.md" in packer and "EXCLUDE.txt" in packer
 
 
 def test_workflow_runs_validate_without_strict():

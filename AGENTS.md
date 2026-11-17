@@ -18,4 +18,4 @@ personal content, no secrets, no CAD code or models.
 
 Plugin manifests may be committed: `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`,
 and `.cursor-plugin/marketplace.json`. They have no `version` field. Skills stay in
-`skills/<name>/SKILL.md`. The plugin ships no hooks, no MCP server, and no `bin/`.
+`skills/<name>/SKILL.md`. The plugin ships Claude hooks in `hooks/hooks.json` and Cursor hooks in `hooks/cursor-hooks.json` (the Cursor manifest `hooks` path). No MCP server and no `bin/`.
