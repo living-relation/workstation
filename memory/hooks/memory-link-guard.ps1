@@ -3,8 +3,9 @@
 # Under Cursor (CURSOR_VERSION set) a preToolUse run prints exactly one line, {"permission":"allow"},
 # because Cursor blocks the edit when a hook prints nothing; its messages go to stderr instead. Never deletes notes.
 # Also warns (never blocks, moves or deletes) when a write to the store looks like
-# project progress (status, progress, next steps, TODOs, handoffs, PR or branch state);
-# that belongs in the repo's in-repo state file.
+# project progress (status, progress, next steps, TODOs, handoffs, PR or branch state).
+# Progress belongs in the repo's in-repo state file. A handoff belongs in
+# handoffs/<task-slug>.md, never in that state file or OPEN-ITEMS.
 # Portable: no hardcoded profile, user or machine names. Paths are worked out at run time:
 #   link  = autoMemoryDirectory from ~\.claude\settings.json (~ expanded); this is the junction.
 #   store = storePath from the optional ~\.claude\hooks\memory-link-guard.config.json, else the
@@ -112,7 +113,7 @@ try {
     elseif ($ti.PSObject.Properties['new_string'] -and $ti.new_string) { $noteText = [string]$ti.new_string }
     elseif (Test-Path -LiteralPath $notePath -PathType Leaf) { try { $noteText = [IO.File]::ReadAllText($notePath) } catch { } }
     if (Test-ProgressNote $notePath $noteText) {
-      Write-Output "MEMORY WARNING: '$notePath' looks like project progress/state (status, progress, next steps, TODOs, handoffs, or PR/branch state). Put that in the repo's in-repo state file instead (the one AGENTS.md names, e.g. STATE.md). Local Working Memory holds only preferences, rules and cross-project facts; each fact is written once. This is a warning only; the note was not blocked, moved or deleted."
+      Write-Output "MEMORY WARNING: '$notePath' looks like project progress/state (status, progress, next steps, TODOs, handoffs, or PR/branch state). Put progress in the repo's in-repo state file (the one AGENTS.md names, e.g. STATE.md). Put a handoff in handoffs/<task-slug>.md on the task branch, never inside that state file or OPEN-ITEMS. Local Working Memory holds only preferences, rules and cross-project facts; each fact is written once. This is a warning only; the note was not blocked, moved or deleted."
     }
   }
 } catch { }

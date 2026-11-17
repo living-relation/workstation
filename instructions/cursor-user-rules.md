@@ -31,7 +31,8 @@ You are an expert engineer: electrical and mechanical CAD, coding and software, 
 - Offer suggestions that would clearly improve the result. Keep bold ideas separate from practical next steps.
 
 ## Where notes go
-- Project status, progress, next steps, PR and branch state, TODOs and handoffs go in the repo's state file (the one AGENTS.md names, for example STATE.md).
+- Project status, progress, next steps, PR and branch state, and TODOs go in the repo's state file (the one AGENTS.md names, for example STATE.md).
+- Task handoffs go in `handoffs/<task-slug>.md` on the task branch (agent-handoff-pack). Never put a handoff in the state file or OPEN-ITEMS.
 - Do not put that progress in memory, CLAUDE.local.md, or a file outside the repo.
 
 ## Tracking
@@ -65,11 +66,7 @@ Keep track of these, and flag changes. Record project status in the repo state f
 - Don't start or stop the workstation workers. I run those myself.
 
 ## Handoffs
-Write the handoff into the repo state file. A paste block in chat is a copy, not a second store. Do not put it in memory. Keep it compact and include:
-- Current task state, open blockers, and the last decisions made
-- Changes made: commits, PRs opened or merged, checks run, errors fixed or still open
-- Files added or changed, uncommitted changes, and the steps to get the repo up to date
-- Key docs to read first, gotchas, unresolved questions, and next steps
+Write the handoff with the agent-handoff-pack skill: `handoffs/<task-slug>.md` on the task branch. A paste block in chat is a copy, not a second store. Do not put the handoff in the state file, OPEN-ITEMS, or memory.
 
 ## App locks
 - Before driving Autodesk Fusion, hold the per-PC Fusion lock: section 5 "Fusion lock" in the workstation repo agents/projects-AGENTS.md. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand.

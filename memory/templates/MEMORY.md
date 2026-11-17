@@ -7,7 +7,7 @@ which is a junction (a folder shortcut) to this folder, so those apps read and w
 It holds preferences, rules and cross-project facts, each fact once.
 Claude account Memory (claude.ai / Your Claude → Memory) is a separate, allowed store for general / non-project prefs. Duplicates are OK; never sync either way; never treat account Memory as the project source of truth.
 Never create a second local memory folder or replace the junction. Do not use `project_memory_read` / `project_memory_write` for project memory. Project-specific rules stay in each repo's own `AGENTS.md`.
-Project progress (status, next steps, PR and branch state, TODOs, handoffs) stays in the repo's state file (the one `AGENTS.md` names, e.g. `STATE.md`).
+Project progress (status, next steps, PR and branch state, TODOs) stays in the repo's state file (the one `AGENTS.md` names, e.g. `STATE.md`). Task handoffs stay in `handoffs/<task-slug>.md` on the task branch, never in that state file or OPEN-ITEMS.
 A leftover `~\.claude\working-memory` junction is harmless and is not this path. Install does not create or check it.
 Memory is local only: never commit it to git.
 

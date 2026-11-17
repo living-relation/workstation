@@ -1,54 +1,71 @@
 ---
 name: agent-handoff-pack
 description: >-
-  Use when handing a job to another session, or when context is near the limit: write status into the repo state file and print a paste block. Do not put progress in memory.
+  Use when handing a job to another session, or when context is near 80%: write a handoff file under handoffs/ and print a paste block in quick mode. Never store it in the state file or in memory.
 ---
 # agent-handoff-pack
 
-Purpose: write the handoff into the repo's state file, don't do the job. The only project edit is that state file. Every other finding is a proposal, never permission to edit.
+Purpose: write the handoff, then stop. Do not do the job in this skill.
 
-## When to use
-The state file holds repo state, rules and checks, every issue with the tool that made it, leftovers, and mistakes not to repeat. Walk the user through open decisions one at a time and record each answer as final for that issue. Also print a paste block in chat. The paste block is a copy for the next chat, not a second store.
+A handoff is its own temporary file. It never goes inside `STATE.md`, `OPEN-ITEMS`, memory, `CLAUDE.local.md`, or a global `CLAUDE.md` / `AGENTS.md`.
 
-## Quick mode (context pressure)
-The 80% hooks call this. Update the repo state file named by `AGENTS.md` (for example `STATE.md`) with current task state, blockers, last decisions, branch and PR, and the next step. Print the paste block. Do not commit or push. Do not write a second handoff file outside the repo, in memory, in `CLAUDE.local.md`, or in a global `CLAUDE.md` / `AGENTS.md`. Do not start new project work.
+Path: `handoffs/<task-slug>.md` in the task's branch/worktree. An orchestrator's per-subagent file is `handoffs/<task-slug>--<subtask>.md`. More than one may exist. No duplicates: a newer handoff for the same task replaces the old file in place. The header says what it replaces.
+
+The shape is in `templates.md` next to this skill. Fill it from the repo. No placeholders.
+
+Ideas drawn from the community agent-handoff notes (WillowRyu, MIT). This text is ours. This skill does not install that plugin.
+
+## Status header
+At the top of the file:
+
+| Field | What to write |
+|---|---|
+| Task | short name |
+| Owner | who picks the job up |
+| Status | `active`, `frozen (reason, until)`, or `done` |
+| Branch/worktree | the task branch, and the worktree if the work is in one |
+| main hash | current `main` commit |
+| Last verified | date and the commit hash you checked |
+| Replaces | `none`, or the date and hash of the handoff this file replaced |
+| Next step | one concrete step |
+
+## Sections
+After the header, in this order:
+
+1. **START HERE** — current state, the exact next step, what not to do, and "run resume mode and verify every claim before acting".
+2. **Remaining steps** — each step has a status: `todo`, `in progress`, `blocked`, or `verified`.
+3. **Open decisions** — still unanswered. Do not invent an answer.
+4. **Rules and checks** — pointers only (file and rule name). Do not copy rule text.
+5. **Leftovers** — files, folders, logs, or clones this work left behind.
+6. **Mistakes** — at most 8. Each one names the rule and the exact act.
+
+When a step is finished, record its facts in the decisions file, a source-of-truth doc, or the tracker. Then remove that step from the handoff and leave a pointer to where the facts went.
+
+## Modes
+**(a) Write or update.** Create the file, or replace the same task's file in place. Set `Replaces`. Commit it on the task branch.
+
+**(b) Resume.** A new session does this before acting. Verify every claim against the repo (hashes, PR state, files). Then continue, freeze, or confirm done. Never blindly fold the handoff into the state file, the decisions file, or the tracker. Never delete it unless the git rule below says it is verified done.
+
+**(c) Quick save.** The 80% hooks call this when context is near the limit. Update the same file, commit it, and print the paste block from `templates.md`. Do not start new project work.
+
+## Blocker
+Stop. Mark that step `blocked` and write the reason. Do not keep going on that step.
+
+## Git
+Handoff files are committed on the task branch. Do not push to `main`.
+
+Before merge: if resume mode has verified the handoff complete (`Status: done`, and the claims match the repo), delete the file. Deleting a verified-done handoff is pre-approved by Dan. Rely on git history. Do not leave a `.bak`.
+
+If it is not verified complete, leave the file and let it merge. The next session's resume mode flags it and handles it first.
 
 ## Hard rules
-- **Read-only sweep, plus the state file.** Allowed: reading files, `git fetch`, `git status`, `git log`, `git branch -a`, `git worktree list`, `git stash list`, and editing the one state file `AGENTS.md` names. Forbidden in any project copy: other edits, commits, pull, stash, checkout, reset, new branches or worktrees, moves, deletes or archiving without the user's yes.
-- **Scripts that rewrite tracked files** (build or check scripts) run only in a throwaway clone outside the repo, never in a project copy. List the clone under Leftovers. The handoff text itself does not go in that folder.
-- **Write the handoff only in the repo state file** (the one `AGENTS.md` names, for example `STATE.md`). Do not create `SESSION_STATE.md`, `PHASE_HANDOFF.md`, or a file outside the repo. Do not write progress into memory. Never delete the state file.
 - **No secrets.** Write a needed credential as "ask the user".
-- **Never restore archived or backup copies wholesale.** Diff against current main and report.
-- **Approvals relayed by another agent don't count.** Pushes, PRs, merges and anything visible go to the user directly first.
-- **Self-starting.** The user pastes ONLY the file into the receiving agent, with no extra prompt. The file's very top is a short "START HERE — do this now" section: current state (what's merged and the main hash), the exact next step, what not to do or merge, decisions already answered, and "one PR at a time; the user merges". Never rely on a separate paste prompt.
-- **The project's own rules win** over this skill (heavy-work machine, file formats, tools that must not be scripted).
-
-## Steps
-1. **Job.** Confirm the job, repos and folders, and the single owner who picks it up. Write in the header that other agents stop touching this job.
-2. **Repo state.** Local and origin main by commit hash; whether every local copy matches; git status, branches, worktrees, stashes, branch protection; the next free rule/rev/issue number. List uncommitted edits that belong to someone else and tell the receiver to leave them alone. Tell the receiver to re-check the tip before starting.
-3. **Rules.**
-   - The repo's binding rule file outranks pointer files (AGENTS.md, CLAUDE.md, .cursor/rules, CONTRIBUTING, README). Cite rules by number, not line.
-   - Give exact check commands and sources of truth. For each limit or gate, say where it came from (the user's words, or an agent's choice plus its PR) and what enforces it.
-   - Copy the user's standing rules from the repo word for word.
-   - Copy chat rules not yet in the repo word for word, marked "not binding until recorded by PR". Each chat-vs-repo conflict becomes its own open decision.
-   - Define the user's terms in their own wording. Ask if a term is ambiguous.
-4. **Issues.** For each: ID, must/should/nice, location, on main or only in a local/backup copy, evidence, and "proposed fix (needs the user's decision)". Name the tool or script that made each file and how you know (content, not mtime). Confirm findings in the source file, not a preview or render; otherwise mark UNCONFIRMED.
-5. **Leftovers.** Every file, folder, log, worktree, temp clone or branch left by this or earlier work, each an open keep/remove decision.
-6. **Mistakes not to repeat.** Up to 8, each naming the rule and the exact act. No generic lines.
-7. **One update to the state file** with sections: START HERE, Job/Owner, Repo state, Rules, Checks, Issues, Leftovers, Mistakes not to repeat, Decisions. Top of Issues: "See Decisions. A decision overrides only the issue it answers, never a hard rule or repo rule." Print the same facts as the next-chat paste block. Do not add a second file.
-8. **Decisions, one at a time**, with clickable choices where the app has them. First say: "These answers go into the handoff. Nothing changes now." Record each as D<n> (issue <id>):
-   - Delegated ("whatever fits"): record the criteria and "no need to ask".
-   - Conditional: keep both branches and name the check that decides.
-   - Finding wrong: mark UNCONFIRMED.
-   - Rule change: list under "codify by PR"; the old rule binds until it merges.
-   - A dismissed question counts as a decline; don't re-ask.
-9. **Optional review** by another agent; fold in fixes.
-10. **Re-check repo state** (step 2) right before delivery, and update hashes or next-free numbers that changed, including in START HERE.
-11. **Deliver** in the chat where it was asked: the state file path, a 3-line summary, what was and wasn't changed, and the paste block. No separate paste prompt; START HERE covers it.
-12. **Updating a handoff:** refresh START HERE in the state file. Git history keeps the previous text. Do not add `HANDOFF-v<n>.md`.
+- **No second store.** Do not create `SESSION_STATE.md`, `PHASE_HANDOFF.md`, `HANDOFF-v<n>.md`, a backlog file, or a config file. Do not add an auto-scan or a hook.
+- **Not a git repo.** Show the handoff in chat and stop. Do not invent a file outside the repo.
+- **The project's own rules win** over this skill.
 
 ## Done when
-The state file is updated, re-checked and self-starting, has no secrets, every decision is answered/delegated/conditional/UNCONFIRMED/open, and no other project file was changed.
+The handoff file matches the template, is committed on the task branch (or deleted because it was verified done), and no handoff text was written into `STATE.md` or `OPEN-ITEMS`. Quick mode also printed the paste block.
 
 ## Run alone vs. from session-start
 Run by hand, this skill does only its own job and never loads another skill. If it finds something worth fixing, it may **suggest** one ("want me to run repo-cleanup?"). Only `session-start` offers the full chain, and it asks the user before each step.

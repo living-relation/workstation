@@ -53,9 +53,10 @@ hygiene, and reports in a few lines. Any repo.
      (name, description, type) and the **Why:** / **How to apply:** lines.
    - Update a note that is now wrong; don't add a duplicate.
    - Add a signed index line for every new note.
-   - If a memory note holds project progress (status, next steps, PR or branch state, TODOs,
-     a handoff), put that content in the repo state file on this branch. Tell the user the
-     memory copy is stale. Do not delete it without a yes. Do not write the PR's effect into memory.
+   - If a memory note holds project progress (status, next steps, PR or branch state, TODOs),
+     put that content in the repo state file on this branch. If it holds a handoff, put that
+     in `handoffs/<task-slug>.md` on this branch, never in the state file or OPEN-ITEMS.
+     Tell the user the memory copy is stale. Do not delete it without a yes. Do not write the PR's effect into memory.
 4. **Hygiene.** Run the repo's gates from `AGENTS.md` "Commands" (example: `python tools/check_all.py`,
    `python .github/scripts/test_docs_gates.py`, `python bench/check_parity.py`), plus its
    warn-only doc checks if it has them. Report new warnings only, not old ones.
