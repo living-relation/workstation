@@ -15,3 +15,7 @@ Read `agents/projects-AGENTS.md` (shared rules) and `CONTRIBUTING.md` first; fol
 `.githooks/`. Current status and open items live only in `STATE.md` (the one state file); every
 script and hook is listed in `automation.yml`. Before driving Autodesk Fusion, follow the Fusion lock rule in `agents/projects-AGENTS.md` section 5. Before driving the harness.design desktop app, follow section 5b: acquire before use, check in at least every 10 min, and release when done. This repo is public but still generic: no machine-specific, project-specific or
 personal content, no secrets, no CAD code or models.
+
+Plugin manifests may be committed: `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`,
+and `.cursor-plugin/marketplace.json`. They have no `version` field. Skills stay in
+`skills/<name>/SKILL.md`. The plugin ships no hooks, no MCP server, and no `bin/`.
