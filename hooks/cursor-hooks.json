@@ -13,7 +13,7 @@
       },
       {
         "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/hooks/protected-files-guard.ps1\"",
-        "matcher": "Write|Edit|NotebookEdit|Bash|PowerShell|Shell"
+        "matcher": "Write|Edit|Delete|NotebookEdit|Bash|PowerShell|Shell"
       }
     ],
     "stop": [

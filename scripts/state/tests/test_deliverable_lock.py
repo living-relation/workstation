@@ -121,6 +121,29 @@ class DeliverableLockTests(TempDirCase):
         self.assertEqual(self.lock_tool("verify").returncode, 0)
         self.assertGreater(len(self.history()), 2)
 
+    def test_relock_of_changed_file_is_refused_and_keeps_old_hash(self):
+        self.lock_tool("lock", "out/drawing.txt")
+        recorded = self.locked()["out/drawing.txt"]
+        self.drawing.write_text("rev B\n", encoding="utf-8")
+        result = self.lock_tool("lock", "out/drawing.txt")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("REFUSED", result.stderr)
+        self.assertEqual(self.locked()["out/drawing.txt"], recorded)
+        self.assertEqual(self.lock_tool("verify").returncode, 2)
+
+    def test_relock_after_owner_unlock_takes_new_hash(self):
+        self.lock_tool("lock", "out/drawing.txt")
+        recorded = self.locked()["out/drawing.txt"]
+        self.drawing.write_text("rev B\n", encoding="utf-8")
+        self.lock_tool("unlock", "out/drawing.txt", "--owner-phrase", "unlock the drawing")
+        self.assertEqual(self.lock_tool("lock", "out/drawing.txt").returncode, 0)
+        self.assertNotEqual(self.locked()["out/drawing.txt"], recorded)
+        self.assertEqual(self.lock_tool("verify").returncode, 0)
+
+    def test_relock_of_unchanged_file_is_ok(self):
+        self.lock_tool("lock", "out/drawing.txt")
+        self.assertEqual(self.lock_tool("lock", "out/drawing.txt").returncode, 0)
+
     def test_history_key_is_not_lockable(self):
         commit_file(self.repo, "_history", "x\n")
         self.assertEqual(self.lock_tool("lock", "_history").returncode, 1)

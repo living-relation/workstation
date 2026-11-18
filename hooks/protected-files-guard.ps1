@@ -6,24 +6,33 @@
 #     (repo-relative globs: * and ? stay in one folder, ** crosses folders, a trailing / means the folder;
 #      # starts a comment).
 # Ask before a shell command that runs deliverable_lock.py unlock (this ask is the owner's real gate).
+# Ask before any Write / Edit of VERIFIED.lock itself (only deliverable_lock.py writes it).
+# A SPEC file asks only when the repo is migrated (its store project folder has STATE.md).
 # Deny a write to another branch's STATE-<slug>.md in the memory store (only STATE-<own slug>.md is this
-#   session's; the root STATE.md and archives\ are not judged here).
-# Allow everything else. Claude Code: allow prints nothing. Cursor: every run prints exactly one
-#   {"permission": ...} line. Any error allows.
+#   session's; archives\ are not judged here). Ask before a write to the project's root STATE.md when
+#   this session's own file is a STATE-<slug>.md (one writer: the coordinator).
+# Allow everything else. Claude Code: only hookSpecificOutput; allow prints nothing. Cursor: only
+#   {"permission", "user_message", "agent_message"}, one line every run; Cursor does not enforce "ask"
+#   in preToolUse, so an ask is sent to Cursor as deny. Any error allows.
 . (Join-Path $PSScriptRoot 'state-common.ps1')
 
 $script:IsCursor = $false
 
 function Write-GuardDecision {
   param([string]$Decision, [string]$Msg)
-  $obj = [ordered]@{
-    permission = $Decision
-    user_message = $Msg
-    agent_message = $Msg
-    hookSpecificOutput = [ordered]@{
-      hookEventName = 'PreToolUse'
-      permissionDecision = $Decision
-      permissionDecisionReason = $Msg
+  if ($script:IsCursor) {
+    if ($Decision -eq 'ask') {
+      $Decision = 'deny'
+      $Msg = $Msg + ' (Cursor does not enforce "ask" in preToolUse, so this is denied: get the owner''s yes in chat, then the owner makes or approves the change.)'
+    }
+    $obj = [ordered]@{ permission = $Decision; user_message = $Msg; agent_message = $Msg }
+  } else {
+    $obj = [ordered]@{
+      hookSpecificOutput = [ordered]@{
+        hookEventName = 'PreToolUse'
+        permissionDecision = $Decision
+        permissionDecisionReason = $Msg
+      }
     }
   }
   [Console]::Out.WriteLine(($obj | ConvertTo-Json -Compress -Depth 5))
@@ -90,8 +99,11 @@ function ConvertFrom-GuardGlob {
 function Find-ProtectedReason {
   param([string]$FullPath, [string]$Root, [string]$Key)
   $leaf = Split-Path $FullPath -Leaf
+  if ($Key -eq 'verified.lock') {
+    return 'VERIFIED.lock is written only by deliverable_lock.py (lock / unlock on the owner''s words), never by hand'
+  }
   if ($leaf -match '(?i)^SPEC([-_.][^\\/]*)?\.md$' -or $leaf -match '(?i)^SPEC$') {
-    return "$Key is a SPEC file"
+    if (Test-GuardRepoMigrated $Root) { return "$Key is a SPEC file" }
   }
   $lock = Join-Path $Root 'VERIFIED.lock'
   if (Test-Path -LiteralPath $lock -PathType Leaf) {
@@ -114,6 +126,25 @@ function Find-ProtectedReason {
     }
   }
   return $null
+}
+
+function Test-GuardRepoMigrated {
+  param([string]$Root)
+  $info = Get-StatePathInfo $Root
+  if (-not $info -or -not $info.store_reachable -or -not $info.project_dir) { return $false }
+  return (Test-Path -LiteralPath (Join-Path ([string]$info.project_dir) 'STATE.md') -PathType Leaf)
+}
+
+function Find-RootStateFromBranch {
+  param([string]$FullPath, [string]$Cwd)
+  if ((Split-Path $FullPath -Leaf) -ine 'STATE.md') { return $null }
+  $info = Get-StatePathInfo $Cwd
+  if (-not $info -or -not $info.project_dir -or -not $info.state_file) { return $null }
+  $mine = Split-Path ([string]$info.state_file) -Leaf
+  if ($mine -ieq 'STATE.md') { return $null }
+  $rootKey = ConvertTo-GuardKey ([IO.Path]::GetFullPath((Join-Path ([string]$info.project_dir) 'STATE.md')))
+  if ((ConvertTo-GuardKey $FullPath) -ne $rootKey) { return $null }
+  return "$FullPath is the project's root STATE, owned by the coordinator. This session (branch '$($info.branch)') writes $mine; ask before touching the root STATE"
 }
 
 function Find-OtherBranchState {
@@ -162,6 +193,8 @@ if ($MyInvocation.InvocationName -ne '.') {
     if ($cwd) {
       $deny = Find-OtherBranchState $full $cwd
       if ($deny) { Write-GuardDecision 'deny' ("protected-files-guard: " + $deny) }
+      $rootAsk = Find-RootStateFromBranch $full $cwd
+      if ($rootAsk) { Write-GuardDecision 'ask' ("protected-files-guard: " + $rootAsk + '.') }
     }
     $root = Get-GuardRepoRoot $full
     if ($root) {

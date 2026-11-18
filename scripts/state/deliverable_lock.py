@@ -4,7 +4,8 @@
 The lock file is VERIFIED.lock at the repo root: JSON, repo-relative path -> sha256, plus one
 reserved key "_history" (a list of lock / unlock events with their UTC date).
 Usage: deliverable_lock.py [--repo DIR] lock PATH... | verify | unlock PATH --owner-phrase TEXT
-  lock    record the current sha256 of each file
+  lock    record the current sha256 of each file; a path already locked with a different hash is
+          refused (exit 2): unlock it on the owner's words first
   verify  every locked file must still exist with its recorded hash
   unlock  remove one entry; TEXT is the owner's own words, typed by the owner in the chat, and is
           logged in _history. The tool prints and stores no token: the real gate is the
@@ -89,7 +90,16 @@ def cmd_lock(root, args):
         if key == LOCK_NAME or key == HISTORY_KEY or not path.is_file():
             print("deliverable_lock: not a lockable file: %s" % raw, file=sys.stderr)
             return 1
-        data[key] = sha256_of(path)
+        digest = sha256_of(path)
+        if key in data and data[key] != digest:
+            print("deliverable_lock: REFUSED: %s is already locked with a different hash; "
+                  "unlock it on the owner's words (unlock --owner-phrase), then lock again" % key,
+                  file=sys.stderr)
+            return 2
+        if data.get(key) == digest:
+            print("already locked %s (unchanged)" % key)
+            continue
+        data[key] = digest
         history.append(history_entry("lock", key))
         print("locked %s" % key)
     save_lock(root, data, history)

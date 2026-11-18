@@ -49,7 +49,17 @@ Check 'other shell command is silent' (Test-Silent (Run-Shell 'git status' $clau
 Check "other branch's STATE-<slug>.md is denied" (Test-Denies (Edit-File (Join-Path $project 'STATE-feat-y.md') $claude 'Write'))
 Check "another project's STATE-<slug>.md is denied" (Test-Denies (Edit-File (Join-Path $store 'other-proj\STATE-feat-x.md') $claude 'Write'))
 Check 'own STATE-feat-x.md is allowed' (Test-Silent (Edit-File (Join-Path $project 'STATE-feat-x.md') $claude 'Write'))
-Check 'root STATE.md is not judged here' (Test-Silent (Edit-File (Join-Path $project 'STATE.md') $claude))
+Check 'branch session: root STATE.md asks (one writer)' (Test-Asks (Edit-File (Join-Path $project 'STATE.md') $claude))
+Check 'VERIFIED.lock itself asks (Edit)' (Test-Asks (Edit-File (Join-Path $repo 'VERIFIED.lock') $claude))
+Check 'VERIFIED.lock itself asks (Write, relative path)' (Test-Asks (Edit-File 'VERIFIED.lock' $claude 'Write'))
+$r = Edit-File (Join-Path $repo 'SPEC.md') $claude
+Check 'claude: ask JSON has no Cursor keys' ($r.Out -notmatch '"permission"' -and $r.Out -notmatch 'user_message')
+$plainRepo = New-TestRepo $t 'unmigrated-repo'
+Write-TestFile (Join-Path $plainRepo 'SPEC.md') "# Spec`n"
+Check 'unmigrated repo: SPEC.md edit is silent' (Test-Silent (Invoke-StateHook $hook @{ hook_event_name = 'PreToolUse'; tool_name = 'Edit'; cwd = $plainRepo; tool_input = @{ file_path = (Join-Path $plainRepo 'SPEC.md'); old_string = 'a'; new_string = 'b' } } $claude))
+[void](Invoke-Git $repo checkout -q main)
+Check 'trunk session: root STATE.md is allowed' (Test-Silent (Edit-File (Join-Path $project 'STATE.md') $claude))
+[void](Invoke-Git $repo checkout -q feat/x)
 Check 'archives\STATE-old.md is allowed' (Test-Silent (Edit-File (Join-Path $project 'archives\STATE-feat-y-20261118.md') $claude 'Write'))
 Check 'STATE-x.md inside a repo is not a store file' (Test-Silent (Edit-File (Join-Path $repo 'notes\STATE-feat-y.md') $claude 'Write'))
 
@@ -57,7 +67,11 @@ $r = Edit-File (Join-Path $repo 'docs\notes.md') $cursor
 Check 'cursor: allow prints exactly one {"permission":"allow"} line' ($r.Code -eq 0 -and (Get-OutLines $r.Out).Count -eq 1 -and $r.Out.Trim() -eq '{"permission":"allow"}')
 $r = Edit-File (Join-Path $repo 'SPEC.md') $cursor
 $d = Get-Decision $r
-Check 'cursor: ask prints exactly one permission line (ask)' ($d -and $d.permission -eq 'ask' -and (Get-OutLines $r.Out).Count -eq 1)
+Check 'cursor: an ask is sent as deny (Cursor does not enforce ask), one line' ($d -and $d.permission -eq 'deny' -and "$($d.agent_message)" -match 'SPEC' -and (Get-OutLines $r.Out).Count -eq 1)
+Check 'cursor: no hookSpecificOutput key' ($r.Out -notmatch 'hookSpecificOutput')
+$r = Invoke-StateHook $hook @{ hook_event_name = 'preToolUse'; tool_name = 'Delete'; cwd = $repo; tool_input = @{ path = (Join-Path $repo 'VERIFIED.lock') } } $cursor
+$d = Get-Decision $r
+Check 'cursor: Delete of VERIFIED.lock is denied' ($d -and $d.permission -eq 'deny')
 $r = Edit-File (Join-Path $project 'STATE-feat-y.md') $cursor 'Write'
 $d = Get-Decision $r
 Check 'cursor: deny prints exactly one permission line (deny)' ($d -and $d.permission -eq 'deny' -and (Get-OutLines $r.Out).Count -eq 1)
