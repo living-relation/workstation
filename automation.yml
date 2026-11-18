@@ -198,6 +198,16 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-projects-root-guard.ps1
+  - id: agents-md-only-warn
+    script: hooks/agents-md-only-warn.ps1
+    helpers: [hooks/tests/test-agents-md-only-warn.ps1, hooks/hooks.json]
+    trigger: agent-hook:SessionStart (Claude hooks/hooks.json only; no Cursor hook, pending decision C1)
+    reads: [session cwd from stdin, parent directories up to the drive root]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-agents-md-only-warn.ps1
   - id: no-claude-md
     script: .github/workflows/no-claude-md.yml
     helpers: [scripts/check_no_claude_md.py, scripts/test_check_no_claude_md.py]

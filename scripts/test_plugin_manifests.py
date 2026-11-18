@@ -15,6 +15,7 @@ def _write_hooks(root: Path):
     hooks.mkdir()
     (hooks / "projects-root-guard.ps1").write_text("# guard\n", encoding="utf-8")
     (hooks / "projects-root-report.ps1").write_text("# report\n", encoding="utf-8")
+    (hooks / "agents-md-only-warn.ps1").write_text("# warn\n", encoding="utf-8")
     (hooks / "hooks.json").write_text(
         json.dumps(
             {
@@ -36,6 +37,16 @@ def _write_hooks(root: Path):
                                 {
                                     "type": "command",
                                     "command": 'powershell -File "${CLAUDE_PLUGIN_ROOT}/hooks/projects-root-report.ps1"',
+                                }
+                            ]
+                        }
+                    ],
+                    "SessionStart": [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": 'powershell -File "${CLAUDE_PLUGIN_ROOT}/hooks/agents-md-only-warn.ps1"',
                                 }
                             ]
                         }
