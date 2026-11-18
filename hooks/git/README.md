@@ -12,6 +12,10 @@ Per-repo git hooks for live state in the memory store. They call the workstation
 No hook writes the root `STATE.md`: it has one writer, the coordinator, and its `Branch_States` line
 is generated (`state_manager.py branches`).
 
+`post-merge` sees only a local `git merge <branch>`. A squash merge or a rebase merge on GitHub, and
+the `git pull` that brings it in, name no branch, so the hook cannot tell which STATE file to archive.
+Archiving then happens through `pr-closeout` / `state-closeout` (`state_manager.py archive-branch`).
+
 `state-hook-lib.sh` is shared by the three. Each hook skips its state steps (and never fails) when the
 store is unreachable, the repo has no project folder yet, or the tools or Python 3 are missing. Then it
 runs the repo's own hook of the same name, so the pack adds to a repo's hooks instead of replacing them.
