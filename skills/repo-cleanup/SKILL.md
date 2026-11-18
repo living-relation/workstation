@@ -1,21 +1,21 @@
 ---
 name: repo-cleanup
 description: >-
-  Use when a repo's agent, state, plan, handoff or decision files have sprawled or duplicated, or session-start flagged "Cleanup needed"; consolidates them in one PR.
+  Use when a repo's agent, state, plan, handoff or decision files have sprawled or duplicated, or session-start flagged "Cleanup needed"; consolidates them into the role layout in one PR.
 ---
 # Repo cleanup
 
-**In one line:** turn a messy repo into one state file, one decisions file and short agent files, without losing anything, and only with the user's yes.
+**In one line:** turn a messy repo into the role layout (router, DECISIONS, rules, SPEC, data in the repo; STATE and BACKLOG in the store), without losing anything, and only with the user's yes.
 
 ## When to use
 Extract every fact with its source and date, cluster and resolve them in context, ask the user only true conflicts and important unconfirmed facts, write one doc per type, delete the superseded docs, and land it as one PR with every fact accounted for.
 
-Works the same in Grok, Claude Code and Cursor, on any project folder. State file is `STATE.md` (no line limit). Its only helper is **safe-repo-preflight** (read the repo's rules, work on a branch, run checks, open a PR); git history is the backup (step 1b), and every fact is accounted for (step 8).
+Works the same in Grok, Claude Code and Cursor, on any project folder. It is also the migration tool for repos that still keep state, open items or handoffs in git: each line is tagged and sorted with state-closeout's 4 questions, and the repo's profile comes from state-init. Its only helper is **safe-repo-preflight** (read the repo's rules, work on a branch, run checks, open a PR); git history is the backup (step 1b), and every fact is accounted for (step 8).
 
 ---
 
 ## When to run
-0. **From session-start:** only when its drift check crosses a threshold (T1-T8, session-start step 8) **and the user says yes**. Never every session. Alone: when the user asks.
+0. **From session-start:** only when its drift check crosses a threshold (T1-T9, session-start step 8) **and the user says yes**. Never every session. Alone: when the user asks.
 1. **Normally after the first task** of the day is done. Cleanup should never block real work.
 2. **Run it first only if** the mess hides the true state (you can't tell what's current), **or** the repo has a rule saying cleanup comes first.
 3. **Freeze rule?** If the repo or user says the repo is frozen, wait until the freeze ends or the user says "go". Don't even create the branch. If the freeze is a "no new docs/rules" freeze, ask whether a cleanup that only merges and deletes counts as allowed, and record the answer.
@@ -90,7 +90,7 @@ Date = decision date if stated, else the file's last-commit date (`git log -1 --
 Ask list = true conflicts + important single-source facts. Order by importance; batch them (grouped or multi-select) with the app's question tool: Grok → choice widget · Claude Code → `AskUserQuestion` · Cursor → ask-question; else a numbered list.
 - Conflict: **A** (quote, date, source) · **B** (quote, date, source) · **something else** (type it) · **skip for now**.
 - Single-source: **confirm** · **change** (type it) · **drop** · **skip for now**.
-Skipped items stay on the list and keep their current wording in the output, marked `(unconfirmed)`. Log each answer as a dated line in `DECISIONS.md`. Also show the **Superseded (auto)** list for spot-checking; any line the user flips becomes an answer.
+Skipped items stay on the list and keep their current wording in the output, marked `(unconfirmed)`. Log each answer as a dated DECISIONS entry. Also show the **Superseded (auto)** list for spot-checking; any line the user flips becomes an answer.
 
 ### 7. Plan the output docs (written in step 12, after the yes)
 Exactly **one doc per type** (keep the repo's existing names if it has them):
@@ -98,12 +98,15 @@ Exactly **one doc per type** (keep the repo's existing names if it has them):
   - Every pointer ("see X", "rules live in Y") must land on a heading or file that exists; broken ones go on the fix list.
   - Mirrored `.claude/rules/*.md` and `.cursor/rules/*.mdc` must have identical bodies; Claude's `paths:` must match Cursor's `globs:` (the field names differ on purpose). A `.claude` rule with no `paths:` loads every session — flag it.
   - If a read-first step tells agents to read lookup-only content, point at it instead of "read it all". Do not split that content into new files.
-- **`DECISIONS.md`:** one dated line per decision with its source.
-- **`STATE.md`** (or the tracker the repo's rules name, e.g. `docs/OPEN-ITEMS.md`; never add a second one):** current goal on top, status, open items (each dated), `**Last cleanup:**` line.
+  - The router carries the role table (state-init) that names every home below.
+- **DECISIONS** (keep its existing path): one entry per decision (ID, Status, Context, Decision, Rejected, Supersedes, Reopen if) with its source. `[ADR]` lines land here.
+- **`.claude/rules/<domain>.md`:** how-to rules, each naming its enforcer; Cursor copies generated by `rules_sync.py`. `[RULE]` lines land here.
+- **SPEC and data:** `[SOT]` lines, only after the owner's yes.
+- **Live state, in the store, not the repo:** `STATE.md` / `STATE-<slug>.md` (schema v1, 30 lines, see state-closeout) and `BACKLOG.md`. A repo `STATE.md`, OPEN-ITEMS, tracker or handoff file is emptied line by line (`[NEXT]` to STATE, `[TASK]` to `TASK.md`, `[BKLG]` to BACKLOG, `[DONE]` dropped) and then deleted, with every reference to it updated.
 Plan to **delete** every source doc whose facts are fully moved. Put the docs to delete into **groups** of similar docs (e.g. old handoffs, superseded plans, merged decision notes) and ask **one yes per group**, listing each doc in the group with a one-line reason; never one yes for the whole plan, and not one question per doc. A no on a group means ask about its docs one by one. Task cards that stay get a `Status:` line. No handoffs in throwaway folders.
 
 ### 8. Account for every fact (before asking for the yes)
-Name exactly one home for current state (the state file in step 7). `AGENTS.md` and memory notes only point to it — they never repeat status.
+Name exactly one home for current state (the store's STATE files). `AGENTS.md` and memory notes only point to it — they never repeat status.
 Each ledger row ends as exactly one of: **kept** (where), **superseded** (winner ID), **dropped-stale** (reason), **asked** (answer or skipped). Zero rows unaccounted. Counts go in the PR body.
 
 ### 9. Get the yes
@@ -114,21 +117,21 @@ If the approved work splits into **many independent tasks** (e.g. extracting fac
 1. Group them into batches. **No two batches touch the same file.**
 2. Offer: "This is N independent batches. Want me to launch N subagents, one per batch?" Show which files each batch owns.
 3. Only launch after the user approves. Each subagent works on the same cleanup branch (or its own worktree), changes only its files, and logs to `## Progress`.
-4. Shared files (`DECISIONS.md`, state file, root `AGENTS.md`) are edited only by the main session.
+4. Shared files (DECISIONS, the root STATE, root `AGENTS.md`) are edited only by the main session.
 
 ### 11. Stale branches and worktrees
 1. List **every** non-main branch (local and remote) and worktree: merged, unmerged and prunable (folder gone). No age rule. One row each: name, last commit (date + subject), merged yes/no, unpushed commits (`git rev-list --count origin/<b>..<b>`, or "no upstream"), open PR if any. Skip items already decided in 1b.
 2. For each branch, compare its changed files with the cleanup's (`git diff --name-only main...<b>`); flag overlapping or conflicting ones first, since merging both will clash.
-3. Ask the user **per item**: **keep** · **delete** · **save notes first** (copy its unique notes/decisions into `STATE.md`/`DECISIONS.md` on the cleanup branch, then ask delete again).
+3. Ask the user **per item**: **keep** · **delete** · **save notes first** (tag its unique notes and graduate them with state-closeout, then ask delete again).
 4. Delete only on a yes, with normal git: `git branch -d <b>` (refuses unmerged; never `-D` or force for unmerged work), `git worktree remove <path>` (no `--force`), `git worktree prune` for gone folders. Unmerged work or unpushed commits need an explicit "yes, delete unmerged <b>"; save its last commit hash in `CLEANUP-PLAN.md` first (any branch, before deleting).
 5. Remote branches (`git push origin --delete <b>`) are a separate yes each.
-6. Log each result in `## Progress`. Branches the user keeps go in `STATE.md` as `**Kept branches:** <name> (<date>)` so session-start doesn't re-flag them until they change.
+6. Log each result in `## Progress`. Branches the user keeps go in the root STATE Pointers as `- Kept_Branches: <name> (<date>)` so session-start doesn't re-flag them until they change.
 
 ### 12. Apply
 1. **Check step 1b is done** (starting commit recorded, nothing unsaved except leave-alone items).
 2. **Dry run.** Show the user the exact list of docs written and docs deleted. Wait for yes.
 3. **Apply** on the cleanup branch (via **safe-repo-preflight**): write the step 7 docs, `git rm` the superseded sources. Rename a heading only after grepping the whole repo for links to it.
-4. **Re-check step 8** on the written docs: every kept fact appears in exactly one output doc; every deleted file is on the approved list (`git diff --name-status <start>`). Then delete the temp ledger (it stays in the PR's history).
+4. **Re-check step 8** on the written docs: every kept fact appears in exactly one output doc; every deleted file is on the approved list (`git diff --name-status <start>`); `python <workstation>/scripts/state/move_integrity.py --before <start or backup> --after <homes>` reports no lost line. Then delete the temp ledger (it stays in the PR's history).
 5. Run the repo's required checks.
 
 ### 13. Open one PR
@@ -136,7 +139,7 @@ On the finished branch, re-run the checks in steps 1b, 3, 7 and 8 and report lef
 One PR per repo. Body: fact counts (kept / superseded / dropped-stale / asked / skipped), Superseded (auto) list, docs written and deleted, Ask items still open, leftovers, starting commit + rollback. Log `PR #N opened` in `## Progress`. Never force-push or skip hooks. Merging is the user's call.
 
 ### 14. Finish
-Update the state file: remove "Cleanup needed", note the PR, and write `**Last cleanup:** <date> @ <merge commit>` (fill the commit after merge) so session-start skips full cleanup until something changes. Tell the user what's left on the Ask list.
+Update the root STATE with state-closeout: note the PR, and set the Pointers line `- Last_Cleanup: <date> @ <merge commit>` (fill the commit after merge); run `state_lint.py`. Then session-start skips full cleanup until something changes. Tell the user what's left on the Ask list.
 
 ### Hook template
 The PR hook lives in `git-checker/hooks/`; its install question is in the git-checker skill. If missing, suggest it; session-start asks the user before installing it.

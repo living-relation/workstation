@@ -8,7 +8,7 @@ description: >-
 **In one line:** fetch, look, report. Never change a repo.
 
 ## When to use
-Any project folder, on any OS. Also reports untracked files, unmerged branches, missing upstreams, and stale generated outputs. Read-only: only `git fetch`. Suggests fixes, never applies them. Also holds the warn-only PR state-file hook templates (`hooks/`).
+Any project folder, on any OS. Also reports untracked files, unmerged branches, missing upstreams, and stale generated outputs. Read-only: only `git fetch`. Suggests fixes, never applies them. Also holds the warn-only PR graduation-check hook templates (`hooks/`).
 
 Works in Grok, Claude Code and Cursor. session-start runs it as its health check. Run alone, it only reports and may suggest `repo-cleanup` or `safe-repo-preflight`.
 
@@ -153,23 +153,23 @@ Keep it to the table plus one line per repo. No extra prose.
 ---
 
 ## PR hook (templates in `hooks/`, installed only on the user's yes via session-start)
-Never commits, pushes or opens PRs. **Mode toggle:** `bash state-check.sh --mode comment|block` writes `.state-check-mode` at the checkout root; commit it on a branch + PR. Default `comment` (warns, always passes). `block` = exit 1 on a missing state update or unrecorded after-merge step, so the PR check fails / the commit is refused. The `no-state-change` label (PR) or `[no-state]` (commit message) passes in both modes.
-- `state-check.sh <base> <head>`: shared logic. Warns when "code" changed but `STATE.md` / `DECISIONS.md` / `OPEN-ITEMS*` / `AGENTS.md` didn't, and when a PR body or commit message has an "After merge" / "Not done here" step not found in `STATE.md` or OPEN-ITEMS. "Code" = everything except `*.md` and `docs/`, so drawing and BOM generator scripts count. Override per repo with `.state-check-paths`. Resolves worktrees to the main repo (`git rev-parse --git-common-dir`).
+Never commits, pushes or opens PRs. **Mode toggle:** `bash state-check.sh --mode comment|block` writes `.state-check-mode` at the checkout root; commit it on a branch + PR. Default `comment` (warns, always passes). `block` = exit 1 on any warning, so the PR check fails / the commit is refused. The `no-state-change` label (PR) or `[no-state]` (commit message) passes in both modes.
+- `state-check.sh <base> <head> [body]`: shared logic, a **graduation check**. No repo `STATE.md` is needed (live state lives in the memory store). Warns when "code" changed but no home did (DECISIONS, `.claude/rules/`, SPEC, data such as `sot/` or `data/`), when a PR body has no `State:` line (pr-closeout writes it), and when an "After merge" / "Not done here" step has no `State:` line naming where it went. "Code" = everything except `*.md`, `docs/`, `.cursor/rules/` (generated) and `VERIFIED.lock`, so drawing and BOM generator scripts count. Override per repo with `.state-check-paths` (code) and `.state-check-homes` (homes), one ERE per line. Resolves worktrees to the main repo (`git rev-parse --git-common-dir`).
 - `state-check.yml`: GitHub Action for repos with CI (script copied to `.github/state-check.sh`). Comments on the PR; fails the check only in block mode; skipped by the `no-state-change` label.
 - `pre-commit-hook.yaml`: local `pre-commit` entry (commit-msg stage) for repos without CI (script copied to `hooks/state-check.sh`; activate with `pre-commit install --hook-type commit-msg`). The commit message is passed in, so an "After merge" step in it is checked too. Refuses the commit only in block mode. Skip per commit with `[no-state]` in the message, never `--no-verify`.
 - If `automation.yml` exists, the hook also runs `registry-check.py` (copy it next to `state-check.sh`) in the same mode.
-- No line limit on `STATE.md`.
+- STATE files in the store are checked by `state_lint.py` (state-closeout), not by this hook.
 
 ### Install question (show every time, word for word, filling the <>)
 > **No PR hook in <project>. Install one? It goes in as its own PR, which you merge.**
 > **What it checks** on every PR (or every commit if the repo has no CI):
-> 1. Real work changed (code, scripts, drawings, data; not just `.md`/`docs/`) but `STATE.md`, `DECISIONS.md` or OPEN-ITEMS wasn't updated.
-> 2. The PR or commit mentions an "after merge" or "not done here" step that isn't written in `STATE.md` or OPEN-ITEMS.
+> 1. Real work changed (code, scripts, drawings; not just `.md`/`docs/`) but nothing graduated: no DECISIONS, `.claude/rules/`, SPEC or data change.
+> 2. The PR body has no `State:` line, or the PR or commit mentions an "after merge" or "not done here" step with no `State:` line saying where it went.
 >
 > 3. If the repo has `automation.yml`: scripts, workflows and outputs match the registry (undeclared writers, orphan scripts, stale or duplicate outputs). Declared auto-writers are allowed.
 >
 > **COMMENT mode (default):** posts a warning on the PR (or prints it at commit). It never stops a PR or a commit.
-> **BLOCK mode:** fails the PR check, or refuses the commit, until the state file is updated.
+> **BLOCK mode:** fails the PR check, or refuses the commit, until the change is graduated (run state-closeout).
 > **Escapes (both modes):** add the `no-state-change` label to the PR, or put `[no-state]` in the commit message.
 > **Switch later:** `bash <script path> --mode comment` or `--mode block`, then commit `.state-check-mode` on a branch + PR.
 > **Turn it off / uninstall:** on a branch + PR, delete <`.github/workflows/state-check.yml` and `.github/state-check.sh`> (CI) or <run `pre-commit uninstall --hook-type commit-msg` first, then delete the `state-check` entry in `.pre-commit-config.yaml` and `hooks/state-check.sh`> (no CI), plus `.state-check-mode` and `registry-check.py` if installed. `automation.yml` can stay as documentation. Nothing else is left behind.
@@ -177,4 +177,4 @@ Never commits, pushes or opens PRs. **Mode toggle:** `bash state-check.sh --mode
 >
 > **Install? 1. Yes, comment mode · 2. Yes, block mode · 3. No**
 
-On no: add `Hook: declined <date>` to the state note. Never re-ask in the same session.
+On no: add `Hook: declined <date>` to the session-start note. Never re-ask in the same session.

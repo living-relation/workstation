@@ -4,7 +4,8 @@
 (`skills/`: safe-repo-preflight, backup-dryrun-apply, agent-handoff-pack,
 wizard, iterative-cleaning, deploy-project-watcher,
 session-start, repo-cleanup, git-checker, concise, pr-closeout,
-coordinator-kit), their generated
+coordinator-kit, state-closeout, state-init, deliverable-lock,
+regression-restore), their generated
 `skills/<name>.zip` Claude import packages (the skill-zips CI bot rebuilds them
 on the PR; local `scripts/pack-skill-zips.ps1` / `.sh` is optional; do not edit by hand),
 `automations/` (routine texts, docs only), agent rules and instruction templates,
