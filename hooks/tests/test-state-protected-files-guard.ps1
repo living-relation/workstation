@@ -67,11 +67,35 @@ $r = Edit-File (Join-Path $repo 'docs\notes.md') $cursor
 Check 'cursor: allow prints exactly one {"permission":"allow"} line' ($r.Code -eq 0 -and (Get-OutLines $r.Out).Count -eq 1 -and $r.Out.Trim() -eq '{"permission":"allow"}')
 $r = Edit-File (Join-Path $repo 'SPEC.md') $cursor
 $d = Get-Decision $r
-Check 'cursor: an ask is sent as deny (Cursor does not enforce ask), one line' ($d -and $d.permission -eq 'deny' -and "$($d.agent_message)" -match 'SPEC' -and (Get-OutLines $r.Out).Count -eq 1)
+Check 'cursor: an ask is sent as allow plus a warning (no hard block), one line' ($d -and $d.permission -eq 'allow' -and "$($d.agent_message)" -match 'SPEC' -and (Get-OutLines $r.Out).Count -eq 1)
+Check 'cursor: the warning asks for the owner''s explicit yes in chat' ("$($d.agent_message)" -match 'explicit yes' -and "$($d.user_message)" -match 'explicit yes')
+Check 'cursor: the warning asks for a report of changed values' ("$($d.agent_message)" -match 'report every changed value')
+Check 'cursor: the warning names the checks that will run' ("$($d.agent_message)" -match 'Checks: .*pre-commit')
 Check 'cursor: no hookSpecificOutput key' ($r.Out -notmatch 'hookSpecificOutput')
 $r = Invoke-StateHook $hook @{ hook_event_name = 'preToolUse'; tool_name = 'Delete'; cwd = $repo; tool_input = @{ path = (Join-Path $repo 'VERIFIED.lock') } } $cursor
 $d = Get-Decision $r
-Check 'cursor: Delete of VERIFIED.lock is denied' ($d -and $d.permission -eq 'deny')
+Check 'cursor: Delete of VERIFIED.lock is allowed with a warning naming deliverable_lock verify' ($d -and $d.permission -eq 'allow' -and "$($d.agent_message)" -match 'deliverable_lock.py verify')
+$r = Edit-File (Join-Path $repo 'docs\out.txt') $cursor
+$d = Get-Decision $r
+Check 'cursor: locked deliverable is allowed with a warning, never denied' ($d -and $d.permission -eq 'allow' -and "$($d.agent_message)" -match 'VERIFIED.lock')
+$r = Edit-File (Join-Path $repo 'sot\a\channels.csv') $cursor 'Write'
+$d = Get-Decision $r
+Check 'cursor: protected-paths entry is allowed with a warning' ($d -and $d.permission -eq 'allow' -and "$($d.agent_message)" -match 'protected-paths.txt')
+$r = Edit-File (Join-Path $project 'STATE.md') $cursor
+$d = Get-Decision $r
+Check 'cursor: root STATE from a branch is allowed with a warning naming state_lint' ($d -and $d.permission -eq 'allow' -and "$($d.agent_message)" -match 'state_lint')
+$r = Invoke-StateHook $hook @{ hook_event_name = 'preToolUse'; tool_name = 'Shell'; cwd = $repo; tool_input = @{ command = 'python deliverable_lock.py unlock docs/out.txt --owner-phrase ok' } } $cursor
+$d = Get-Decision $r
+Check 'cursor preToolUse: unlock shell is allowed with a warning' ($d -and $d.permission -eq 'allow' -and "$($d.agent_message)" -match 'unlocks a verified deliverable')
+$r = Invoke-StateHook $hook @{ hook_event_name = 'beforeShellExecution'; command = 'python scripts/state/deliverable_lock.py unlock docs/out.txt --owner-phrase "yes"'; cwd = $repo } $cursor
+$d = Get-Decision $r
+Check 'cursor beforeShellExecution: unlock asks (enforced there), one line' ($d -and $d.permission -eq 'ask' -and (Get-OutLines $r.Out).Count -eq 1 -and "$($d.user_message)" -match 'owner')
+$r = Invoke-StateHook $hook @{ hook_event_name = 'beforeShellExecution'; command = 'python scripts/state/deliverable_lock.py verify'; cwd = $repo } $cursor
+Check 'cursor beforeShellExecution: deliverable_lock verify is allowed' ($r.Out.Trim() -eq '{"permission":"allow"}')
+$r = Edit-File (Join-Path $repo 'SPEC.md') $claude
+Check 'claude: ask names the checks that will run' ($r.Out -match 'Checks: ')
+$r = Edit-File (Join-Path $repo 'docs\out.txt') $claude
+Check 'claude: locked deliverable asks, never denies' (Test-Asks $r)
 $r = Edit-File (Join-Path $project 'STATE-feat-y.md') $cursor 'Write'
 $d = Get-Decision $r
 Check 'cursor: deny prints exactly one permission line (deny)' ($d -and $d.permission -eq 'deny' -and (Get-OutLines $r.Out).Count -eq 1)
