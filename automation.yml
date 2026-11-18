@@ -230,3 +230,68 @@ automations:
     enabled: true
     run_cmd: claude plugin validate .
     check_cmd: python3 scripts/check_cursor_plugin.py
+  - id: state-paths
+    script: scripts/state/state_paths.py
+    helpers: [scripts/state/README.md, scripts/state/tests/test_state_paths.py]
+    trigger: manual
+    reads: [WORKSTATION_MEMORY_STORE, user .claude memory-link-guard.config.json and settings.json, git metadata of the repo or worktree]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python scripts/state/state_paths.py --json
+    check_cmd: python -m unittest discover scripts/state/tests
+  - id: state-lint
+    script: scripts/state/state_lint.py
+    helpers: [scripts/state/state_paths.py, scripts/state/tests/test_state_lint.py]
+    trigger: manual
+    reads: [STATE.md and STATE-*.md in the memory store project folder (outside the repo)]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python scripts/state/state_lint.py --repo .
+    check_cmd: python -m unittest discover scripts/state/tests -p test_state_lint.py
+  - id: state-manager
+    script: scripts/state/state_manager.py
+    helpers: [scripts/state/state_paths.py, scripts/state/state_lint.py, scripts/state/tests/test_state_manager.py]
+    trigger: manual
+    reads: [the memory store project folder (outside the repo), git metadata]
+    writes: [STATE.md and STATE-*.md and BACKLOG.md and archives/ in the memory store project folder (outside the repo)]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python scripts/state/state_manager.py verify --repo .
+    check_cmd: python -m unittest discover scripts/state/tests -p test_state_manager.py
+  - id: deliverable-lock
+    script: scripts/state/deliverable_lock.py
+    helpers: [scripts/state/state_paths.py, scripts/state/tests/test_deliverable_lock.py]
+    trigger: manual
+    reads: [VERIFIED.lock and the locked files of the repo it runs in]
+    writes: [VERIFIED.lock at the root of the repo it runs in (lock and unlock only)]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python scripts/state/deliverable_lock.py verify
+    check_cmd: python -m unittest discover scripts/state/tests -p test_deliverable_lock.py
+  - id: rules-sync
+    script: scripts/state/rules_sync.py
+    helpers: [scripts/state/state_paths.py, scripts/state/tests/test_rules_sync.py]
+    trigger: manual
+    reads: [.claude/rules/*.md of the repo it runs in]
+    writes: [.cursor/rules/*.mdc of the repo it runs in (generated; not with --check)]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python scripts/state/rules_sync.py --check
+    check_cmd: python -m unittest discover scripts/state/tests -p test_rules_sync.py
+  - id: move-integrity
+    script: scripts/state/move_integrity.py
+    helpers: [scripts/state/state_paths.py, scripts/state/tests/test_move_integrity.py]
+    trigger: manual
+    reads: [the before and after documents, an optional tagging proposal, optional git history]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    check_cmd: python -m unittest discover scripts/state/tests -p test_move_integrity.py

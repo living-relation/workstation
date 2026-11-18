@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""Lint STATE files against STATE schema v1. Stdlib only.
+
+Usage: state_lint.py FILE | --project NAME | --repo DIR   [--store DIR]
+  FILE       lint one file
+  --project  lint STATE.md and STATE-*.md in <store>/<NAME>/ (archives are skipped)
+  --repo     same, for the project the repo (or worktree) belongs to
+Exit: 0 = OK (also when the store or project folder is unreachable: note on stderr), 2 = violation.
+"""
+import argparse
+import re
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import state_paths  # noqa: E402
+
+MAX_LINES = 30
+TITLE = "# STATE (max 30 lines, overwrite only)"
+HEADER_KEYS = ("Repo:", "Branch:", "Last_Verified_SHA:", "Updated:")
+SECTIONS = ("## Current Goal", "## Active Blocker", "## Next Single Step", "## Pointers")
+SECTION_KEYS = {
+    "## Current Goal": ("- Objective:", "- Spec_Ref:"),
+    "## Active Blocker": ("- Status:", "- Detail:"),
+    "## Pointers": ("- Branch_States:", "- Backlog:", "- Latest_ADR:"),
+}
+ALLOWED_TAG = "[NEXT]"
+TAGS = ("[DONE]", "[NEXT]", "[TASK]", "[ADR]", "[RULE]", "[SOT]", "[BKLG]")
+CARRIED = re.compile(r"\(carried\s+(\d+)\)", re.I)
+STATUS = re.compile(r"^- Status:\s*(NONE|BLOCKED)\s*$")
+UPDATED = re.compile(r"^Updated:\s*\d{4}-\d{2}-\d{2}\s+--\s+\S")
+
+
+def _sections(lines):
+    found, current = {}, None
+    for number, line in enumerate(lines, 1):
+        if line.startswith("## "):
+            current = line.strip()
+            found.setdefault(current, [])
+        elif current is not None:
+            found[current].append((number, line))
+    return found
+
+
+def lint_text(text):
+    problems = []
+    lines = text.splitlines()
+    if len(lines) > MAX_LINES:
+        problems.append("has %d lines; the maximum is %d" % (len(lines), MAX_LINES))
+    if not lines or lines[0].strip() != TITLE:
+        problems.append("line 1 must be the title '%s'" % TITLE)
+    head = [line.strip() for line in lines[1:]]
+    for key in HEADER_KEYS:
+        if not any(line.startswith(key) for line in head):
+            problems.append("missing header '%s'" % key)
+    if any(line.startswith("Updated:") for line in head) and not any(UPDATED.match(line) for line in head):
+        problems.append("'Updated:' must read '<YYYY-MM-DD> -- <agent>'")
+    sections = _sections(lines)
+    for section in SECTIONS:
+        if section not in sections:
+            problems.append("missing section '%s'" % section)
+    for section, keys in SECTION_KEYS.items():
+        body = [line.strip() for _, line in sections.get(section, [])]
+        for key in keys:
+            if section in sections and not any(line.startswith(key) for line in body):
+                problems.append("section '%s' is missing '%s'" % (section, key))
+    blocker = [line.strip() for _, line in sections.get("## Active Blocker", [])]
+    status_lines = [line for line in blocker if line.startswith("- Status:")]
+    if status_lines and not STATUS.match(status_lines[0]):
+        problems.append("'- Status:' must be NONE or BLOCKED")
+    if "## Next Single Step" in sections:
+        steps = [line.strip() for _, line in sections["## Next Single Step"] if line.strip()]
+        if not any(line.startswith("- " + ALLOWED_TAG) for line in steps):
+            problems.append("'## Next Single Step' needs one '- [NEXT] ...' line")
+    for number, line in enumerate(lines, 1):
+        for tag in TAGS:
+            if tag != ALLOWED_TAG and tag in line:
+                problems.append("line %d: leftover tag %s (only %s is allowed in STATE)" % (number, tag, ALLOWED_TAG))
+        for match in CARRIED.finditer(line):
+            if int(match.group(1)) >= 2:
+                problems.append("line %d: '(carried %s)': kept 2 runs, it must graduate or go to BACKLOG"
+                                % (number, match.group(1)))
+    return problems
+
+
+def lint_file(path):
+    try:
+        text = Path(path).read_text(encoding="utf-8-sig", errors="replace")
+    except OSError as error:
+        return ["cannot read: %s" % error]
+    return lint_text(text)
+
+
+def project_files(folder):
+    folder = Path(folder)
+    return sorted(p for p in folder.glob("STATE*.md")
+                  if p.is_file() and (p.name == state_paths.ROOT_STATE or p.name.startswith("STATE-")))
+
+
+def _note(message):
+    print("state_lint: NOTE: %s" % message, file=sys.stderr)
+
+
+def main(argv=None):
+    state_paths.configure_output()
+    parser = argparse.ArgumentParser(description="Lint STATE files (schema v1).")
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("file", nargs="?")
+    target.add_argument("--project")
+    target.add_argument("--repo")
+    parser.add_argument("--store", help="store root (overrides the normal resolution)")
+    args = parser.parse_args(argv)
+
+    if args.file:
+        files = [Path(args.file)]
+    else:
+        store = Path(args.store) if args.store else state_paths.find_store()
+        if not state_paths.store_reachable(store):
+            _note("store unreachable (%s); nothing linted" % store)
+            return 0
+        project = args.project if args.project else state_paths.project_name(args.repo)
+        if not project:
+            _note("not a git repo: %s; nothing linted" % args.repo)
+            return 0
+        folder = state_paths.project_dir(store, project)
+        if not folder.is_dir():
+            _note("no project folder %s; nothing linted" % folder)
+            return 0
+        files = project_files(folder)
+
+    failed = 0
+    for path in files:
+        problems = lint_file(path)
+        if problems:
+            failed += 1
+            for problem in problems:
+                print("%s: %s" % (path, problem))
+    if failed:
+        print("state_lint: %d of %d file(s) violate STATE schema v1" % (failed, len(files)))
+        return 2
+    print("state_lint: OK (%d file(s))" % len(files))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

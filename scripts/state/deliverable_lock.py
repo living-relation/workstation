@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""Lock verified deliverables by hash. Stdlib only.
+
+The lock file is VERIFIED.lock at the repo root: JSON, repo-relative path -> sha256.
+Usage: deliverable_lock.py [--repo DIR] lock PATH... | verify | unlock PATH --confirm TOKEN
+  lock    record the current sha256 of each file; prints the unlock token for each
+  verify  every locked file must still exist with its recorded hash
+  unlock  remove one entry; TOKEN is the first 8 hex digits of the recorded hash, and an agent
+          may pass it only after the owner gives it in their own words
+Exit: 0 = OK, 2 = tampered / missing / refused, 1 = usage error (path outside the repo, no file).
+"""
+import argparse
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import state_paths  # noqa: E402
+
+LOCK_NAME = "VERIFIED.lock"
+TOKEN_LENGTH = 8
+
+
+def repo_root(repo):
+    top = state_paths._git(repo, "rev-parse", "--show-toplevel")
+    return Path(top).resolve() if top else Path(repo).resolve()
+
+
+def sha256_of(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1 << 16), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def token_for(sha):
+    return sha[:TOKEN_LENGTH]
+
+
+def load_lock(root):
+    path = root / LOCK_NAME
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(data, dict) or not all(isinstance(v, str) for v in data.values()):
+        raise ValueError("%s must be a JSON object of path -> sha256" % path)
+    return data
+
+
+def save_lock(root, data):
+    with open(root / LOCK_NAME, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(json.dumps(dict(sorted(data.items())), indent=2) + "\n")
+
+
+def relative_key(root, raw):
+    path = Path(raw)
+    path = (path if path.is_absolute() else Path.cwd() / path).resolve()
+    try:
+        return path.relative_to(root).as_posix(), path
+    except ValueError:
+        return None, path
+
+
+def cmd_lock(root, args):
+    data = load_lock(root) or {}
+    for raw in args.paths:
+        key, path = relative_key(root, raw)
+        if key is None:
+            print("deliverable_lock: %s is outside the repo %s" % (raw, root), file=sys.stderr)
+            return 1
+        if key == LOCK_NAME or not path.is_file():
+            print("deliverable_lock: not a lockable file: %s" % raw, file=sys.stderr)
+            return 1
+        data[key] = sha256_of(path)
+        print("locked %s sha256=%s unlock-token=%s" % (key, data[key], token_for(data[key])))
+    save_lock(root, data)
+    return 0
+
+
+def cmd_verify(root, args):
+    data = load_lock(root)
+    if data is None:
+        print("deliverable_lock: no %s; nothing to verify" % LOCK_NAME)
+        return 0
+    bad = 0
+    for key, recorded in sorted(data.items()):
+        path = root / key
+        if not path.is_file():
+            print("MISSING %s" % key)
+            bad += 1
+        elif sha256_of(path) != recorded:
+            print("CHANGED %s (locked sha256 %s)" % (key, recorded))
+            bad += 1
+    if bad:
+        print("deliverable_lock: %d of %d locked file(s) changed or missing" % (bad, len(data)))
+        return 2
+    print("deliverable_lock: OK (%d locked file(s))" % len(data))
+    return 0
+
+
+def cmd_unlock(root, args):
+    data = load_lock(root) or {}
+    key, _ = relative_key(root, args.path)
+    if key not in data:
+        print("deliverable_lock: %s is not locked" % args.path, file=sys.stderr)
+        return 1
+    if not args.confirm:
+        print("deliverable_lock: REFUSED: unlock needs --confirm <token> from the owner", file=sys.stderr)
+        return 2
+    if args.confirm != token_for(data[key]):
+        print("deliverable_lock: REFUSED: wrong confirm token for %s" % key, file=sys.stderr)
+        return 2
+    del data[key]
+    save_lock(root, data)
+    print("unlocked %s" % key)
+    return 0
+
+
+def main(argv=None):
+    state_paths.configure_output()
+    parser = argparse.ArgumentParser(description="Lock verified deliverables by sha256.")
+    parser.add_argument("--repo", default=".")
+    sub = parser.add_subparsers(dest="command", required=True)
+    lock = sub.add_parser("lock")
+    lock.add_argument("paths", nargs="+")
+    sub.add_parser("verify")
+    unlock = sub.add_parser("unlock")
+    unlock.add_argument("path")
+    unlock.add_argument("--confirm")
+    args = parser.parse_args(argv)
+    root = repo_root(args.repo)
+    handlers = {"lock": cmd_lock, "verify": cmd_verify, "unlock": cmd_unlock}
+    try:
+        return handlers[args.command](root, args)
+    except (OSError, ValueError) as error:
+        print("deliverable_lock: %s" % error, file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
