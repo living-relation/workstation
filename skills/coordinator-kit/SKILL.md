@@ -1,6 +1,6 @@
 ---
 name: "coordinator-kit"
-description: "Use when one chat should coordinate all agent work on a repo or project folder: the coordinator owns the root STATE, each worker its STATE-<slug>, so any new session can resume without re-asking."
+description: "Use when one chat should coordinate all agent work on a repo or project folder: the coordinator owns the root STATE, each worker its own branch STATE file, so any new session can resume without re-asking."
 ---
 
 # Coordinator kit
