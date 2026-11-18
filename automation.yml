@@ -299,7 +299,7 @@ automations:
     helpers: [scripts/state/state_paths.py, scripts/state/tests/test_rules_sync.py]
     trigger: manual
     reads: [.claude/rules/*.md of the repo it runs in]
-    writes: [.cursor/rules/*.mdc of the repo it runs in (generated; not with --check)]
+    writes: [.cursor/rules/*.mdc of the repo it runs in (generated ones only; never a hand-made .mdc; not with --check; nothing when the repo has no .claude/rules)]
     committed: no
     auto_commit: false
     enabled: true

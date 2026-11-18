@@ -95,6 +95,32 @@ class SyncCliTests(TempDirCase):
         self.assertTrue((self.cursor / "own.mdc").exists())
         self.assertEqual(self.sync("--check").returncode, 0)
 
-    def test_no_rules_folder_exits_1(self):
+    def test_no_rules_folder_and_no_generated_rules_exits_0_with_note(self):
         empty = make_repo(self.tmp, "Empty_Repo")
-        self.assertEqual(run_tool("rules_sync.py", "--repo", empty).returncode, 1)
+        for args in ((), ("--check",)):
+            result = run_tool("rules_sync.py", "--repo", empty, *args)
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("NOTE", result.stderr)
+
+    def test_no_rules_folder_but_generated_rules_left_is_drift(self):
+        self.sync()
+        for source in (self.repo / ".claude" / "rules").glob("*.md"):
+            source.unlink()
+        (self.repo / ".claude" / "rules").rmdir()
+        result = self.sync("--check")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("ORPHAN", result.stdout)
+
+    def test_hand_made_mdc_with_a_source_name_is_a_conflict_and_kept(self):
+        self.cursor.mkdir(parents=True)
+        own = self.cursor / "wiring.mdc"
+        own.write_text("---\nalwaysApply: true\n---\nmy own wiring rule\n", encoding="utf-8")
+        before = own.read_bytes()
+        result = self.sync()
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("CONFLICT .cursor/rules/wiring.mdc", result.stdout)
+        self.assertEqual(own.read_bytes(), before)
+        self.assertTrue((self.cursor / "00-state.mdc").exists())
+        check = self.sync("--check")
+        self.assertEqual(check.returncode, 2)
+        self.assertIn("CONFLICT", check.stdout)

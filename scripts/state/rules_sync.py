@@ -5,9 +5,10 @@ Each .claude/rules/<name>.md becomes .cursor/rules/<name>.mdc:
   front matter: description (copied), globs (from the Claude `paths`), alwaysApply (true when no paths)
   then a "generated, do not edit" line, then the rule body unchanged.
 Generated .mdc files whose source is gone are removed. Hand-made .mdc files (no generated line)
-are never touched.
+are never touched: one that has the name a source would generate is a CONFLICT (skipped, reported).
 Usage: rules_sync.py [--repo DIR] [--check]
-Exit: 0 = written / in sync, 2 = --check found drift, 1 = no .claude/rules folder.
+Exit: 0 = written / in sync (also, with a note, when there is no .claude/rules and no generated
+.mdc), 2 = --check found drift, or a conflict in either mode.
 """
 import argparse
 import sys
@@ -116,35 +117,42 @@ def main(argv=None):
     args = parser.parse_args(argv)
     top = state_paths._git(args.repo, "rev-parse", "--show-toplevel")
     root = Path(top) if top else Path(args.repo).resolve()
-    if not (root / SOURCE_DIR).is_dir():
-        print("rules_sync: no %s in %s" % (SOURCE_DIR.as_posix(), root), file=sys.stderr)
-        return 1
     wanted, stale = plan(root)
-    drift = []
+    if not (root / SOURCE_DIR).is_dir() and not stale:
+        print("rules_sync: NOTE: no %s and no generated Cursor rules in %s; nothing to do"
+              % (SOURCE_DIR.as_posix(), root), file=sys.stderr)
+        return 0
+    drift, conflicts = [], []
     for path, text in wanted.items():
         current = _current(path)
-        if current != text:
-            drift.append("%s %s" % ("MISSING" if current is None else "DRIFT", path.relative_to(root).as_posix()))
-            if not args.check:
-                if current is not None and not is_generated(path):
-                    print("rules_sync: replacing hand-made %s" % path.relative_to(root).as_posix())
-                path.parent.mkdir(parents=True, exist_ok=True)
-                with open(path, "w", encoding="utf-8", newline="\n") as handle:
-                    handle.write(text)
+        if current == text:
+            continue
+        rel = path.relative_to(root).as_posix()
+        if current is not None and not is_generated(path):
+            conflicts.append("CONFLICT %s (hand-made: no generated header; not overwritten)" % rel)
+            continue
+        drift.append("%s %s" % ("MISSING" if current is None else "DRIFT", rel))
+        if not args.check:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(text)
     for path in stale:
         drift.append("ORPHAN %s" % path.relative_to(root).as_posix())
         if not args.check:
             path.unlink()
+    for line in conflicts:
+        print(line)
     if args.check:
         for line in drift:
             print(line)
-        if drift:
-            print("rules_sync: %d Cursor rule(s) out of sync; run rules_sync.py" % len(drift))
+        if drift or conflicts:
+            print("rules_sync: %d Cursor rule(s) out of sync, %d conflict(s); run rules_sync.py, and"
+                  " rename or remove each hand-made .mdc" % (len(drift), len(conflicts)))
             return 2
         print("rules_sync: in sync (%d rule(s))" % len(wanted))
         return 0
-    print("rules_sync: %d rule(s), %d change(s)" % (len(wanted), len(drift)))
-    return 0
+    print("rules_sync: %d rule(s), %d change(s), %d conflict(s)" % (len(wanted), len(drift), len(conflicts)))
+    return 2 if conflicts else 0
 
 
 if __name__ == "__main__":
