@@ -73,6 +73,22 @@ try {
   $c = Invoke-Git $repo commit -q -m 'c'
   Check 'pre-commit: commit passes again' ($c.Code -eq 0)
 
+  $gitHooks = Join-Path $repo '.git\hooks'
+  Write-TestFile (Join-Path $gitHooks 'pre-commit') "#!/bin/sh`necho dotgit > `"`$(git rev-parse --show-toplevel)/dotgit.marker`"`nexit 0`n"
+  Write-TestFile (Join-Path $repo 'e.txt') "e`n"
+  [void](Invoke-Git $repo add e.txt)
+  $c = Invoke-Git $repo commit -q -m 'dotgit chain'
+  Check 'pre-commit: no chainHooksPath -> chains to .git/hooks' ($c.Code -eq 0 -and (Test-Path -LiteralPath (Join-Path $repo 'dotgit.marker')))
+  Write-TestFile (Join-Path $gitHooks 'pre-commit') "#!/bin/sh`necho dotgit-gate-failed >&2`nexit 1`n"
+  Write-TestFile (Join-Path $repo 'e.txt') "e2`n"
+  [void](Invoke-Git $repo add e.txt)
+  $c = Invoke-Git $repo commit -q -m 'dotgit chain fails'
+  Check 'pre-commit: a failing .git/hooks pre-commit still blocks' ($c.Code -ne 0 -and $c.Out -match 'dotgit-gate-failed')
+  Remove-Item -LiteralPath (Join-Path $gitHooks 'pre-commit') -Force
+  Remove-Item -LiteralPath (Join-Path $repo 'dotgit.marker') -Force
+  $c = Invoke-Git $repo commit -q -m 'e2'
+  Check 'pre-commit: passes once the .git/hooks gate is gone' ($c.Code -eq 0)
+
   Write-TestFile (Join-Path $repo 'TASK.md') "- [ ] task`n"
   [void](Invoke-Git $repo checkout -q main)
   $m = Invoke-Git $repo merge --no-ff -q -m 'merge feat/x' feat/x
@@ -92,6 +108,19 @@ try {
   [void](Invoke-Git $repo checkout -q main)
   $m = Invoke-Git $repo merge --no-ff -q -m 'merge feat/z' feat/z
   Check "post-merge: removes TASK.md in the merged branch's worktree" ($cz.Code -eq 0 -and $m.Code -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $wt 'TASK.md')))
+
+  [void](Invoke-Git $repo checkout -q -b feat/stack-base)
+  [void](Invoke-Git $repo checkout -q -b feat/stack-top)
+  Write-TestFile (Join-Path $repo 'TASK.md') "- [ ] top`n"
+  Write-TestFile (Join-Path $repo 's.txt') "s`n"
+  [void](Invoke-Git $repo add s.txt)
+  [void](Invoke-Git $repo commit -q -m s)
+  [void](Invoke-Git $repo checkout -q feat/stack-base)
+  $m = Invoke-Git $repo merge --no-ff -q -m 'merge feat/stack-top' feat/stack-top
+  Check 'post-merge into a feature branch: nothing archived' ($m.Code -eq 0 -and (Test-Path -LiteralPath (Join-Path $project 'STATE-feat-stack-top.md')))
+  Check 'post-merge into a feature branch: TASK.md kept' (Test-Path -LiteralPath (Join-Path $repo 'TASK.md'))
+  Remove-Item -LiteralPath (Join-Path $repo 'TASK.md') -Force
+  [void](Invoke-Git $repo checkout -q main)
 
   $env:WORKSTATION_MEMORY_STORE = Join-Path $t 'no-such-store'
   $r = Invoke-Git $repo checkout -q -b feat/offline

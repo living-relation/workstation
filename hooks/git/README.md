@@ -7,7 +7,7 @@ Per-repo git hooks for live state in the memory store. They call the workstation
 |---|---|
 | `pre-commit` | Blocks the commit when this branch's STATE file breaks STATE schema v1 (`state_lint.py`), or when `VERIFIED.lock` exists and a locked file changed (`deliverable_lock.py verify`). |
 | `post-checkout` | On a branch checkout, creates `STATE-<branch-slug>.md` if it is missing (`state_manager.py new-branch`). |
-| `post-merge` | After `git merge <branch>`, archives that branch's STATE file (`state_manager.py archive-branch`), then removes the branch's untracked `TASK.md`. |
+| `post-merge` | After `git merge <branch>` into the trunk (`main`, `master`, `trunk`, or the default named by `origin/HEAD`), archives that branch's STATE file (`state_manager.py archive-branch`), then removes the branch's untracked `TASK.md`. A merge into a stacking or feature branch does nothing. |
 
 No hook writes the root `STATE.md`: it has one writer, the coordinator, and its `Branch_States` line
 is generated (`state_manager.py branches`).
@@ -18,7 +18,10 @@ Archiving then happens through `pr-closeout` / `state-closeout` (`state_manager.
 
 `state-hook-lib.sh` is shared by the three. Each hook skips its state steps (and never fails) when the
 store is unreachable, the repo has no project folder yet, or the tools or Python 3 are missing. Then it
-runs the repo's own hook of the same name, so the pack adds to a repo's hooks instead of replacing them.
+runs the repo's own hook of the same name, so the pack adds to a repo's hooks instead of replacing them:
+from `workstation.chainHooksPath` when set, else from `<git-common-dir>/hooks` (the repo's `.git/hooks`,
+so an existing setup there, such as the pre-commit framework, keeps running). An executable chained
+hook runs directly with its own shebang; any other runs with `sh`.
 
 ## Install in one repo
 
@@ -35,7 +38,7 @@ git config workstation.chainHooksPath "$(git config --get core.hooksPath)"
 git config core.hooksPath "<workstation>/hooks/git"
 ```
 
-A repo with no `core.hooksPath` skips the chain line. To undo, set `core.hooksPath` back to the value
+A repo with no `core.hooksPath` skips the chain line; its `.git/hooks` are chained by default. To undo, set `core.hooksPath` back to the value
 saved in `workstation.chainHooksPath` (or unset it) and unset the two `workstation.*` keys.
 
 Copy instead of pointing: copy the four files into the repo's hooks folder only when that folder has no
