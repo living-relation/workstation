@@ -6,8 +6,11 @@ Per-repo git hooks for live state in the memory store. They call the workstation
 | Hook | Does |
 |---|---|
 | `pre-commit` | Blocks the commit when this branch's STATE file breaks STATE schema v1 (`state_lint.py`), or when `VERIFIED.lock` exists and a locked file changed (`deliverable_lock.py verify`). |
-| `post-checkout` | On a branch checkout, creates `STATE-<branch-slug>.md` if it is missing and lists it in the root `STATE.md` (`state_manager.py new-branch`). |
-| `post-merge` | After `git merge <branch>`, archives that branch's STATE file and drops its pointer (`state_manager.py archive-branch`), then removes the branch's untracked `TASK.md`. |
+| `post-checkout` | On a branch checkout, creates `STATE-<branch-slug>.md` if it is missing (`state_manager.py new-branch`). |
+| `post-merge` | After `git merge <branch>`, archives that branch's STATE file (`state_manager.py archive-branch`), then removes the branch's untracked `TASK.md`. |
+
+No hook writes the root `STATE.md`: it has one writer, the coordinator, and its `Branch_States` line
+is generated (`state_manager.py branches`).
 
 `state-hook-lib.sh` is shared by the three. Each hook skips its state steps (and never fails) when the
 store is unreachable, the repo has no project folder yet, or the tools or Python 3 are missing. Then it

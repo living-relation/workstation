@@ -19,10 +19,12 @@ try {
   Check 'good STATE: commit on main passes' ($c.Code -eq 0)
   function Get-CommitCount { [int]((Invoke-Git $repo rev-list --count HEAD).Out.Trim()) }
 
+  $rootState = Join-Path $project 'STATE.md'
+  $rootBefore = [IO.File]::ReadAllText($rootState)
   $r = Invoke-Git $repo checkout -q -b feat/x
   $branchFile = Join-Path $project 'STATE-feat-x.md'
   Check 'post-checkout: git checkout -b creates STATE-feat-x.md' ($r.Code -eq 0 -and (Test-Path -LiteralPath $branchFile))
-  Check 'post-checkout: root STATE.md lists it' ([IO.File]::ReadAllText((Join-Path $project 'STATE.md')) -match 'Branch_States: STATE-feat-x\.md')
+  Check 'post-checkout: root STATE.md is not written' ([IO.File]::ReadAllText($rootState) -ceq $rootBefore)
   Check 'post-checkout: new file passes the lint' ((Invoke-Git $repo status).Code -eq 0 -and ([IO.File]::ReadAllText($branchFile) -match '\[NEXT\]'))
   Write-TestFile (Join-Path $repo 'README.md') "changed`n"
   [void](Invoke-Git $repo checkout -q -- README.md)
@@ -76,7 +78,7 @@ try {
   $m = Invoke-Git $repo merge --no-ff -q -m 'merge feat/x' feat/x
   $archived = @(Get-ChildItem -LiteralPath (Join-Path $project 'archives') -Filter 'STATE-feat-x-*.md' -ErrorAction SilentlyContinue)
   Check 'post-merge: STATE-feat-x.md archived' ($m.Code -eq 0 -and $archived.Count -eq 1 -and -not (Test-Path -LiteralPath $branchFile))
-  Check 'post-merge: pointer dropped from root STATE.md' ([IO.File]::ReadAllText((Join-Path $project 'STATE.md')) -match 'Branch_States: none')
+  Check 'post-merge: root STATE.md is not written' ([IO.File]::ReadAllText($rootState) -ceq $rootBefore)
   Check 'post-merge: TASK.md removed' (-not (Test-Path -LiteralPath (Join-Path $repo 'TASK.md')))
 
   [void](Invoke-Git $repo checkout -q -b feat/wt-base)

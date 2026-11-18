@@ -44,7 +44,7 @@ If a tool is missing, say which one and carry on with the rest. Do not write new
 3. **Dispatch.** One agent, one worktree, one PR. Give each agent the full rules in its brief, because agents do not inherit this skill. The brief names its branch and its `STATE-<slug>.md`, and says: write only that file, append discoveries to BACKLOG, run state-closeout before reporting. Run independent jobs in parallel; jobs that touch the same files run in order.
 4. **Stop rules in every brief.** Stop and report when a change needs a source-of-truth edit the user has not approved, when anything physical or irreversible would change, or when the screen or repo is not what the brief described.
 5. **Before merge.** Gates green, `pr-closeout` run, drift report clean or its gaps listed.
-6. **After merge.** Archive the worker's STATE-<slug> (`state_manager.py archive-branch`, or the git hook pack does it), update the root STATE, remove the worktree and branch, delete what the job replaced.
+6. **After merge.** Archive the worker's STATE-<slug> (`state_manager.py archive-branch`, or the git hook pack does it; neither writes the root STATE), update the root STATE (its `Branch_States` line comes from `state_manager.py branches`), remove the worktree and branch, delete what the job replaced.
 7. **Report.** One short reply: what changed, links to every changed artefact, what is next, blockers, open questions.
 
 ## Rules that keep a new session from asking again

@@ -223,7 +223,7 @@ automations:
     helpers: [hooks/git/state-hook-lib.sh, hooks/git/README.md, hooks/tests/test-state-git-hooks.ps1]
     trigger: git-hook:pre-commit+post-checkout+post-merge (installed per repo with git config core.hooksPath; chains to workstation.chainHooksPath)
     reads: [git config workstation.stateTools workstation.chainHooksPath workstation.stateLint, WORKSTATION_STATE_TOOLS, WORKSTATION_MEMORY_STORE, VERIFIED.lock, the memory store project folder (outside the repo); calls scripts/state state_lint, state_manager and deliverable_lock]
-    writes: [STATE-*.md, STATE.md Branch_States and archives/ in the memory store project folder (outside the repo), removes untracked TASK.md after a merge]
+    writes: [STATE-*.md and archives/ in the memory store project folder (outside the repo; never the root STATE.md), removes untracked TASK.md after a merge]
     committed: no
     auto_commit: false
     enabled: true

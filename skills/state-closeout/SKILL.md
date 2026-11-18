@@ -29,7 +29,7 @@ The store is resolved by `python <workstation>/scripts/state/state_paths.py`. It
 | `TASK.md` | worktree root, git-ignored | the branch |
 | DECISIONS, `.claude/rules/`, SPEC, data | the repo, where the router's role table says | the repo, by PR |
 
-Write only your own STATE file. The root STATE's `Branch_States` line is generated from the `STATE-*.md` files (by `state_manager.py`); never edit it by hand. A worker never edits the root STATE, the router, SPEC or DECISIONS unless its brief says so. It appends findings to BACKLOG and reports.
+Write only your own STATE file. The root STATE's `Branch_States` line is generated from the `STATE-*.md` files: it reads `generated`, or the coordinator pastes the output of `state_manager.py branches`; never type the list by hand. A worker never edits the root STATE, the router, SPEC or DECISIONS unless its brief says so. It appends findings to BACKLOG and reports.
 
 ## The seven tags
 | Tag | Means | Goes to |
@@ -105,7 +105,7 @@ Updated: <YYYY-MM-DD> -- <agent>
 - [NEXT] <one action, with file path>
 
 ## Pointers
-- Branch_States: <STATE-<slug>.md list or none>
+- Branch_States: <generated (root STATE), or the `state_manager.py branches` list, or none>
 - Backlog: BACKLOG.md
 - Latest_ADR: <id or none>
 ```

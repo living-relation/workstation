@@ -1,8 +1,8 @@
 #!/bin/sh
 # State pack post-merge. After `git merge <branch>`, archives that branch's STATE-<slug>.md to
-# archives/STATE-<slug>-<YYYYMMDD>.md and drops it from the root STATE.md Branch_States pointer
-# (state_manager.py archive-branch). Then removes the merged branch's untracked TASK.md: in that
-# branch's worktree, and at this checkout's root when this checkout is on a trunk branch.
+# archives/STATE-<slug>-<YYYYMMDD>.md (state_manager.py archive-branch; it never writes the root
+# STATE.md). Then removes the merged branch's untracked TASK.md: in that branch's worktree, and at
+# this checkout's root when this checkout is on a trunk branch.
 # A pull (no branch named in the reflog), a trunk branch, or an unreachable store does nothing.
 # Never blocks. Then runs the repo's own post-merge.
 HOOK_DIR=$(cd "$(dirname "$0")" && pwd)

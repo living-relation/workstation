@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Create, check and archive live-state files in the memory store. Stdlib only.
 
-Usage: state_manager.py init|verify|new-branch|archive-branch [--repo DIR] [--branch B] [--store DIR]
+Usage: state_manager.py init|verify|branches|new-branch|archive-branch [--repo DIR] [--branch B] [--store DIR]
   init            create <store>/<project>/ with STATE.md, BACKLOG.md and archives/ (never overwrites)
-  verify          lint every STATE file, check Branch_States pointers and Last_Verified_SHA
-  new-branch      create STATE-<slug>.md for the branch and add it to the root Branch_States pointer
-  archive-branch  move STATE-<slug>.md to archives/STATE-<slug>-<YYYYMMDD>.md and drop the pointer
-Exit: 0 = OK (verify / new-branch / archive-branch also exit 0 with a note when the store is
-unreachable), 1 = cannot act (init with no store, trunk branch for a branch command), 2 = violation.
+  verify          lint every STATE file, check an explicit Branch_States list and Last_Verified_SHA
+  branches        print the generated '- Branch_States:' line from the STATE-*.md files
+  new-branch      create STATE-<slug>.md for the branch (never writes the root STATE.md)
+  archive-branch  move STATE-<slug>.md to archives/STATE-<slug>-<YYYYMMDD>.md (never writes STATE.md)
+The root STATE.md has one writer, the coordinator. Its Branch_States line reads 'generated' (the
+list comes from 'branches'), or the coordinator pastes the 'branches' output there.
+Exit: 0 = OK (verify / branches / new-branch / archive-branch also exit 0 with a note when the
+store is unreachable), 1 = cannot act (init with no store, trunk branch for a branch command),
+2 = violation.
 """
 import argparse
 import datetime
@@ -24,6 +28,7 @@ AGENT = "state_manager"
 POINTER = re.compile(r"^(- Branch_States:)(.*)$")
 SHA_LINE = re.compile(r"^Last_Verified_SHA:\s*(\S+)")
 BACKLOG_HEADER = "# BACKLOG (append-only queue; newest at the bottom)\n"
+GENERATED_POINTER = "generated (state_manager.py branches)"
 
 TEMPLATE = """# STATE (max 30 lines, overwrite only)
 Repo: {repo}
@@ -43,7 +48,7 @@ Updated: {today} -- {agent}
 - [NEXT] Set the goal and first step in this file
 
 ## Pointers
-- Branch_States: none
+- Branch_States: {pointer}
 - Backlog: BACKLOG.md
 - Latest_ADR: none
 """
@@ -53,9 +58,9 @@ def _note(message):
     print("state_manager: NOTE: %s" % message, file=sys.stderr)
 
 
-def render(repo, branch, today=None):
+def render(repo, branch, today=None, pointer="none"):
     today = today or datetime.date.today().isoformat()
-    return TEMPLATE.format(repo=repo, branch=branch, today=today, agent=AGENT)
+    return TEMPLATE.format(repo=repo, branch=branch, today=today, agent=AGENT, pointer=pointer)
 
 
 def _write_new(path, text):
@@ -68,33 +73,34 @@ def _write_new(path, text):
     return True
 
 
-def read_pointer(state_text):
+def _pointer_value(state_text):
     for line in state_text.splitlines():
         match = POINTER.match(line.strip())
         if match:
-            value = match.group(2).strip()
-            if not value or value.lower() == "none":
-                return []
-            return [item.strip() for item in value.split(",") if item.strip()]
+            return match.group(2).strip()
     return None
 
 
-def write_pointer(state_path, names):
-    if not state_path.is_file():
-        return False
-    lines = state_path.read_text(encoding="utf-8-sig").splitlines()
-    value = ", ".join(sorted(set(names))) or "none"
-    changed = False
-    for index, line in enumerate(lines):
-        if POINTER.match(line.strip()):
-            new_line = "- Branch_States: %s" % value
-            changed = new_line != line
-            lines[index] = new_line
-            break
-    if changed:
-        with open(state_path, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write("\n".join(lines) + "\n")
-    return changed
+def pointer_is_generated(state_text):
+    value = _pointer_value(state_text)
+    return value is not None and value.lower().startswith("generated")
+
+
+def read_pointer(state_text):
+    value = _pointer_value(state_text)
+    if value is None:
+        return None
+    if not value or value.lower() == "none" or value.lower().startswith("generated"):
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def branch_state_names(folder):
+    return sorted(p.name for p in state_lint.project_files(folder) if p.name != state_paths.ROOT_STATE)
+
+
+def branches_line(folder):
+    return "- Branch_States: %s" % (", ".join(branch_state_names(folder)) or "none")
 
 
 def _context(args):
@@ -115,7 +121,7 @@ def cmd_init(store, project, branch, args):
         return 1
     folder = state_paths.project_dir(store, project)
     (folder / state_paths.ARCHIVES).mkdir(parents=True, exist_ok=True)
-    _write_new(folder / state_paths.ROOT_STATE, render(_repo_label(args), "main"))
+    _write_new(folder / state_paths.ROOT_STATE, render(_repo_label(args), "main", pointer=GENERATED_POINTER))
     _write_new(folder / state_paths.BACKLOG, BACKLOG_HEADER)
     return 0
 
@@ -139,14 +145,16 @@ def cmd_verify(store, project, branch, args):
             if match and match.group(1).lower() != "none" and not _sha_known(args.repo, match.group(1)):
                 problems.append("%s: Last_Verified_SHA %s is not a commit in this repo" % (path.name, match.group(1)))
     root = folder / state_paths.ROOT_STATE
-    if root.is_file():
-        listed = read_pointer(root.read_text(encoding="utf-8-sig", errors="replace")) or []
+    root_text = root.read_text(encoding="utf-8-sig", errors="replace") if root.is_file() else ""
+    if root_text and not pointer_is_generated(root_text):
+        listed = read_pointer(root_text) or []
+        hint = " (paste the output of 'state_manager.py branches', or write 'generated')"
         for name in listed:
             if not (folder / name).is_file():
-                problems.append("STATE.md: Branch_States lists %s, which does not exist" % name)
-        for path in files:
-            if path.name != state_paths.ROOT_STATE and path.name not in listed:
-                problems.append("STATE.md: Branch_States does not list %s" % path.name)
+                problems.append("STATE.md: Branch_States lists %s, which does not exist%s" % (name, hint))
+        for name in branch_state_names(folder):
+            if name not in listed:
+                problems.append("STATE.md: Branch_States does not list %s%s" % (name, hint))
     if not (folder / state_paths.BACKLOG).is_file():
         problems.append("missing %s" % state_paths.BACKLOG)
     for problem in problems:
@@ -173,10 +181,15 @@ def cmd_new_branch(store, project, branch, args):
         return 0
     name = state_paths.branch_state_name(branch)
     _write_new(folder / name, render(_repo_label(args), branch))
-    root = folder / state_paths.ROOT_STATE
-    listed = read_pointer(root.read_text(encoding="utf-8-sig")) if root.is_file() else None
-    if listed is not None and write_pointer(root, listed + [name]):
-        print("added %s to STATE.md Branch_States" % name)
+    return 0
+
+
+def cmd_branches(store, project, branch, args):
+    folder = state_paths.project_dir(store, project)
+    if not state_paths.store_reachable(store) or not folder.is_dir():
+        _note("store or project folder unreachable (%s); no branch list" % folder)
+        return 0
+    print(branches_line(folder))
     return 0
 
 
@@ -207,16 +220,13 @@ def cmd_archive_branch(store, project, branch, args):
         target = archive_name(folder, state_paths.slugify(branch), today)
         source.replace(target)
         print("archived %s -> %s" % (name, target))
-    root = folder / state_paths.ROOT_STATE
-    listed = read_pointer(root.read_text(encoding="utf-8-sig")) if root.is_file() else None
-    if listed and name in listed and write_pointer(root, [n for n in listed if n != name]):
-        print("removed %s from STATE.md Branch_States" % name)
     return 0
 
 
 COMMANDS = {
     "init": cmd_init,
     "verify": cmd_verify,
+    "branches": cmd_branches,
     "new-branch": cmd_new_branch,
     "archive-branch": cmd_archive_branch,
 }
