@@ -4,14 +4,16 @@
 Real path: `{{PROJECTS_ROOT}}\_claude\Claude Projects\Working Memory\memory\`
 Claude Code reaches it through `~\.claude\projects\{{CLAUDE_PROJECT_KEY}}\memory`,
 which is a junction (a folder shortcut) to this folder, so those apps read and write the same files.
-It holds preferences, rules and cross-project facts, each fact once.
+It holds live project state and preference and fact notes, each fact once.
 Claude account Memory (claude.ai / Your Claude → Memory) is a separate, allowed store for general / non-project prefs. Duplicates are OK; never sync either way; never treat account Memory as the project source of truth.
 Never create a second local memory folder or replace the junction. Do not use `project_memory_read` / `project_memory_write` for project memory. Project-specific rules stay in each repo's own `AGENTS.md`.
-Project progress (status, next steps, PR and branch state, TODOs) stays in the repo's state file (the one `AGENTS.md` names, e.g. `STATE.md`). Task handoffs stay in `handoffs/<task-slug>.md` on the task branch, never in that state file or OPEN-ITEMS.
+Tiers: the repo (git) holds the router `AGENTS.md`, SPEC, DECISIONS, rules and data. Each project folder here holds live state (`STATE.md`, `STATE-<slug>.md`, `BACKLOG.md`, `archives\`) plus the preference and fact notes listed in its `INDEX.md`. `TASK.md` is the branch checklist at the worktree root, git-ignored.
+At 80% context, run the `state-closeout` skill (closeout mode). On-demand handoff: `state-closeout handoff`. Handoffs never go in the repo or a `handoffs\` folder.
+Store unreachable (PC offline, cloud session): work from committed docs only.
 A leftover `~\.claude\working-memory` junction is harmless and is not this path. Install does not create or check it.
 Memory is local only: never commit it to git.
 
-Read this index at the start of a session, then open the current project's `INDEX.md`.
+Read this index at the start of a session, then the current project's `STATE.md`, this branch's `STATE-<slug>.md` and `INDEX.md`.
 This file holds general (no-project) notes and one line per project.
 
 ## Layout and loop rules

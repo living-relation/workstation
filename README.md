@@ -89,9 +89,11 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   official marketplace at user scope. `handoff/claude/pr-closeout-nudge.ps1` is copied into `~/.claude/hooks` and
   wired as a PostToolUse hook in `~/.claude/settings.json` next to context-guard and memory-link-guard.
   **Memory split:** Claude Code's shared store is `<Projects>\_claude\Claude Projects\Working Memory\memory\`
-  (the `autoMemoryDirectory` junction plus `memory-link-guard.ps1`). It holds preferences, rules and
-  cross-project facts, each fact once. Project progress stays in the repo state file named by `AGENTS.md`
-  (here, `STATE.md`). Claude desktop online Memory is account-level facts about the user and is not synced.
+  (the `autoMemoryDirectory` junction plus `memory-link-guard.ps1`). Tiers: the repo (git) holds the router
+  `AGENTS.md`, SPEC, DECISIONS, rules and data; the store's project folder holds live state (`STATE.md`,
+  `STATE-<slug>.md`, `BACKLOG.md`, `archives\`) plus preference and fact notes in `INDEX.md`; `TASK.md` is
+  git-ignored per worktree. At 80% context agents run `state-closeout`; a session that cannot reach the
+  store works from committed docs only. Claude desktop online Memory is account-level facts about the user and is not synced.
   As of Store app 4.4212.0.0 ("Unified Claude", personal account, 2026-11-03; work account unverified),
   Cowork / Chat do not write local memory files. Install does not create or check `~\.claude\working-memory`;
   a leftover junction is harmless. Stranded local Cowork notes can be copied into the store or brought in

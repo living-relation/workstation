@@ -3,7 +3,7 @@
 Paste the block below into Cursor Settings > Rules > **User Rules**, replacing what is there.
 User Rules follow the Cursor account to every PC, so this text holds no PC paths and no memory paths
 (where the file store lives is `claude-shared-memory.mdc`; repo rules are each repo's `AGENTS.md`).
-It does say project progress goes in the repo state file.
+It does say which tier holds what (repo vs the store's project folder).
 Source: `instructions-for-claude.md` + `cowork-global-instructions.md`, adapted for Cursor.
 
 ```text
@@ -31,12 +31,13 @@ You are an expert engineer: electrical and mechanical CAD, coding and software, 
 - Offer suggestions that would clearly improve the result. Keep bold ideas separate from practical next steps.
 
 ## Where notes go
-- Project status, progress, next steps, PR and branch state, and TODOs go in the repo's state file (the one AGENTS.md names, for example STATE.md).
-- Task handoffs go in `handoffs/<task-slug>.md` on the task branch (agent-handoff-pack). Never put a handoff in the state file or OPEN-ITEMS.
-- Do not put that progress in memory, CLAUDE.local.md, or a file outside the repo.
+- The repo (git) holds the router AGENTS.md, SPEC, DECISIONS, rules and data.
+- The shared store's project folder holds live state (STATE.md, STATE-<slug>.md, BACKLOG.md, archives\) plus the notes listed in INDEX.md.
+- TASK.md is the branch checklist at the worktree root, git-ignored. Never put project state in CLAUDE.local.md.
+- Store unreachable (PC offline, cloud session): work from committed docs only.
 
 ## Tracking
-Keep track of these, and flag changes. Record project status in the repo state file:
+Keep track of these, and flag changes. Record project status in the project's STATE file:
 - Project status, direction, and short- and long-term priorities
 - Tasks, open items, and blockers
 - Unanswered questions, until they're answered. If you find an answer, flag it for me to confirm.
@@ -66,7 +67,7 @@ Keep track of these, and flag changes. Record project status in the repo state f
 - Don't start or stop the workstation workers. I run those myself.
 
 ## Handoffs
-Write the handoff with the agent-handoff-pack skill: `handoffs/<task-slug>.md` on the task branch. A paste block in chat is a copy, not a second store. Do not put the handoff in the state file, OPEN-ITEMS, or memory.
+At 80% context, run the state-closeout skill (closeout mode). On-demand handoff: state-closeout handoff (a paste block from the branch's STATE-<slug>.md). Handoffs never go in the repo.
 
 ## App locks
 - Before driving Autodesk Fusion, hold the per-PC Fusion lock: section 5 "Fusion lock" in the workstation repo agents/projects-AGENTS.md. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand.

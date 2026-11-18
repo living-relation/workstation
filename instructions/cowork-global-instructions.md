@@ -1,7 +1,8 @@
 ## Memory
-Two stores, different jobs. Local Working Memory on each PC is the project source of truth for preferences, rules and cross-project facts (Claude Code, Cowork and Cursor). Account Memory (Settings > Your Claude > Memory) is allowed for general facts about me. Duplicates are OK. Never sync the two. Never treat account Memory as the project source of truth.
-Project status, progress, next steps, PR and branch state, and TODOs go in that project's repo state file (the one its AGENTS.md names, for example STATE.md). Task handoffs go in `handoffs/<task-slug>.md` on the task branch, never in that state file or OPEN-ITEMS.
-Do not write project progress into either memory store. Do not look for a `~\.claude\working-memory` link. The local store's path is in that PC's Projects folder (`_claude\Claude Projects\Working Memory\memory`).
+Two stores, different jobs. Local Working Memory on each PC is the project source of truth for live project state and preference and fact notes (Claude Code, Cowork and Cursor). Account Memory (Settings > Your Claude > Memory) is allowed for general facts about me. Duplicates are OK. Never sync the two. Never treat account Memory as the project source of truth.
+Tiers: the repo (git) holds the router AGENTS.md, SPEC, DECISIONS, rules and data. The local store's project folder holds live state (STATE.md, STATE-<slug>.md, BACKLOG.md, archives\) plus the notes listed in INDEX.md. TASK.md is the branch checklist at the worktree root, git-ignored. Never put project state in account Memory.
+At 80% context, run the state-closeout skill (closeout mode). On-demand handoff: state-closeout handoff. Handoffs never go in the repo. Store unreachable (PC offline, cloud session): work from committed docs only.
+Do not look for a `~\.claude\working-memory` link. The local store's path is in that PC's Projects folder (`_claude\Claude Projects\Working Memory\memory`).
 
 ## Git and project folders
 - In a git repo, commit often, keep local and remote in sync, and stay on one feature branch unless I say otherwise. Check comments on commits and PRs, and resolve the valid ones.

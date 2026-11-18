@@ -22,9 +22,10 @@ memory to local files. A "remember" in Cowork saved a topic to account **online 
 since 2026-10-19. App data for that install lives under `%LOCALAPPDATA%\Claude-Data\claude_<id>`
 (older copies may still be under `%APPDATA%\Claude` or the Store package path).
 
-- **Claude Code file store** (`<Projects>\_claude\Claude Projects\Working Memory\memory\`) is the record
-  for preferences, rules and cross-project facts. Claude Code reaches it through the `autoMemoryDirectory`
-  junction. The guard hook keeps that junction. Project progress stays in each repo's state file.
+- **Claude Code file store** (`<Projects>\_claude\Claude Projects\Working Memory\memory\`) holds each
+  project's live state (`STATE.md`, `STATE-<slug>.md`, `BACKLOG.md`, `archives\`) plus preference and fact
+  notes. The repo holds the router `AGENTS.md`, SPEC, DECISIONS, rules and data. Claude Code reaches the store
+  through the `autoMemoryDirectory` junction. The guard hook keeps that junction.
 - **Claude online Memory** is account-level facts about the user. It is separate and not synced with the file store.
 - The **work account** is very likely the same and is **unverified**.
 
@@ -39,8 +40,8 @@ Claude Code is set up separately (install.ps1 and the per-project pointer lines)
 store path, not `~\.claude\working-memory`. These paste texts do not replace that setup.
 
 `cursor-user-rules.md` holds behavior only: no memory paths (Cursor's memory rule is `claude-shared-memory.mdc`,
-written by install.ps1) and no repo rules beyond pointing at each repo's `AGENTS.md`. It does say project
-progress goes in the repo state file. Cursor stores User Rules in the account, not on disk, so install.ps1
+written by install.ps1) and no repo rules beyond pointing at each repo's `AGENTS.md`. It does say which tier
+holds what. Cursor stores User Rules in the account, not on disk, so install.ps1
 cannot check them.
 
 `repo-rules.mdc` is the Cursor user-rule version of the repo-rules section (copy to `~/.cursor/rules/`).
