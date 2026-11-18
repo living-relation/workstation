@@ -76,16 +76,16 @@ automations:
     enabled: true
   - id: memory-link-guard
     script: memory/hooks/memory-link-guard.ps1
-    helpers: [memory/hooks/tests/test-memory-link-guard-progress.ps1, memory/hooks/tests/test-memory-link-guard-worktree.ps1, memory/hooks/tests/test-memory-link-guard-cursor.ps1]
+    helpers: [memory/hooks/tests/test-memory-link-guard-progress.ps1, memory/hooks/tests/test-memory-link-guard-worktree.ps1, memory/hooks/tests/test-memory-link-guard-cursor.ps1, hooks/tests/test-state-memory-link-guard.ps1]
     trigger: agent-hook:SessionStart+PreToolUse (installed copy, by install)
-    reads: [user .claude settings, autoMemoryDirectory junction]
+    reads: [WORKSTATION_MEMORY_STORE, user .claude settings, autoMemoryDirectory junction]
     writes: [autoMemoryDirectory junction and project memory folders (outside the repo)]
     committed: no
     auto_commit: false
     enabled: true
   - id: handoff-hooks
     script: [handoff/claude/context-guard.ps1, handoff/claude/pr-closeout-nudge.ps1, handoff/cursor/handoff-at-80.py]
-    helpers: [handoff/claude/tests/test-pr-closeout-nudge.ps1]
+    helpers: [handoff/claude/tests/test-pr-closeout-nudge.ps1, handoff/claude/tests/test-state-closeout-trigger.ps1]
     trigger: agent-hook:statusLine+Stop+PreCompact+PostToolUse (installed copies, by install)
     reads: [agent session context usage; PostToolUse payload for pr-closeout-nudge]
     writes: [handoff backups outside the repo (inferred); no files for pr-closeout-nudge]
@@ -208,6 +208,26 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-agents-md-only-warn.ps1
+  - id: state-hooks
+    script: [hooks/state-inject.ps1, hooks/state-lint-stop.ps1, hooks/protected-files-guard.ps1]
+    helpers: [hooks/state-common.ps1, hooks/hooks.json, hooks/cursor-hooks.json, hooks/tests/state-test-support.ps1, hooks/tests/test-state-inject.ps1, hooks/tests/test-state-lint-stop.ps1, hooks/tests/test-state-protected-files-guard.ps1]
+    trigger: agent-hook:SessionStart+Stop+PreToolUse (Claude hooks/hooks.json; Cursor hooks/cursor-hooks.json preToolUse+stop)
+    reads: [hook payload on stdin, WORKSTATION_MEMORY_STORE, WORKSTATION_STATE_TOOLS, STATE.md and STATE-*.md in the memory store project folder (outside the repo), SPEC files, VERIFIED.lock and .claude/protected-paths.txt of the repo being edited; calls scripts/state state_paths and state_lint]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-state-protected-files-guard.ps1
+  - id: state-git-hooks
+    script: [hooks/git/pre-commit, hooks/git/post-checkout, hooks/git/post-merge]
+    helpers: [hooks/git/state-hook-lib.sh, hooks/git/README.md, hooks/tests/test-state-git-hooks.ps1]
+    trigger: git-hook:pre-commit+post-checkout+post-merge (installed per repo with git config core.hooksPath; chains to workstation.chainHooksPath)
+    reads: [git config workstation.stateTools workstation.chainHooksPath workstation.stateLint, WORKSTATION_STATE_TOOLS, WORKSTATION_MEMORY_STORE, VERIFIED.lock, the memory store project folder (outside the repo); calls scripts/state state_lint, state_manager and deliverable_lock]
+    writes: [STATE-*.md, STATE.md Branch_States and archives/ in the memory store project folder (outside the repo), removes untracked TASK.md after a merge]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-state-git-hooks.ps1
   - id: no-claude-md
     script: .github/workflows/no-claude-md.yml
     helpers: [scripts/check_no_claude_md.py, scripts/test_check_no_claude_md.py]
