@@ -109,6 +109,7 @@ Updated: <YYYY-MM-DD> -- <agent>
 - Backlog: BACKLOG.md
 - Latest_ADR: <id or none>
 ```
+Optional Pointers lines (root STATE only): `- Last_Cleanup:`, `- Kept_Branches:`, `- Question_Counter:`. Any other Pointers key fails `state_lint.py`.
 
 ## Store unreachable (PC offline, cloud session)
 Work from committed docs. Put the STATE text you would write in the final reply under "state to save"; the next session on the PC writes it. Never create a store anywhere else.

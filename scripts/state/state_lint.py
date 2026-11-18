@@ -25,6 +25,8 @@ SECTION_KEYS = {
     "## Active Blocker": ("- Status:", "- Detail:"),
     "## Pointers": ("- Branch_States:", "- Backlog:", "- Latest_ADR:"),
 }
+OPTIONAL_POINTER_KEYS = ("- Last_Cleanup:", "- Kept_Branches:", "- Question_Counter:")
+POINTER_LINE = re.compile(r"^- [A-Za-z][A-Za-z0-9_]*:")
 ALLOWED_TAG = "[NEXT]"
 TAGS = ("[DONE]", "[NEXT]", "[TASK]", "[ADR]", "[RULE]", "[SOT]", "[BKLG]")
 CARRIED = re.compile(r"\(carried\s+(\d+)\)", re.I)
@@ -65,6 +67,12 @@ def lint_text(text):
         for key in keys:
             if section in sections and not any(line.startswith(key) for line in body):
                 problems.append("section '%s' is missing '%s'" % (section, key))
+    allowed_pointers = SECTION_KEYS["## Pointers"] + OPTIONAL_POINTER_KEYS
+    for number, line in sections.get("## Pointers", []):
+        stripped = line.strip()
+        if POINTER_LINE.match(stripped) and not stripped.startswith(allowed_pointers):
+            problems.append("line %d: unknown Pointers line '%s' (allowed: %s)"
+                            % (number, stripped.split(":")[0] + ":", ", ".join(k[2:] for k in allowed_pointers)))
     blocker = [line.strip() for _, line in sections.get("## Active Blocker", [])]
     status_lines = [line for line in blocker if line.startswith("- Status:")]
     if status_lines and not STATUS.match(status_lines[0]):
