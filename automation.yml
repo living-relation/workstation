@@ -76,16 +76,16 @@ automations:
     enabled: true
   - id: memory-link-guard
     script: memory/hooks/memory-link-guard.ps1
-    helpers: [memory/hooks/tests/test-memory-link-guard-progress.ps1, memory/hooks/tests/test-memory-link-guard-worktree.ps1, memory/hooks/tests/test-memory-link-guard-cursor.ps1]
+    helpers: [memory/hooks/tests/test-memory-link-guard-progress.ps1, memory/hooks/tests/test-memory-link-guard-worktree.ps1, memory/hooks/tests/test-memory-link-guard-cursor.ps1, hooks/tests/test-state-memory-link-guard.ps1]
     trigger: agent-hook:SessionStart+PreToolUse (installed copy, by install)
-    reads: [user .claude settings, autoMemoryDirectory junction]
+    reads: [WORKSTATION_MEMORY_STORE, user .claude settings, autoMemoryDirectory junction]
     writes: [autoMemoryDirectory junction and project memory folders (outside the repo)]
     committed: no
     auto_commit: false
     enabled: true
   - id: handoff-hooks
     script: [handoff/claude/context-guard.ps1, handoff/claude/pr-closeout-nudge.ps1, handoff/cursor/handoff-at-80.py]
-    helpers: [handoff/claude/tests/test-pr-closeout-nudge.ps1]
+    helpers: [handoff/claude/tests/test-pr-closeout-nudge.ps1, handoff/claude/tests/test-state-closeout-trigger.ps1]
     trigger: agent-hook:statusLine+Stop+PreCompact+PostToolUse (installed copies, by install)
     reads: [agent session context usage; PostToolUse payload for pr-closeout-nudge]
     writes: [handoff backups outside the repo (inferred); no files for pr-closeout-nudge]
@@ -208,6 +208,26 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-agents-md-only-warn.ps1
+  - id: state-hooks
+    script: [hooks/state-inject.ps1, hooks/state-lint-stop.ps1, hooks/protected-files-guard.ps1]
+    helpers: [hooks/state-common.ps1, hooks/hooks.json, hooks/cursor-hooks.json, hooks/tests/state-test-support.ps1, hooks/tests/test-state-inject.ps1, hooks/tests/test-state-lint-stop.ps1, hooks/tests/test-state-protected-files-guard.ps1]
+    trigger: agent-hook:SessionStart+Stop+PreToolUse (Claude hooks/hooks.json; Cursor hooks/cursor-hooks.json sessionStart+preToolUse+stop)
+    reads: [hook payload on stdin, WORKSTATION_MEMORY_STORE, WORKSTATION_STATE_TOOLS, STATE.md and STATE-*.md in the memory store project folder (outside the repo), SPEC files, VERIFIED.lock and .claude/protected-paths.txt of the repo being edited; calls scripts/state state_paths and state_lint]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-state-protected-files-guard.ps1
+  - id: state-git-hooks
+    script: [hooks/git/pre-commit, hooks/git/post-checkout, hooks/git/post-merge]
+    helpers: [hooks/git/state-hook-lib.sh, hooks/git/README.md, hooks/tests/test-state-git-hooks.ps1]
+    trigger: git-hook:pre-commit+post-checkout+post-merge (installed per repo with git config core.hooksPath; chains to workstation.chainHooksPath)
+    reads: [git config workstation.stateTools workstation.chainHooksPath workstation.stateLint, WORKSTATION_STATE_TOOLS, WORKSTATION_MEMORY_STORE, VERIFIED.lock, the memory store project folder (outside the repo); calls scripts/state state_lint, state_manager and deliverable_lock]
+    writes: [STATE-*.md and archives/ in the memory store project folder (outside the repo; never the root STATE.md), removes untracked TASK.md after a merge]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-state-git-hooks.ps1
   - id: no-claude-md
     script: .github/workflows/no-claude-md.yml
     helpers: [scripts/check_no_claude_md.py, scripts/test_check_no_claude_md.py]
@@ -230,3 +250,68 @@ automations:
     enabled: true
     run_cmd: claude plugin validate .
     check_cmd: python3 scripts/check_cursor_plugin.py
+  - id: state-paths
+    script: scripts/state/state_paths.py
+    helpers: [scripts/state/README.md, scripts/state/tests/test_state_paths.py]
+    trigger: manual
+    reads: [WORKSTATION_MEMORY_STORE, user .claude memory-link-guard.config.json and settings.json, git metadata of the repo or worktree]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python scripts/state/state_paths.py --json
+    check_cmd: python -m unittest discover scripts/state/tests
+  - id: state-lint
+    script: scripts/state/state_lint.py
+    helpers: [scripts/state/state_paths.py, scripts/state/tests/test_state_lint.py]
+    trigger: manual
+    reads: [STATE.md and STATE-*.md in the memory store project folder (outside the repo)]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python scripts/state/state_lint.py --repo .
+    check_cmd: python -m unittest discover scripts/state/tests -p test_state_lint.py
+  - id: state-manager
+    script: scripts/state/state_manager.py
+    helpers: [scripts/state/state_paths.py, scripts/state/state_lint.py, scripts/state/tests/test_state_manager.py]
+    trigger: manual
+    reads: [the memory store project folder (outside the repo), git metadata]
+    writes: [STATE.md and STATE-*.md and BACKLOG.md and archives/ in the memory store project folder (outside the repo)]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python scripts/state/state_manager.py verify --repo .
+    check_cmd: python -m unittest discover scripts/state/tests -p test_state_manager.py
+  - id: deliverable-lock
+    script: scripts/state/deliverable_lock.py
+    helpers: [scripts/state/state_paths.py, scripts/state/tests/test_deliverable_lock.py]
+    trigger: manual
+    reads: [VERIFIED.lock and the locked files of the repo it runs in]
+    writes: [VERIFIED.lock at the root of the repo it runs in (lock and unlock only)]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python scripts/state/deliverable_lock.py verify
+    check_cmd: python -m unittest discover scripts/state/tests -p test_deliverable_lock.py
+  - id: rules-sync
+    script: scripts/state/rules_sync.py
+    helpers: [scripts/state/state_paths.py, scripts/state/tests/test_rules_sync.py]
+    trigger: manual
+    reads: [.claude/rules/*.md of the repo it runs in]
+    writes: [.cursor/rules/*.mdc of the repo it runs in (generated ones only; never a hand-made .mdc; not with --check; nothing when the repo has no .claude/rules)]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python scripts/state/rules_sync.py --check
+    check_cmd: python -m unittest discover scripts/state/tests -p test_rules_sync.py
+  - id: move-integrity
+    script: scripts/state/move_integrity.py
+    helpers: [scripts/state/state_paths.py, scripts/state/tests/test_move_integrity.py]
+    trigger: manual
+    reads: [the before and after documents, an optional tagging proposal, optional git history]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    check_cmd: python -m unittest discover scripts/state/tests -p test_move_integrity.py

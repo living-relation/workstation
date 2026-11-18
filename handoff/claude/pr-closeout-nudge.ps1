@@ -20,7 +20,7 @@ if ($tool -in 'Bash', 'PowerShell', 'Shell') {
 $m = [regex]::Match("$resp", 'https://github\.com/[\w.-]+/[\w.-]+/pull/\d+')
 if (-not $m.Success) { Exit-Quiet }   # the command ran but no PR was created
 
-$ctx = "A pull request was just opened: $($m.Value). Run the pr-closeout skill now: update the repo's state file on this PR's own branch (status, progress, next steps, PR and branch state, TODOs). Handoffs are handoffs/*.md on that branch, not the state file or OPEN-ITEMS. Shared memory gets only preferences, rules and cross-project facts, each fact once, signed. Do not write project progress into memory. Run the repo's gates, and report in a few lines. Skip any step that does not apply."
+$ctx = "A pull request was just opened: $($m.Value). Run the pr-closeout skill now: by the tier rule, live state (status, next step, PR and branch state) goes in this branch's STATE file in the memory store, later work in BACKLOG, decisions in DECISIONS, via state-closeout; the PR body gets a State: line. Memory notes (INDEX.md) get only preferences, rules and cross-project facts, each fact once, signed. Run the repo's gates, and report in a few lines. Skip any step that does not apply."
 if ($cursor) {
   @{ additional_context = $ctx } | ConvertTo-Json -Compress
 } else {

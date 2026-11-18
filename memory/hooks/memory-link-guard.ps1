@@ -3,12 +3,14 @@
 # Under Cursor (CURSOR_VERSION set) a preToolUse run prints exactly one line, {"permission":"allow"},
 # because Cursor blocks the edit when a hook prints nothing; its messages go to stderr instead. Never deletes notes.
 # Also warns (never blocks, moves or deletes) when a write to the store looks like
-# project progress (status, progress, next steps, TODOs, handoffs, PR or branch state).
-# Progress belongs in the repo's in-repo state file. A handoff belongs in
-# handoffs/<task-slug>.md, never in that state file or OPEN-ITEMS.
+# project progress (status, progress, next steps, TODOs, handoffs, PR or branch state) outside the
+# live-state files. Live state belongs in <store>\<project>\STATE.md, STATE-<branch-slug>.md,
+# BACKLOG.md and archives\; writes there are never flagged. INDEX.md keeps preferences, rules and
+# facts only, so progress written into INDEX.md or another note is flagged.
 # Portable: no hardcoded profile, user or machine names. Paths are worked out at run time:
 #   link  = autoMemoryDirectory from ~\.claude\settings.json (~ expanded); this is the junction.
-#   store = storePath from the optional ~\.claude\hooks\memory-link-guard.config.json, else the
+#   store = WORKSTATION_MEMORY_STORE if set, else storePath from the optional
+#           ~\.claude\hooks\memory-link-guard.config.json, else the
 #           junction's current target, else ~\Projects\_claude\Claude Projects\Working Memory\memory.
 #   Projects root = the first folder above the store that contains _claude.
 # Worktrees (a .git file pointing into <repo>\.git\worktrees\) use the main repo's project folder;
@@ -56,14 +58,22 @@ function Test-UnderStore([string]$Path, [string]$Root) {
   if (-not $a -or -not $b) { return $false }
   return ($a -eq $b) -or $a.StartsWith($b + [IO.Path]::DirectorySeparatorChar) -or $a.StartsWith($b + '\') -or $a.StartsWith($b + '/')
 }
+# Live-state files in a project folder (STATE.md, STATE-*.md, BACKLOG.md, archives\...) are where progress belongs.
+function Test-LiveStateFile([string]$NotePath, [string]$Root) {
+  $a = Get-PathKey $NotePath; $b = Get-PathKey $Root
+  if (-not $a -or -not $b -or $a.Length -le $b.Length) { return $false }
+  $rel = $a.Substring($b.Length).TrimStart('\', '/') -replace '\\', '/'
+  return [bool]($rel -match '^[^/]+/(state\.md|state-[^/]+\.md|backlog\.md)$' -or $rel -match '^[^/]+/archives/')
+}
 # status/progress/next-steps/handoff/PR/branch/TODO language, or a project_* note with that content.
-# INDEX.md, MEMORY.md and CLAUDE.md are catalogs: a one-line index update is not flagged.
+# MEMORY.md and CLAUDE.md are catalogs: not flagged. INDEX.md is flagged on its body only.
 # A topic file whose name or body looks like progress is flagged (warn only).
 function Test-ProgressNote([string]$NotePath, [string]$Text) {
   $leaf = Split-Path $NotePath -Leaf
-  if ($leaf -match '(?i)^(INDEX|MEMORY|CLAUDE)\.md$') { return $false }
-  $stem = [IO.Path]::GetFileNameWithoutExtension($leaf)
+  if ($leaf -match '(?i)^(MEMORY|CLAUDE)\.md$') { return $false }
   $lang = '(?i)(\b(project[- ]?)?(status|progress)\b|\bnext[- ]steps?\b|\bTODOs?\b|\bhandoffs?\b|\bpull request\b|\bPR\s*#\d+\b|\bopen PRs?\b|\bcurrent branch\b|\bon branch\b|\bfeature branch\b)'
+  if ($leaf -match '(?i)^INDEX\.md$') { return [bool]($Text -and [regex]::IsMatch($Text, $lang)) }
+  $stem = [IO.Path]::GetFileNameWithoutExtension($leaf)
   $nameHit = $stem -match '(?i)(status|progress|next[-_ ]?steps?|todos?|handoffs?)'
   $bodyHit = $Text -and [regex]::IsMatch($Text, $lang)
   $projectStar = $stem -match '(?i)^project[_-]'
@@ -74,10 +84,12 @@ function Test-ProgressNote([string]$NotePath, [string]$Text) {
 $link = $null
 try { $link = Expand-UserPath ((Get-Content -LiteralPath (Join-Path $userHome '.claude\settings.json') -Raw | ConvertFrom-Json).autoMemoryDirectory) } catch { }
 
-# Store: explicit config first, then wherever the junction already points, then the default.
+# Store: WORKSTATION_MEMORY_STORE, then explicit config, then wherever the junction already points, then the default.
 $home_ = $null
+$storeOverride = $false
+if ("$env:WORKSTATION_MEMORY_STORE".Trim()) { $home_ = Expand-UserPath $env:WORKSTATION_MEMORY_STORE; $storeOverride = $true }
 $cfg = Join-Path $userHome '.claude\hooks\memory-link-guard.config.json'
-if (Test-Path -LiteralPath $cfg) { try { $home_ = Expand-UserPath ((Get-Content -LiteralPath $cfg -Raw | ConvertFrom-Json).storePath) } catch { } }
+if (-not $home_ -and (Test-Path -LiteralPath $cfg)) { try { $home_ = Expand-UserPath ((Get-Content -LiteralPath $cfg -Raw | ConvertFrom-Json).storePath) } catch { } }
 if (-not $home_ -and $link) {
   $li = Get-Item -LiteralPath $link -Force
   if ($li -and $li.LinkType) { $home_ = Expand-UserPath (@($li.Target)[0]) }
@@ -107,21 +119,22 @@ try {
     if ($ti.PSObject.Properties['file_path'] -and $ti.file_path) { $notePath = [string]$ti.file_path }
     elseif ($ti.PSObject.Properties['path'] -and $ti.path) { $notePath = [string]$ti.path }
   }
-  if ($notePath -and (Test-UnderStore $notePath $home_)) {
+  if ($notePath -and (Test-UnderStore $notePath $home_) -and -not (Test-LiveStateFile $notePath $home_)) {
     $noteText = ''
     if ($ti.PSObject.Properties['content'] -and $ti.content) { $noteText = [string]$ti.content }
     elseif ($ti.PSObject.Properties['new_string'] -and $ti.new_string) { $noteText = [string]$ti.new_string }
     elseif (Test-Path -LiteralPath $notePath -PathType Leaf) { try { $noteText = [IO.File]::ReadAllText($notePath) } catch { } }
     if (Test-ProgressNote $notePath $noteText) {
-      Write-Output "MEMORY WARNING: '$notePath' looks like project progress/state (status, progress, next steps, TODOs, handoffs, or PR/branch state). Put progress in the repo's in-repo state file (the one AGENTS.md names, e.g. STATE.md). Put a handoff in handoffs/<task-slug>.md on the task branch, never inside that state file or OPEN-ITEMS. Local Working Memory holds only preferences, rules and cross-project facts; each fact is written once. This is a warning only; the note was not blocked, moved or deleted."
+      Write-Output "MEMORY WARNING: '$notePath' looks like project progress/state (status, progress, next steps, TODOs, handoffs, or PR/branch state). Put live progress in the project's state file in this store: <project>\STATE.md (trunk) or <project>\STATE-<branch-slug>.md (a branch); queue later work in <project>\BACKLOG.md. INDEX.md and other notes hold only preferences, rules and cross-project facts; each fact is written once. This is a warning only; the note was not blocked, moved or deleted."
     }
   }
 } catch { }
 # If autoMemoryDirectory points straight at the store, there is no junction to manage. Never move the store onto itself.
+# With WORKSTATION_MEMORY_STORE set the junction is left alone: the override never re-points Claude Code's memory.
 $sameAsStore = ([IO.Path]::GetFullPath($link).TrimEnd('\').ToLower() -eq [IO.Path]::GetFullPath($home_).TrimEnd('\').ToLower())
 $item = Get-Item -LiteralPath $link -Force
 $linkOk = ($item -and $item.LinkType -eq 'Junction' -and (@($item.Target | ForEach-Object { ($_ -replace '^\\\?\?\\', '').TrimEnd('\').ToLower() }) -contains $home_.TrimEnd('\').ToLower()))
-if (-not $linkOk -and -not $sameAsStore) {
+if (-not $linkOk -and -not $sameAsStore -and -not $storeOverride) {
 $msg = @()
 if ($item -and -not $item.LinkType) {
   # A real folder appeared (an app recreated it). Move its notes into the shared store, never overwrite.

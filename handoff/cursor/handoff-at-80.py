@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Arm the agent-handoff-pack quick-mode handoff when chat context is at or above 80%."""
+"""Arm the state-closeout (closeout mode) run when chat context is at or above 80%."""
 
 from __future__ import annotations
 
@@ -13,10 +13,11 @@ STATE_DIR = Path.home() / ".cursor" / "hooks" / "state" / "handoff-at-80"
 ARMED_PATH = STATE_DIR / "armed"
 FOLLOWUP = (
     "CONTEXT PRESSURE: chat context is at or above 80%. "
-    "Run the agent-handoff-pack skill in quick mode immediately. "
-    "Do not continue coding. Write or update handoffs/<task-slug>.md on the task branch "
-    "(never inside STATE.md or OPEN-ITEMS), commit that file, and print the paste block. "
-    "Do not write the handoff into memory or a file outside the repo. "
+    "Run the state-closeout skill in closeout mode immediately. "
+    "Do not continue coding. Tag what this chat did, graduate each item to its home, "
+    "queue the rest in BACKLOG.md, and rewrite this branch's STATE file in the memory store "
+    "(STATE.md on trunk, STATE-<branch-slug>.md on a branch; 30 lines max, one [NEXT] step). "
+    "Commit finished repo work on the task branch first. "
     "Do not push to main. Do not start new project work."
 )
 

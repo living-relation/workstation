@@ -20,7 +20,7 @@ Read the repo's own rules, hooks and CI first; work on a branch in your own clon
 7. **Never skip a hook.** No `--no-verify` or other skip, not even to push a fix. If a hook or gate fails on a generated or bot-owned file (for example, a generated docs page that a CI workflow publishes), don't touch it: leave it to the repo's workflow, say so in the PR, and ask the user.
 8. **No secrets, no force-push.** Never print tokens or secrets. Run the repo's secret scanner if it has one (gitleaks or a pre-commit hook), else scan the diff for tokens, passwords and home paths. Never force-push.
 9. **Push, PR, merge.** Who may merge follows the repo's rules. Pushing or merging needs the user's OK unless a standing rule covers it. After a push, confirm the branch on origin matches what you intended (log/SHA).
-9b. **Leftover steps.** Any "after merge" or "not done here" step in the PR goes into `STATE.md` or OPEN-ITEMS in the same PR.
+9b. **Leftover steps.** Any "after merge" or "not done here" step in the PR gets a home through state-closeout, by the tier rule: live state in your STATE file in the memory store (`STATE.md`, or `STATE-<slug>.md` on a branch), later work in BACKLOG, a decision in DECISIONS; the PR body's `State:` line names where it went.
 10. **After the merge.** The bot that merged pulls, once a PR it opened or merged lands: every local copy of the repo, fast-forward only. Never overwrite uncommitted changes; if a copy is dirty or has diverged, stop and report. Then clean up only your own branch and worktree, and get the user's OK before deleting anything.
 11. **If you committed to main by mistake.** Stop pushing. Report. Offer a PR or revert path; don't paper over it.
 

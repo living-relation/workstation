@@ -2,17 +2,19 @@
 
 ## Read first, before starting work or asking
 Before starting work or asking the maintainer anything, read in order: (1) this repo's agent guide
-(`AGENTS.md` / `CLAUDE.md`), (2) its binding rules / decisions file if it has one, (3) this repo's
-state file (the one the agent guide names; here `STATE.md`: status, progress, next steps, PR and
-branch state, and TODOs; task handoffs are separate files at `handoffs/<task-slug>.md`, never inside the state file or OPEN-ITEMS), (4) the project's folder in the Claude Code shared memory store
-`<Projects>\_claude\Claude Projects\Working Memory\memory\<project>\INDEX.md` (preferences, rules
-and cross-project facts only; WSL: that same folder under the Windows Projects root). If a rule or
+(`AGENTS.md` / `CLAUDE.md`), (2) its binding rules / decisions file if it has one, (3) live state,
+by the tier rule: the project's folder in the shared memory store,
+`<Projects>\_claude\Claude Projects\Working Memory\memory\<project>\` (WSL: that same folder under the
+Windows Projects root), holds `STATE.md`, this branch's `STATE-<slug>.md`, `BACKLOG.md` and `archives\`;
+until this repo's state moves there, its root `STATE.md` is the root STATE. Decisions go to DECISIONS,
+via `state-closeout` (its `handoff` mode replaces handoff files). (4) That folder's `INDEX.md`
+(preferences, rules and cross-project facts only). If a rule or
 note already answers a question, act on it and cite it - never ask the maintainer something the
 rules already answer. Claude desktop online Memory is a separate account-level list and is not this
 store (work-account behavior unverified).
 
 Read `agents/projects-AGENTS.md` (shared rules) and `CONTRIBUTING.md` first; follow the hooks in
-`.githooks/`. Current status and open items live only in `STATE.md` (the one state file); every
+`.githooks/`. Current status and open items live only in the root STATE named above; every
 script and hook is listed in `automation.yml`. Before driving Autodesk Fusion, follow the Fusion lock rule in `agents/projects-AGENTS.md` section 5. Before driving the harness.design desktop app, follow section 5b: acquire before use, check in at least every 10 min, and release when done. This repo is public but still generic: no machine-specific, project-specific or
 personal content, no secrets, no CAD code or models.
 
