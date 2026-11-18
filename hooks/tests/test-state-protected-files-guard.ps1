@@ -9,7 +9,7 @@ $project = Join-Path $store 'guard-repo'
 Write-TestFile (Join-Path $project 'STATE.md') (Get-GoodState 'main' 'GOAL' 0)
 Write-TestFile (Join-Path $repo 'SPEC.md') "# Spec`n"
 Write-TestFile (Join-Path $repo 'docs\out.txt') "verified`n"
-Write-TestFile (Join-Path $repo 'VERIFIED.lock') '{"docs/out.txt": "0000000000000000000000000000000000000000000000000000000000000000"}'
+Write-TestFile (Join-Path $repo 'VERIFIED.lock') '{"docs/out.txt": "0000000000000000000000000000000000000000000000000000000000000000", "_history": [{"date": "2026-01-01T00:00:00Z", "action": "lock", "path": "docs/out.txt"}]}'
 Write-TestFile (Join-Path $repo '.claude\protected-paths.txt') "# owner-approved edits only`ndocs/harness/MASTER-wirelist.csv`nsot/**`n"
 [void](Invoke-Git $repo checkout -q -b feat/x)
 $claude = @{ WORKSTATION_MEMORY_STORE = $store }
@@ -35,12 +35,14 @@ Check 'docs/SPEC-api.md asks' (Test-Asks (Edit-File (Join-Path $repo 'docs\SPEC-
 Check 'VERIFIED.lock file asks' (Test-Asks (Edit-File (Join-Path $repo 'docs\out.txt') $claude))
 Check 'protected-paths exact entry asks' (Test-Asks (Edit-File (Join-Path $repo 'docs\harness\MASTER-wirelist.csv') $claude))
 Check 'protected-paths sot/** asks (nested)' (Test-Asks (Edit-File (Join-Path $repo 'sot\a\channels.csv') $claude 'Write'))
+Check 'VERIFIED.lock _history key is not a locked path' (Test-Silent (Edit-File (Join-Path $repo '_history') $claude 'Write'))
 Check 'ordinary file is silent (normal permission flow)' (Test-Silent (Edit-File (Join-Path $repo 'docs\notes.md') $claude))
 Check 'SPECIAL.md is not a SPEC file' (Test-Silent (Edit-File (Join-Path $repo 'SPECIAL.md') $claude 'Write'))
 Check 'file outside any repo is silent' (Test-Silent (Edit-File (Join-Path $t 'loose.md') $claude 'Write'))
 
-Check 'deliverable_lock unlock command asks' (Test-Asks (Run-Shell 'python scripts/state/deliverable_lock.py unlock docs/out.txt --confirm 00000000' $claude))
-Check 'deliverable_lock --repo . unlock asks' (Test-Asks (Run-Shell 'py -3 deliverable_lock.py --repo . unlock x --confirm 1' $claude))
+Check 'deliverable_lock unlock command asks' (Test-Asks (Run-Shell 'python scripts/state/deliverable_lock.py unlock docs/out.txt --owner-phrase "yes unlock it"' $claude))
+Check 'deliverable_lock --repo . unlock asks' (Test-Asks (Run-Shell 'py -3 deliverable_lock.py --repo . unlock x --owner-phrase ok' $claude))
+Check 'deliverable_lock unlock without a phrase still asks' (Test-Asks (Run-Shell 'python deliverable_lock.py unlock docs/out.txt' $claude))
 Check 'deliverable_lock verify is silent' (Test-Silent (Run-Shell 'python scripts/state/deliverable_lock.py verify' $claude))
 Check 'other shell command is silent' (Test-Silent (Run-Shell 'git status' $claude))
 

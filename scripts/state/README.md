@@ -5,7 +5,7 @@ Shared tools for live state in the memory store. Python 3, standard library only
 - `state_paths.py`: resolves the store root, the project folder (a worktree uses its main repo's folder) and the branch's STATE file.
 - `state_lint.py`: checks STATE files against schema v1 (30 lines, headers, only `[NEXT]`, the `(carried N)` rule); exit 2 on a violation, 0 with a note when the store is unreachable.
 - `state_manager.py`: `init`, `verify`, `new-branch` and `archive-branch` for STATE.md, STATE-<slug>.md, BACKLOG.md and archives/.
-- `deliverable_lock.py`: `lock`, `verify` and `unlock --confirm <token>` for `VERIFIED.lock` (path to sha256) at the repo root.
+- `deliverable_lock.py`: `lock`, `verify` and `unlock <path> --owner-phrase "<owner's words>"` for `VERIFIED.lock` (path to sha256, plus a dated `_history`) at the repo root. No token is printed or stored; the PreToolUse guard asks the owner before any unlock.
 - `rules_sync.py`: writes `.cursor/rules/<name>.mdc` from `.claude/rules/<name>.md`; `--check` fails on drift.
 - `move_integrity.py`: reports lines lost in a document move (exit 2), accepting proposal tags and `[DONE]` lines found in git history.
 

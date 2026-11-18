@@ -14,8 +14,16 @@ class DeliverableLockTests(TempDirCase):
     def lock_tool(self, *args):
         return run_tool("deliverable_lock.py", "--repo", self.repo, *args, cwd=self.repo)
 
-    def locked(self):
+    def lock_file(self):
         return json.loads((self.repo / "VERIFIED.lock").read_text(encoding="utf-8"))
+
+    def locked(self):
+        data = self.lock_file()
+        data.pop("_history", None)
+        return data
+
+    def history(self):
+        return self.lock_file().get("_history", [])
 
     def test_lock_records_relative_path_and_sha256(self):
         self.assertEqual(self.lock_tool("lock", "out/drawing.txt").returncode, 0)
@@ -44,23 +52,57 @@ class DeliverableLockTests(TempDirCase):
         (self.repo / "VERIFIED.lock").write_text(json.dumps({"out/drawing.txt": "0" * 64}), encoding="utf-8")
         self.assertEqual(self.lock_tool("verify").returncode, 2)
 
-    def test_unlock_without_token_is_refused(self):
+    def test_lock_and_verify_never_print_the_hash(self):
+        lock_result = self.lock_tool("lock", "out/drawing.txt")
+        recorded = self.locked()["out/drawing.txt"]
+        self.drawing.write_text("rev B\n", encoding="utf-8")
+        verify_result = self.lock_tool("verify")
+        for result in (lock_result, verify_result):
+            self.assertNotIn(recorded[:8], result.stdout + result.stderr)
+
+    def test_unlock_without_owner_phrase_is_refused(self):
         self.lock_tool("lock", "out/drawing.txt")
         result = self.lock_tool("unlock", "out/drawing.txt")
         self.assertEqual(result.returncode, 2)
         self.assertIn("REFUSED", result.stderr)
         self.assertIn("out/drawing.txt", self.locked())
 
-    def test_unlock_with_wrong_token_is_refused(self):
+    def test_unlock_with_blank_owner_phrase_is_refused(self):
         self.lock_tool("lock", "out/drawing.txt")
-        self.assertEqual(self.lock_tool("unlock", "out/drawing.txt", "--confirm", "deadbeef").returncode, 2)
+        self.assertEqual(self.lock_tool("unlock", "out/drawing.txt", "--owner-phrase", "   ").returncode, 2)
         self.assertIn("out/drawing.txt", self.locked())
 
-    def test_unlock_with_owner_token_removes_entry(self):
+    def test_old_confirm_token_flag_is_rejected(self):
         self.lock_tool("lock", "out/drawing.txt")
-        token = deliverable_lock.token_for(self.locked()["out/drawing.txt"])
-        self.assertEqual(self.lock_tool("unlock", "out/drawing.txt", "--confirm", token).returncode, 0)
+        token = self.locked()["out/drawing.txt"][:8]
+        self.assertNotEqual(self.lock_tool("unlock", "out/drawing.txt", "--confirm", token).returncode, 0)
+        self.assertIn("out/drawing.txt", self.locked())
+
+    def test_unlock_with_owner_phrase_removes_entry_and_logs_it(self):
+        self.lock_tool("lock", "out/drawing.txt")
+        phrase = "yes, unlock the drawing for rev B"
+        self.assertEqual(self.lock_tool("unlock", "out/drawing.txt", "--owner-phrase", phrase).returncode, 0)
         self.assertEqual(self.locked(), {})
+        unlocks = [entry for entry in self.history() if entry["action"] == "unlock"]
+        self.assertEqual(len(unlocks), 1)
+        self.assertEqual(unlocks[0]["path"], "out/drawing.txt")
+        self.assertEqual(unlocks[0]["owner_phrase"], phrase)
+        self.assertRegex(unlocks[0]["date"], r"^\d{4}-\d{2}-\d{2}T")
+
+    def test_history_survives_relock_and_verify(self):
+        self.lock_tool("lock", "out/drawing.txt")
+        self.lock_tool("unlock", "out/drawing.txt", "--owner-phrase", "ok")
+        self.lock_tool("lock", "out/drawing.txt")
+        self.assertEqual(self.lock_tool("verify").returncode, 0)
+        self.assertGreater(len(self.history()), 2)
+
+    def test_history_key_is_not_lockable(self):
+        commit_file(self.repo, "_history", "x\n")
+        self.assertEqual(self.lock_tool("lock", "_history").returncode, 1)
+
+    def test_malformed_history_fails_safe(self):
+        (self.repo / "VERIFIED.lock").write_text(json.dumps({"_history": "nope"}), encoding="utf-8")
+        self.assertEqual(self.lock_tool("verify").returncode, 2)
 
     def test_path_outside_repo_is_rejected(self):
         outside = self.tmp / "outside.txt"

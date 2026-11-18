@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Lock verified deliverables by hash. Stdlib only.
 
-The lock file is VERIFIED.lock at the repo root: JSON, repo-relative path -> sha256.
-Usage: deliverable_lock.py [--repo DIR] lock PATH... | verify | unlock PATH --confirm TOKEN
-  lock    record the current sha256 of each file; prints the unlock token for each
+The lock file is VERIFIED.lock at the repo root: JSON, repo-relative path -> sha256, plus one
+reserved key "_history" (a list of lock / unlock events with their UTC date).
+Usage: deliverable_lock.py [--repo DIR] lock PATH... | verify | unlock PATH --owner-phrase TEXT
+  lock    record the current sha256 of each file
   verify  every locked file must still exist with its recorded hash
-  unlock  remove one entry; TOKEN is the first 8 hex digits of the recorded hash, and an agent
-          may pass it only after the owner gives it in their own words
+  unlock  remove one entry; TEXT is the owner's own words, typed by the owner in the chat, and is
+          logged in _history. The tool prints and stores no token: the real gate is the
+          PreToolUse guard, which routes every unlock command to "ask".
 Exit: 0 = OK, 2 = tampered / missing / refused, 1 = usage error (path outside the repo, no file).
 """
 import argparse
+import datetime
 import hashlib
 import json
 import sys
@@ -20,7 +23,7 @@ sys.path.insert(0, str(HERE))
 import state_paths  # noqa: E402
 
 LOCK_NAME = "VERIFIED.lock"
-TOKEN_LENGTH = 8
+HISTORY_KEY = "_history"
 
 
 def repo_root(repo):
@@ -36,23 +39,32 @@ def sha256_of(path):
     return digest.hexdigest()
 
 
-def token_for(sha):
-    return sha[:TOKEN_LENGTH]
-
-
 def load_lock(root):
     path = root / LOCK_NAME
     if not path.is_file():
-        return None
+        return None, []
     data = json.loads(path.read_text(encoding="utf-8-sig"))
-    if not isinstance(data, dict) or not all(isinstance(v, str) for v in data.values()):
+    if not isinstance(data, dict):
         raise ValueError("%s must be a JSON object of path -> sha256" % path)
-    return data
+    history = data.pop(HISTORY_KEY, [])
+    if not isinstance(history, list) or not all(isinstance(v, str) for v in data.values()):
+        raise ValueError("%s must be a JSON object of path -> sha256" % path)
+    return data, history
 
 
-def save_lock(root, data):
+def save_lock(root, data, history):
+    out = dict(sorted(data.items()))
+    if history:
+        out[HISTORY_KEY] = history
     with open(root / LOCK_NAME, "w", encoding="utf-8", newline="\n") as handle:
-        handle.write(json.dumps(dict(sorted(data.items())), indent=2) + "\n")
+        handle.write(json.dumps(out, indent=2) + "\n")
+
+
+def history_entry(action, key, **extra):
+    when = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    entry = {"date": when, "action": action, "path": key}
+    entry.update(extra)
+    return entry
 
 
 def relative_key(root, raw):
@@ -65,23 +77,25 @@ def relative_key(root, raw):
 
 
 def cmd_lock(root, args):
-    data = load_lock(root) or {}
+    data, history = load_lock(root)
+    data = data or {}
     for raw in args.paths:
         key, path = relative_key(root, raw)
         if key is None:
             print("deliverable_lock: %s is outside the repo %s" % (raw, root), file=sys.stderr)
             return 1
-        if key == LOCK_NAME or not path.is_file():
+        if key == LOCK_NAME or key == HISTORY_KEY or not path.is_file():
             print("deliverable_lock: not a lockable file: %s" % raw, file=sys.stderr)
             return 1
         data[key] = sha256_of(path)
-        print("locked %s sha256=%s unlock-token=%s" % (key, data[key], token_for(data[key])))
-    save_lock(root, data)
+        history.append(history_entry("lock", key))
+        print("locked %s" % key)
+    save_lock(root, data, history)
     return 0
 
 
 def cmd_verify(root, args):
-    data = load_lock(root)
+    data, _ = load_lock(root)
     if data is None:
         print("deliverable_lock: no %s; nothing to verify" % LOCK_NAME)
         return 0
@@ -92,7 +106,7 @@ def cmd_verify(root, args):
             print("MISSING %s" % key)
             bad += 1
         elif sha256_of(path) != recorded:
-            print("CHANGED %s (locked sha256 %s)" % (key, recorded))
+            print("CHANGED %s" % key)
             bad += 1
     if bad:
         print("deliverable_lock: %d of %d locked file(s) changed or missing" % (bad, len(data)))
@@ -102,19 +116,20 @@ def cmd_verify(root, args):
 
 
 def cmd_unlock(root, args):
-    data = load_lock(root) or {}
+    data, history = load_lock(root)
+    data = data or {}
     key, _ = relative_key(root, args.path)
     if key not in data:
         print("deliverable_lock: %s is not locked" % args.path, file=sys.stderr)
         return 1
-    if not args.confirm:
-        print("deliverable_lock: REFUSED: unlock needs --confirm <token> from the owner", file=sys.stderr)
-        return 2
-    if args.confirm != token_for(data[key]):
-        print("deliverable_lock: REFUSED: wrong confirm token for %s" % key, file=sys.stderr)
+    phrase = (args.owner_phrase or "").strip()
+    if not phrase:
+        print("deliverable_lock: REFUSED: unlock needs --owner-phrase with the owner's own words",
+              file=sys.stderr)
         return 2
     del data[key]
-    save_lock(root, data)
+    history.append(history_entry("unlock", key, owner_phrase=phrase))
+    save_lock(root, data, history)
     print("unlocked %s" % key)
     return 0
 
@@ -129,7 +144,7 @@ def main(argv=None):
     sub.add_parser("verify")
     unlock = sub.add_parser("unlock")
     unlock.add_argument("path")
-    unlock.add_argument("--confirm")
+    unlock.add_argument("--owner-phrase", dest="owner_phrase")
     args = parser.parse_args(argv)
     root = repo_root(args.repo)
     handlers = {"lock": cmd_lock, "verify": cmd_verify, "unlock": cmd_unlock}

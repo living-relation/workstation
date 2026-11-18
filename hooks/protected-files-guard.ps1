@@ -5,7 +5,7 @@
 #   - a path matched by a line of the repo's optional .claude/protected-paths.txt
 #     (repo-relative globs: * and ? stay in one folder, ** crosses folders, a trailing / means the folder;
 #      # starts a comment).
-# Ask before a shell command that runs deliverable_lock.py unlock (only the owner gives that token).
+# Ask before a shell command that runs deliverable_lock.py unlock (this ask is the owner's real gate).
 # Deny a write to another branch's STATE-<slug>.md in the memory store (only STATE-<own slug>.md is this
 #   session's; the root STATE.md and archives\ are not judged here).
 # Allow everything else. Claude Code: allow prints nothing. Cursor: every run prints exactly one
@@ -98,6 +98,7 @@ function Find-ProtectedReason {
     try {
       $data = [IO.File]::ReadAllText($lock) | ConvertFrom-Json
       foreach ($prop in $data.PSObject.Properties) {
+        if ($prop.Name -eq '_history') { continue }
         if ((ConvertTo-GuardKey $prop.Name) -eq $Key) { return "$Key is locked in VERIFIED.lock (verified deliverable)" }
       }
     } catch { }

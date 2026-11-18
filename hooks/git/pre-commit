@@ -27,7 +27,7 @@ if state_ready; then
     lock_out=$(run_py "$STATE_TOOLS/deliverable_lock.py" --repo "$ROOT" verify 2>&1)
     if [ $? -ne 0 ]; then
       printf '%s\n' "$lock_out" >&2
-      echo "pre-commit: a verified (locked) file changed. Restore it, or get the owner's unlock token." >&2
+      echo "pre-commit: a verified (locked) file changed. Restore it, or unlock it on the owner's own words (deliverable-lock skill)." >&2
       status=1
     fi
   fi
