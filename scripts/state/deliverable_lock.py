@@ -9,6 +9,8 @@ Usage: deliverable_lock.py [--repo DIR] lock PATH... | verify | unlock PATH --ow
   unlock  remove one entry; TEXT is the owner's own words, typed by the owner in the chat, and is
           logged in _history. The tool prints and stores no token: the real gate is the
           PreToolUse guard, which routes every unlock command to "ask".
+Hashing: a text file (no NUL byte in its first 8 KiB) is hashed with CRLF normalised to LF, so
+a core.autocrlf checkout does not break a lock; a binary file is hashed raw.
 Exit: 0 = OK, 2 = tampered / missing / refused, 1 = usage error (path outside the repo, no file).
 """
 import argparse
@@ -24,6 +26,7 @@ import state_paths  # noqa: E402
 
 LOCK_NAME = "VERIFIED.lock"
 HISTORY_KEY = "_history"
+BINARY_SNIFF_BYTES = 8192
 
 
 def repo_root(repo):
@@ -32,11 +35,10 @@ def repo_root(repo):
 
 
 def sha256_of(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for block in iter(lambda: handle.read(1 << 16), b""):
-            digest.update(block)
-    return digest.hexdigest()
+    data = Path(path).read_bytes()
+    if b"\0" not in data[:BINARY_SNIFF_BYTES]:
+        data = data.replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def load_lock(root):

@@ -42,6 +42,31 @@ class DeliverableLockTests(TempDirCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("CHANGED out/drawing.txt", result.stdout)
 
+    def test_crlf_checkout_of_text_file_still_verifies(self):
+        self.drawing.write_bytes(b"rev A\nline 2\n")
+        self.lock_tool("lock", "out/drawing.txt")
+        self.drawing.write_bytes(b"rev A\r\nline 2\r\n")
+        self.assertEqual(self.lock_tool("verify").returncode, 0)
+
+    def test_crlf_text_locked_then_lf_checkout_verifies(self):
+        self.drawing.write_bytes(b"rev A\r\n")
+        self.lock_tool("lock", "out/drawing.txt")
+        self.drawing.write_bytes(b"rev A\n")
+        self.assertEqual(self.lock_tool("verify").returncode, 0)
+
+    def test_text_content_change_still_fails_after_normalising(self):
+        self.drawing.write_bytes(b"rev A\r\n")
+        self.lock_tool("lock", "out/drawing.txt")
+        self.drawing.write_bytes(b"rev B\n")
+        self.assertEqual(self.lock_tool("verify").returncode, 2)
+
+    def test_binary_file_is_hashed_raw(self):
+        binary = commit_file(self.repo, "out/model.bin", "x")
+        binary.write_bytes(b"\x00\x01\r\n\x02")
+        self.lock_tool("lock", "out/model.bin")
+        binary.write_bytes(b"\x00\x01\n\x02")
+        self.assertEqual(self.lock_tool("verify").returncode, 2)
+
     def test_deleted_locked_file_fails_verify(self):
         self.lock_tool("lock", "out/drawing.txt")
         self.drawing.unlink()
