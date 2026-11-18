@@ -46,5 +46,16 @@ Check 'repo with no project folder: silent exit 0' ($r.Out.Trim() -eq '' -and $r
 $r = Invoke-StateHook $hook $null $envOk
 Check 'empty stdin: exit 0' ($r.Code -eq 0)
 
+[void](Invoke-Git $repo checkout -q feat/x)
+$cursorEnv = @{ WORKSTATION_MEMORY_STORE = $store; CURSOR_VERSION = '1.7.0' }
+$r = Invoke-StateHook $hook @{ hook_event_name = 'sessionStart'; session_id = 's1'; workspace_roots = @($repo) } $cursorEnv
+$lines = @(Get-OutLines $r.Out)
+$parsed = $null
+try { $parsed = $lines[0] | ConvertFrom-Json } catch { $parsed = $null }
+Check 'cursor: exactly one JSON line' ($r.Code -eq 0 -and $lines.Count -eq 1 -and $parsed)
+Check 'cursor: additional_context carries the branch STATE' ($parsed -and "$($parsed.additional_context)" -match 'BRANCH-GOAL' -and "$($parsed.additional_context)" -match 'confirm in 3 lines')
+$r = Invoke-StateHook $hook @{ hook_event_name = 'sessionStart'; workspace_roots = @($repo) } @{ WORKSTATION_MEMORY_STORE = (Join-Path $t 'no-such-store'); CURSOR_VERSION = '1.7.0' }
+Check 'cursor: store unreachable stays silent' ($r.Out.Trim() -eq '' -and $r.Code -eq 0)
+
 Remove-TestRoot $t
 Complete-StateTest

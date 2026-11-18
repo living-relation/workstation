@@ -211,7 +211,7 @@ automations:
   - id: state-hooks
     script: [hooks/state-inject.ps1, hooks/state-lint-stop.ps1, hooks/protected-files-guard.ps1]
     helpers: [hooks/state-common.ps1, hooks/hooks.json, hooks/cursor-hooks.json, hooks/tests/state-test-support.ps1, hooks/tests/test-state-inject.ps1, hooks/tests/test-state-lint-stop.ps1, hooks/tests/test-state-protected-files-guard.ps1]
-    trigger: agent-hook:SessionStart+Stop+PreToolUse (Claude hooks/hooks.json; Cursor hooks/cursor-hooks.json preToolUse+stop)
+    trigger: agent-hook:SessionStart+Stop+PreToolUse (Claude hooks/hooks.json; Cursor hooks/cursor-hooks.json sessionStart+preToolUse+stop)
     reads: [hook payload on stdin, WORKSTATION_MEMORY_STORE, WORKSTATION_STATE_TOOLS, STATE.md and STATE-*.md in the memory store project folder (outside the repo), SPEC files, VERIFIED.lock and .claude/protected-paths.txt of the repo being edited; calls scripts/state state_paths and state_lint]
     writes: []
     committed: no

@@ -4,6 +4,7 @@
 # confirm goal, Last_Verified_SHA and next step in 3 lines.
 # Silent exit 0 when: not a git repo, no state tools or Python, store unreachable, no project folder
 # (repo not migrated yet), or no STATE file. Never writes anything. Exit 0 on every error.
+# Claude Code (SessionStart): plain text on stdout. Cursor (sessionStart): one {"additional_context": ...} line.
 . (Join-Path $PSScriptRoot 'state-common.ps1')
 
 function Format-StateInjection {
@@ -41,7 +42,12 @@ if ($MyInvocation.InvocationName -ne '.') {
     }
     $text = [IO.File]::ReadAllText($target)
     if ([string]::IsNullOrWhiteSpace($text)) { exit 0 }
-    [Console]::Out.WriteLine((Format-StateInjection -Path $target -Text $text -Note $note))
+    $injection = Format-StateInjection -Path $target -Text $text -Note $note
+    if (Test-CursorHook $hookIn) {
+      [Console]::Out.WriteLine((@{ additional_context = $injection } | ConvertTo-Json -Compress))
+    } else {
+      [Console]::Out.WriteLine($injection)
+    }
     exit 0
   } catch {
     exit 0
