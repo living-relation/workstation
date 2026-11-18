@@ -12,6 +12,7 @@ mcp.json
 *.log
 logs/
 state/
+!scripts/state/
 *.zip
 !skills/*.zip
 *.7z
