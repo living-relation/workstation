@@ -126,7 +126,8 @@ edit them or Claude's files.
 Memory split (personal account, verified 2026-11-03, Store app 4.4212.0.0, Unified Claude; **work account unverified**):
 - The Claude Code file store `<Projects>\_claude\Claude Projects\Working Memory\memory\` is the record for
   preferences, rules and cross-project facts. Claude Code reaches it through the `autoMemoryDirectory` junction.
-  The guard hook keeps that junction. Project progress stays in each repo's state file.
+  The guard hook keeps that junction. By the tier rule, the same store's project folders also hold live state
+  (`STATE.md`, `STATE-<slug>.md`, `BACKLOG.md`, `archives\`); decisions stay in each repo's DECISIONS.
 - Claude desktop online Memory (Settings > Your Claude > Memory) is account-level facts about the user.
   It is not synced with the file store. Cowork / Chat do not write local memory files.
 - A leftover `~\.claude\working-memory` junction is harmless. install.ps1 does not create, check or remove it.

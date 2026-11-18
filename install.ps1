@@ -740,7 +740,8 @@ if ($settingsOk) {
     Add-ManifestJson @{ kind = 'guard-hook'; target = 'claude'; command = $GuardCommand }
   }
 
-  # PreToolUse: same script warns (never blocks) when a Write/Edit to the store looks like project progress.
+  # PreToolUse: same script warns (never blocks) when a Write/Edit puts project progress in a store note (INDEX.md);
+  # STATE, STATE-<slug> and BACKLOG are the store's live-state files (tier rule).
   if (-not $DeferHook) {
     if (-not $settings.PSObject.Properties['hooks'] -or -not $settings.hooks) {
       if ($settings.PSObject.Properties['hooks']) { $settings.hooks = New-Object psobject } else { $settings | Add-Member -NotePropertyName hooks -NotePropertyValue (New-Object psobject) }
