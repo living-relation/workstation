@@ -92,6 +92,24 @@ class IntegrityCliTests(TempDirCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("not found in git history", result.stdout)
 
+    def test_tagged_before_line_is_searched_without_its_tag(self):
+        repo = make_repo(self.tmp, "Tagged_History")
+        commit_file(repo, "docs/OPEN.md", OLD_DOC)
+        git(repo, "rm", "-q", "docs/OPEN.md")
+        git(repo, "commit", "-q", "-m", "drop")
+        tagged = OLD_DOC.replace("- History: the old", "- [DONE] History: the old")
+        (self.before / "OPEN.md").write_text(tagged, encoding="utf-8")
+        self.write_after([l for l in self.all_lines() if "old bracket" not in l])
+        result = run_tool("move_integrity.py", "--before", self.before, "--after", self.after,
+                          "--git-history", repo)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("1 [DONE]", result.stdout)
+
+    def test_history_needle_strips_marker_and_leading_tag_only(self):
+        self.assertEqual(move_integrity.history_needle("  - [DONE] Ship the [NEXT] part"), "Ship the [NEXT] part")
+        self.assertEqual(move_integrity.history_needle("[DONE][BKLG] x y"), "x y")
+        self.assertEqual(move_integrity.history_needle("- plain line"), "- plain line")
+
     def test_backup_manifest_is_skipped(self):
         (self.before / "MANIFEST.sha256").write_text("abc123  OPEN.md\n", encoding="utf-8")
         self.write_after(self.all_lines())

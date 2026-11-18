@@ -57,9 +57,18 @@ def _expand(raw, home):
     return Path(text)
 
 
+def _is_link_candidate(link):
+    if link.is_symlink():
+        return True
+    isjunction = getattr(os.path, "isjunction", None)
+    if isjunction is not None:
+        return isjunction(link)
+    return link.is_dir()
+
+
 def _link_target(link):
     try:
-        if not (link.is_symlink() or getattr(os.path, "isjunction", lambda _p: False)(link)):
+        if not _is_link_candidate(link):
             return None
         target = os.readlink(link)
         if target.startswith("\\\\?\\"):
@@ -68,7 +77,7 @@ def _link_target(link):
         if not target_path.is_absolute():
             target_path = link.parent / target_path
         return target_path
-    except OSError:
+    except (OSError, ValueError):
         return None
 
 

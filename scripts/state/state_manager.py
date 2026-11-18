@@ -115,13 +115,21 @@ def _repo_label(args):
     return root.name if root else "unknown"
 
 
+def trunk_name(repo):
+    default = state_paths._git(repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")
+    if default and default.startswith("origin/") and len(default) > len("origin/"):
+        return default[len("origin/"):]
+    return state_paths.current_branch(repo) or "main"
+
+
 def cmd_init(store, project, branch, args):
     if not state_paths.store_reachable(store):
         print("state_manager: store unreachable: %s" % store, file=sys.stderr)
         return 1
     folder = state_paths.project_dir(store, project)
     (folder / state_paths.ARCHIVES).mkdir(parents=True, exist_ok=True)
-    _write_new(folder / state_paths.ROOT_STATE, render(_repo_label(args), "main", pointer=GENERATED_POINTER))
+    _write_new(folder / state_paths.ROOT_STATE,
+               render(_repo_label(args), trunk_name(args.repo), pointer=GENERATED_POINTER))
     _write_new(folder / state_paths.BACKLOG, BACKLOG_HEADER)
     return 0
 

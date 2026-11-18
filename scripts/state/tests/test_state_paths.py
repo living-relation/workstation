@@ -1,7 +1,9 @@
 import json
 import os
+import subprocess
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from state_test_support import TempDirCase, git, make_repo, commit_file, run_tool
 
@@ -21,6 +23,48 @@ class SlugTests(unittest.TestCase):
 
     def test_branch_uses_slug_state(self):
         self.assertEqual(state_paths.branch_state_name("team/w1-x"), "STATE-team-w1-x.md")
+
+
+class LinkTargetFallbackTests(TempDirCase):
+    def without_isjunction(self):
+        return mock.patch.object(os.path, "isjunction", None, create=True)
+
+    def test_plain_folder_is_not_a_link_without_isjunction(self):
+        folder = self.tmp / "plain"
+        folder.mkdir()
+        with self.without_isjunction():
+            self.assertIsNone(state_paths._link_target(folder))
+
+    def test_plain_file_and_missing_path_are_not_links(self):
+        target = self.tmp / "file.txt"
+        target.write_text("x", encoding="utf-8")
+        with self.without_isjunction():
+            self.assertIsNone(state_paths._link_target(target))
+            self.assertIsNone(state_paths._link_target(self.tmp / "missing"))
+
+    @unittest.skipUnless(os.name == "nt", "directory junctions are Windows only")
+    def test_junction_resolves_without_isjunction(self):
+        real = self.tmp / "real-store"
+        real.mkdir()
+        link = self.tmp / "junction"
+        done = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(real)], capture_output=True)
+        if done.returncode != 0:
+            self.skipTest("mklink /J failed")
+        with self.without_isjunction():
+            target = state_paths._link_target(link)
+        self.assertIsNotNone(target)
+        self.assertEqual(Path(os.path.normcase(str(target))).resolve(), Path(os.path.normcase(str(real))).resolve())
+
+    def test_symlink_resolves_without_isjunction(self):
+        real = self.tmp / "real"
+        real.mkdir()
+        link = self.tmp / "sym"
+        try:
+            os.symlink(str(real), str(link), target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks not permitted here")
+        with self.without_isjunction():
+            self.assertEqual(Path(state_paths._link_target(link)).resolve(), real.resolve())
 
 
 class StoreResolutionTests(TempDirCase):

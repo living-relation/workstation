@@ -26,6 +26,7 @@ TAGS = ("[DONE]", "[NEXT]", "[TASK]", "[ADR]", "[RULE]", "[SOT]", "[BKLG]")
 DONE = "[DONE]"
 LIST_MARKER = re.compile(r"^(?:[-*+>]\s+|\d+[.)]\s+|\[[ xX]\]\s+)+")
 MIN_CONTAINED = 12
+LEADING_TAG = re.compile(r"^(?:[-*+>]\s+|\d+[.)]\s+|\[[ xX]\]\s+)*(?:\[(?:DONE|NEXT|TASK|ADR|RULE|SOT|BKLG)\]\s*)+")
 
 
 def normalize(line):
@@ -91,8 +92,14 @@ def proposal_tags(norm, entries):
     return set()
 
 
+def history_needle(raw):
+    return LEADING_TAG.sub("", raw.strip(), count=1).strip()
+
+
 def in_git_history(repo, raw):
-    needle = raw.strip()
+    needle = history_needle(raw)
+    if not has_content(needle):
+        return False
     try:
         result = subprocess.run(["git", "-C", str(repo), "log", "--all", "-F", "-S", needle, "--format=%H", "-1"],
                                 capture_output=True, text=True, encoding="utf-8", errors="replace")

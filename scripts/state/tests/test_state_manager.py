@@ -48,6 +48,19 @@ class StateManagerTests(TempDirCase):
         self.assertEqual(self.root_bytes(), before)
         self.assertEqual(self.run_manager("verify").returncode, 0)
 
+    def test_init_uses_origin_head_default_branch(self):
+        git(self.repo, "update-ref", "refs/remotes/origin/prod", "HEAD")
+        git(self.repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/prod")
+        self.run_manager("init")
+        root = (self.folder / "STATE.md").read_text(encoding="utf-8")
+        self.assertIn("Branch: prod\n", root)
+        self.assertNotIn("Branch: main\n", root)
+
+    def test_init_without_origin_uses_current_branch(self):
+        git(self.repo, "checkout", "-q", "-b", "develop")
+        self.run_manager("init")
+        self.assertIn("Branch: develop\n", (self.folder / "STATE.md").read_text(encoding="utf-8"))
+
     def test_init_root_pointer_is_generated(self):
         self.run_manager("init")
         root = (self.folder / "STATE.md").read_text(encoding="utf-8")
