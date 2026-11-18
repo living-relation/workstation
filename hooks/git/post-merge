@@ -1,0 +1,55 @@
+#!/bin/sh
+# State pack post-merge. After `git merge <branch>`, archives that branch's STATE-<slug>.md to
+# archives/STATE-<slug>-<YYYYMMDD>.md and drops it from the root STATE.md Branch_States pointer
+# (state_manager.py archive-branch). Then removes the merged branch's untracked TASK.md: in that
+# branch's worktree, and at this checkout's root when this checkout is on a trunk branch.
+# A pull (no branch named in the reflog), a trunk branch, or an unreachable store does nothing.
+# Never blocks. Then runs the repo's own post-merge.
+HOOK_DIR=$(cd "$(dirname "$0")" && pwd)
+. "$HOOK_DIR/state-hook-lib.sh"
+
+merged_branch() {
+  subject=$(git reflog -1 --format=%gs 2>/dev/null)
+  case "$subject" in
+    "merge "*) ;;
+    *) return 1 ;;
+  esac
+  name=${subject#merge }
+  name=${name%%:*}
+  for remote in $(git remote 2>/dev/null); do
+    case "$name" in
+      "$remote"/*) name=${name#"$remote"/} ;;
+    esac
+  done
+  [ -n "$name" ] && printf '%s\n' "$name"
+}
+
+remove_task_file() {
+  dir=$1
+  [ -f "$dir/TASK.md" ] || return 0
+  if git -C "$dir" ls-files --error-unmatch TASK.md >/dev/null 2>&1; then
+    return 0
+  fi
+  rm -f "$dir/TASK.md" && echo "post-merge: removed $dir/TASK.md"
+}
+
+branch_worktree() {
+  git worktree list --porcelain 2>/dev/null | awk -v want="branch refs/heads/$1" '
+    /^worktree / { path = substr($0, 10) }
+    $0 == want { print path; exit }'
+}
+
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+branch=$(merged_branch)
+if [ -n "$ROOT" ] && [ -n "$branch" ]; then
+  if state_ready; then
+    run_py "$STATE_TOOLS/state_manager.py" archive-branch --repo "$ROOT" --branch "$branch" 2>/dev/null
+  fi
+  worktree=$(branch_worktree "$branch")
+  [ -n "$worktree" ] && remove_task_file "$worktree"
+  case "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" in
+    main | master | trunk) remove_task_file "$ROOT" ;;
+  esac
+fi
+chain_hook post-merge "$@"
+exit 0

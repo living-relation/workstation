@@ -1,0 +1,36 @@
+#!/bin/sh
+# State pack pre-commit. Blocks the commit when:
+#   - this branch's STATE file in the memory store breaks STATE schema v1 (state_lint.py);
+#     git config workstation.stateLint warn only prints the problems; the default is block;
+#   - VERIFIED.lock exists and a locked file changed or is missing (deliverable_lock.py verify).
+# Store unreachable, repo not migrated, or no tools / Python: those checks are skipped.
+# Then runs the repo's own pre-commit (workstation.chainHooksPath). Never bypass with --no-verify.
+HOOK_DIR=$(cd "$(dirname "$0")" && pwd)
+. "$HOOK_DIR/state-hook-lib.sh"
+ROOT=$(git rev-parse --show-toplevel) || exit 1
+status=0
+if state_ready; then
+  state_file=$(session_state_file "$ROOT")
+  if [ -n "$state_file" ] && [ -f "$state_file" ]; then
+    lint_out=$(run_py "$STATE_TOOLS/state_lint.py" "$state_file" 2>&1)
+    if [ $? -eq 2 ]; then
+      printf '%s\n' "$lint_out" >&2
+      if [ "$(git config --get workstation.stateLint 2>/dev/null)" = "warn" ]; then
+        echo "pre-commit: STATE file breaks schema v1 (warn mode; commit allowed)." >&2
+      else
+        echo "pre-commit: fix $state_file (STATE schema v1) before committing." >&2
+        status=1
+      fi
+    fi
+  fi
+  if [ -f "$ROOT/VERIFIED.lock" ]; then
+    lock_out=$(run_py "$STATE_TOOLS/deliverable_lock.py" --repo "$ROOT" verify 2>&1)
+    if [ $? -ne 0 ]; then
+      printf '%s\n' "$lock_out" >&2
+      echo "pre-commit: a verified (locked) file changed. Restore it, or get the owner's unlock token." >&2
+      status=1
+    fi
+  fi
+fi
+chain_hook pre-commit "$@" || status=1
+exit $status

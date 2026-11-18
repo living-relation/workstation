@@ -1,7 +1,7 @@
 # context-guard.ps1 — Claude Code context-pressure handoff + compaction backup.
 # Modes:
 #   statusline : show context % + handoff point; save used/trigger tokens (hooks can't see context).
-#   stop       : at >= $Threshold% of the compaction point (min $Headroom tokens left), block the stop ONCE so Claude runs agent-handoff-pack (quick mode).
+#   stop       : at >= $Threshold% of the compaction point (min $Headroom tokens left), block the stop ONCE so Claude runs state-closeout (closeout mode).
 #   precompact : back up transcript + git snapshot, then re-arm the 80% trigger for the fresh context.
 # Cursor also runs ~/.claude/settings.json hooks; it has its own handoff-at-80.py, so Cursor
 # payloads (they carry conversation_id) are ignored here to avoid a double handoff.
@@ -51,7 +51,7 @@ switch ($Mode) {
         New-Item -ItemType File -Force -Path $fired | Out-Null
         @{
             decision = 'block'
-            reason   = "CONTEXT PRESSURE: context is at $pct, near the compaction point. Invoke the agent-handoff-pack skill in quick mode now: write or update handoffs/<task-slug>.md on the task branch (never inside STATE.md or OPEN-ITEMS), commit that file, and print the paste block. Do not write the handoff into memory or a file outside the repo. Do not push to main. Do not start new project work."
+            reason   = "CONTEXT PRESSURE: context is at $pct, near the compaction point. Invoke the state-closeout skill in closeout mode now: tag what this session did, graduate each item to its home, queue the rest in BACKLOG.md, and rewrite this branch's STATE file in the memory store (STATE.md on trunk, STATE-<branch-slug>.md on a branch; 30 lines max, one [NEXT] step). Commit finished repo work on the task branch first. Do not push to main. Do not start new project work."
         } | ConvertTo-Json -Compress
         exit 0
     }

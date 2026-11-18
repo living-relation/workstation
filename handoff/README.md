@@ -1,8 +1,7 @@
 # 80% handoff hooks
 
 When a chat gets close to its context limit, these hooks make the agent run the
-`agent-handoff-pack` skill once in its quick mode (it replaced `handoff-sync-continue`): write or update `handoffs/<task-slug>.md` on the task branch (never inside the state file or OPEN-ITEMS), commit that file, and print a paste block for a new chat.
-Progress is not written to memory or to a file outside the repo. The skill does not push to main.
+`state-closeout` skill once in closeout mode: tag what the session did, graduate each item to its home, queue the rest in `BACKLOG.md`, and rewrite this branch's STATE file in the memory store (`STATE.md` on trunk, `STATE-<branch-slug>.md` on a branch). A paste block for a new chat is `state-closeout` handoff mode, on demand. The skill does not push to main.
 `context-guard.ps1` still copies the transcript to `~\.claude\compaction-backups\` before compaction. That copy is a backup of the chat, not the handoff record.
 
 | File | Installed to | Wired in |
@@ -10,7 +9,7 @@ Progress is not written to memory or to a file outside the repo. The skill does 
 | `claude\context-guard.ps1` | `%USERPROFILE%\.claude\hooks\` | `~\.claude\settings.json`: `statusLine` (measures context), `hooks.Stop` (fires at 80% of the compaction point), `hooks.PreCompact` (backs up the transcript to `~\.claude\compaction-backups\`) |
 | `claude\pr-closeout-nudge.ps1` | `%USERPROFILE%\.claude\hooks\` | `~\.claude\settings.json`: `hooks.PostToolUse` (after `gh pr create` or a GitHub create-pull-request tool succeeds, tells Claude to run the pr-closeout skill). Other PostToolUse entries are left alone. |
 | `cursor\handoff-at-80.py` | `%USERPROFILE%\.cursor\hooks\` | `~\.cursor\hooks.json`: `preCompact` + `stop` (`py -3`, timeout 10, stop `loop_limit` 1). Armed by the flag file `~\.cursor\hooks\state\handoff-at-80\armed` (delete it to disarm) |
-| `..\skills\agent-handoff-pack\` | linked into `%USERPROFILE%\.claude\skills\` (Cursor reads it too) by `link-skills.ps1` (`install.ps1`, opt out with `-NoLinkSkills`) | the skill both hooks trigger (quick mode) |
+| `..\skills\state-closeout\` | linked into `%USERPROFILE%\.claude\skills\` (Cursor reads it too) by `link-skills.ps1` (`install.ps1`, opt out with `-NoLinkSkills`) | the skill both hooks trigger (closeout mode) |
 
 - `link-skills.ps1` retires the old `handoff-sync-continue` copy: a same-name folder or link in either skills folder is moved to `~\.skills-backup\<stamp>\retired\` (never deleted).
 - `install.ps1` copies the hooks and merges the entries (no duplicates; an entry for the same script elsewhere is
@@ -19,5 +18,6 @@ Progress is not written to memory or to a file outside the repo. The skill does 
 - Cursor also runs `~\.claude\settings.json` hooks; `context-guard.ps1` ignores Cursor payloads, so only
   `handoff-at-80.py` fires in Cursor.
 - The skill never runs `git init`, never pushes to main, and never commits memory or
-  memory pointer files (`CLAUDE.local.md`). It does commit the handoff file on the task branch.
+  memory pointer files (`CLAUDE.local.md`).
+- Test: `powershell -NoProfile -File handoff/claude/tests/test-state-closeout-trigger.ps1`.
 - `uninstall.ps1` removes only what install added (listed in `<Projects>\_claude\automation-installed-files.txt`).
