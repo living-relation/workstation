@@ -58,7 +58,7 @@ automations:
     run_cmd: .venv/bin/python scripts/gen-inventory.py
   - id: install
     script: install.ps1
-    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/make-shortcuts.ps1, install.cmd, claude/claude-setup.ps1, claude/mcp-servers.json, claude/plugins.json, cleanup-legacy.ps1, scripts/test_install_link_skills.py]
+    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/make-shortcuts.ps1, install.cmd, claude/claude-setup.ps1, claude/mcp-servers.json, claude/plugins.json, cleanup-legacy.ps1, scripts/test_install_link_skills.py, workstation/health/claude-ai-plugin.ps1]
     trigger: manual
     reads: [toolkit.psd1, memory/templates/**, instructions/**, handoff/**, memory/hooks/**, skills/**, claude/**]
     writes: [outside the repo (inferred) - LOCALAPPDATA Workstation folder, user .claude settings and hooks, user .claude.json MCP servers, Projects _claude store, manual shortcuts/*.lnk]
@@ -68,10 +68,10 @@ automations:
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -WhatIf
   - id: install-plugins
     script: install-plugins.ps1
-    helpers: [install-plugins.cmd, INSTALL.md, .claude-plugin/marketplace.json, scripts/test_install_plugins.py]
+    helpers: [install-plugins.cmd, INSTALL.md, .claude-plugin/marketplace.json, scripts/test_install_plugins.py, workstation/health/claude-ai-plugin.ps1]
     trigger: manual
     reads: [.claude-plugin/marketplace.json]
-    writes: [outside the repo (inferred) - user Claude Code plugin from workstation-plugins]
+    writes: [outside the repo (inferred) - opens the claude.ai Plugins page when you run it, and copies workstation-core into the user Cursor local plugins folder]
     committed: no
     auto_commit: false
     enabled: true

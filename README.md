@@ -15,21 +15,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -ProjectsRoot <P
 
 ## Plugins
 
-Skills get in only by installing the plugins. Nothing in this repo links `~\.claude\skills` on its own, and nothing uploads a skill zip. Updates later come from the Plugins menu. Leave marketplace auto-update off. No scheduled task, no Startup item, and no background reinstall.
+Skills get in only by turning on `workstation-core` on claude.ai (Customize, Plugins). That covers chat, Cowork, and Claude Code signed in to the same account. Nothing in this repo copies skills into `~\.claude\skills` on its own, and nothing uploads a skill zip. Leave Sync automatically off. No scheduled task, no Startup item, and no background reinstall.
 
-The only catalog is `.claude-plugin/marketplace.json`, name `workstation-plugins`. It lists `workstation-core` (this repo, source `./`). `.cursor-plugin/marketplace.json` lists the same plugin with source `.`. See [INSTALL.md](INSTALL.md) for the installer, the agent prompt, the manual Plugins-menu steps, and Cursor.
+The only catalog is `.claude-plugin/marketplace.json`, name `workstation-plugins`. Paste `living-relation/workstation`, then turn on `workstation-core` (this repo, source `./`). `.cursor-plugin/marketplace.json` lists the same plugin with source `.`. See [INSTALL.md](INSTALL.md) for the installer, the commands, the agent prompt, and the manual clicks.
 
-**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** any folder. `claude` is on PATH. Claude Code 2.1.292 or newer.
+**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** any folder.
 
 ```powershell
-claude plugin install workstation-core --marketplace living-relation/workstation --scope user
+Start-Process "https://claude.ai/customize/plugins"
 ```
 
-**Terminal:** Claude Code session prompt. **Mode:** interactive session (not `claude -p`).
+Then: Customize, Plugins, Add, Add marketplace, Add from a repository, paste `living-relation/workstation`, turn Sync automatically off, and turn on workstation-core.
 
-```text
-/plugin install workstation-core --marketplace living-relation/workstation
+**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** this repo.
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" | Out-Null; Get-ChildItem -Force -LiteralPath . | Where-Object { $_.Name -ne '.git' -and $_.Name -ne '.venv' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" $_.Name) -Recurse -Force }
 ```
+
+Reload the Cursor window after the copy.
 
 The Workstation toolkit (`workstation\`: Health check, app locks, the manual Cursor worker, and the manual Desktop Commander shortcuts) runs
 straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`.
@@ -58,7 +62,7 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).
 - No CAD code or models in this repo. `workstation.lock.yaml` does not pin any.
-- `skills/` - this repo's skills; skills live only in their repo. They get in only when the `workstation-core` plugin is installed (see [INSTALL.md](INSTALL.md)). No zip upload. `install.ps1` does not link them.
+- `skills/` - this repo's skills; skills live only in their repo. They get in only when `workstation-core` is turned on from the `workstation-plugins` catalog on claude.ai (see [INSTALL.md](INSTALL.md)). No zip upload. `install.ps1` does not copy them into `~\.claude\skills`.
   `skills/EXCLUDE.txt` lists Claude-app-owned skills (harness-design, st185-*); those, and any SKILL.md with
   `source: harness-design-app`, are never zipped, and `link-skills.ps1` never moves or removes their folders.
   Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching generated `skills/<name>.zip` (CI builds it; nobody uploads it).

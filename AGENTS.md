@@ -21,6 +21,8 @@ personal content, no secrets, no CAD code or models.
 Plugin manifests may be committed: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,
 `.cursor-plugin/plugin.json`, and `.cursor-plugin/marketplace.json`. They have no `version` field.
 The only plugin catalog is `.claude-plugin/marketplace.json` (`workstation-plugins`:
-`workstation-core` at `./`).
+`workstation-core` at `./`). On Claude, turn that plugin on at claude.ai (Customize, Plugins;
+paste catalog `living-relation/workstation`). On Cursor, copy this repo to
+`~/.cursor/plugins/local/workstation-core`.
 `.cursor-plugin/marketplace.json` lists only this repo's plugin (`source` `.`).
 Skills stay in `skills/<name>/SKILL.md`. The plugin ships Claude hooks in `hooks/hooks.json` and Cursor hooks in `hooks/cursor-hooks.json` (the Cursor manifest `hooks` path). No MCP server and no `bin/`.
