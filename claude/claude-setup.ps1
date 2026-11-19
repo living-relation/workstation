@@ -1,8 +1,12 @@
 # claude-setup.ps1 - merge Claude Code MCP connectors into ~/.claude.json and
 # install plugins from claude/plugins.json. install.ps1 runs it. Safe to re-run:
-# existing servers and plugins are left alone; missing ones are added. Secrets
-# come from env (or a prompt); never from this repo. A server that still lacks
-# a required key is skipped with a message; this script does not fail the install.
+# existing servers are left alone. A plugin already enabled in ~/.claude/settings.json
+# (enabledPlugins name@marketplace = true) or already installed at user scope
+# (~/.claude/plugins/installed_plugins.json) is left as is and is not passed to
+# `claude plugin install`. Missing ones are added. Nothing is scheduled. Nothing
+# reinstalls plugins in the background. Secrets come from env (or a prompt); never
+# from this repo. A server that still lacks a required key is skipped with a
+# message; this script does not fail the install.
 #
 # Output: one object per action (Status, Item, Manifest). Status is DONE / WOULD /
 # OK / SKIP / WARN / ERROR, same as install.ps1.
@@ -283,6 +287,53 @@ function Get-LastJsonLine([string[]]$Lines) {
   return $null
 }
 
+function New-PluginIdSet {
+  return New-Object 'System.Collections.Generic.HashSet[string]' -ArgumentList ([StringComparer]::OrdinalIgnoreCase)
+}
+
+# Read a JSON file. Missing is ok. A file that will not parse is not ok.
+function Read-PluginStateFile([string]$Path) {
+  if (-not (Test-Path -LiteralPath $Path)) {
+    return [pscustomobject]@{ Ok = $true; Missing = $true; Doc = $null; Error = $null }
+  }
+  try {
+    $text = [IO.File]::ReadAllText($Path)
+    if (-not $text.Trim()) { return [pscustomobject]@{ Ok = $true; Missing = $true; Doc = $null; Error = $null } }
+    return [pscustomobject]@{ Ok = $true; Missing = $false; Doc = ($text | ConvertFrom-Json); Error = $null }
+  } catch {
+    return [pscustomobject]@{ Ok = $false; Missing = $false; Doc = $null; Error = $_.Exception.Message }
+  }
+}
+
+function Add-EnabledPluginIds($Set, $Doc) {
+  $ep = Get-Prop $Doc 'enabledPlugins'
+  if (-not $ep) { return }
+  foreach ($p in @($ep.PSObject.Properties)) {
+    $name = ([string]$p.Name).Trim()
+    if (-not $name) { continue }
+    $v = $p.Value
+    $on = $false
+    if ($v -is [bool]) { $on = [bool]$v }
+    elseif ($null -ne $v -and ([string]$v).Trim() -match '^(?i)true$') { $on = $true }
+    if ($on) { [void]$Set.Add($name) }
+  }
+}
+
+# installed_plugins.json v2: plugins."name@marketplace" is one object or an array of installs.
+function Add-InstalledUserPluginIds($Set, $Doc) {
+  $plugins = Get-Prop $Doc 'plugins'
+  if (-not $plugins) { return }
+  foreach ($p in @($plugins.PSObject.Properties)) {
+    $name = ([string]$p.Name).Trim()
+    if (-not $name) { continue }
+    foreach ($e in @($p.Value)) {
+      if (-not $e) { continue }
+      $scope = ([string](Get-Prop $e 'scope')).Trim()
+      if ($scope -eq 'user') { [void]$Set.Add($name); break }
+    }
+  }
+}
+
 function Install-ClaudePluginsFromList {
   param($List)
   $results = New-Object System.Collections.Generic.List[object]
@@ -296,8 +347,52 @@ function Install-ClaudePluginsFromList {
   $mpSrc = [string]$List.marketplace
   if (-not $mpSrc) { $mpSrc = 'anthropics/claude-plugins-official' }
 
+  # Read-only. No scheduled task, no marketplace auto-update, no background reinstall.
+  $claudeDir = Join-Path $UserHome '.claude'
+  $settingsPath = Join-Path $claudeDir 'settings.json'
+  $registryPath = Join-Path (Join-Path $claudeDir 'plugins') 'installed_plugins.json'
+  $settingsFile = Read-PluginStateFile $settingsPath
+  $registryFile = Read-PluginStateFile $registryPath
+  $enabled = New-PluginIdSet
+  $installedUser = New-PluginIdSet
+  if ($settingsFile.Ok -and $settingsFile.Doc) { Add-EnabledPluginIds $enabled $settingsFile.Doc }
+  if ($registryFile.Ok -and $registryFile.Doc) { Add-InstalledUserPluginIds $installedUser $registryFile.Doc }
+  if (-not $settingsFile.Ok) {
+    $results.Add([pscustomobject]@{
+      Status = 'WARN'
+      Item = "could not read $settingsPath (plugin skip uses the install registry only): $($settingsFile.Error)"
+      Manifest = $null
+    })
+  }
+  if (-not $registryFile.Ok) {
+    $results.Add([pscustomobject]@{
+      Status = 'WARN'
+      Item = "could not read $registryPath (plugin skip uses enabledPlugins only): $($registryFile.Error)"
+      Manifest = $null
+    })
+  }
+
+  $pending = New-Object System.Collections.Generic.List[string]
+  foreach ($n in $names) {
+    $qual = "$n@$mpName"
+    $isEnabled = $enabled.Contains($qual)
+    $isInstalled = $installedUser.Contains($qual)
+    if ($isEnabled -or $isInstalled) {
+      $why = 'already installed'
+      if ($isEnabled) { $why = 'already enabled' }
+      $results.Add([pscustomobject]@{
+        Status = 'OK'
+        Item = "plugin $qual $why (user scope); left as is"
+        Manifest = @{ kind = 'claude-plugin-preexisting'; name = $n; marketplace = $mpName }
+      })
+      continue
+    }
+    [void]$pending.Add($n)
+  }
+  if ($pending.Count -eq 0) { return $results }
+
   if ($WhatIf) {
-    foreach ($n in $names) {
+    foreach ($n in $pending) {
       $results.Add([pscustomobject]@{ Status = 'WOULD'; Item = "install Claude Code plugin $n@$mpName (user scope)"; Manifest = $null })
     }
     return $results
@@ -331,7 +426,7 @@ function Install-ClaudePluginsFromList {
     $results.Add([pscustomobject]@{ Status = 'OK'; Item = "Claude Code marketplace $mpName available"; Manifest = $null })
   }
 
-  foreach ($n in $names) {
+  foreach ($n in $pending) {
     $qual = "$n@$mpName"
     $ErrorActionPreference = 'Continue'
     $out = @(& $claude.Source plugin install $qual --scope user --yes --json 2>&1 | ForEach-Object { [string]$_ })

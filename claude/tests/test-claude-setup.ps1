@@ -115,5 +115,114 @@ Check 'spec has no FIRECRAWL env' (-not (@($spec.servers | ForEach-Object {
 $r6 = @(& $helper -UserHome $root -SkipMcp -Quiet)
 Check 'plugins skipped in UserHome' (@($r6 | Where-Object { $_.Status -eq 'SKIP' -and $_.Item -match 'plugin' }).Count -ge 1)
 
-Remove-Item $root, $root2 -Recurse -Force -ErrorAction SilentlyContinue
+# 7. Official plugins already enabled, or already installed at user scope, are not reinstalled.
+#    A project-scope install does not count. No claude command runs for the ones left alone.
+function Write-OfficialPluginFixture {
+  param(
+    [string]$ProfileHome,
+    [string[]]$Enabled,
+    [string[]]$InstalledUser,
+    [string[]]$InstalledOtherScope
+  )
+  $claudeDir = Join-Path $ProfileHome '.claude'
+  $plugDir = Join-Path $claudeDir 'plugins'
+  New-Item -ItemType Directory -Path $plugDir -Force | Out-Null
+  $epLines = New-Object System.Collections.Generic.List[string]
+  foreach ($n in @($Enabled)) { [void]$epLines.Add(('    "{0}@claude-plugins-official": true' -f $n)) }
+  foreach ($n in @($InstalledUser)) {
+    if (@($Enabled) -notcontains $n) { [void]$epLines.Add(('    "{0}@claude-plugins-official": false' -f $n)) }
+  }
+  $settings = "{`r`n  `"enabledPlugins`": {`r`n" + ($epLines -join ",`r`n") + "`r`n  }`r`n}`r`n"
+  [IO.File]::WriteAllText((Join-Path $claudeDir 'settings.json'), $settings)
+  $regLines = New-Object System.Collections.Generic.List[string]
+  foreach ($n in @($InstalledUser)) {
+    [void]$regLines.Add(('    "{0}@claude-plugins-official": [{{ "scope": "user", "installPath": "cache/claude-plugins-official/{0}/1.0.0", "version": "1.0.0" }}]' -f $n))
+  }
+  foreach ($n in @($InstalledOtherScope)) {
+    [void]$regLines.Add(('    "{0}@claude-plugins-official": [{{ "scope": "project", "projectPath": "work/app", "installPath": "cache/claude-plugins-official/{0}/1.0.0", "version": "1.0.0" }}]' -f $n))
+  }
+  $registry = "{`r`n  `"version`": 2,`r`n  `"plugins`": {`r`n" + ($regLines -join ",`r`n") + "`r`n  }`r`n}`r`n"
+  [IO.File]::WriteAllText((Join-Path $plugDir 'installed_plugins.json'), $registry)
+}
+
+$pluginHome = Join-Path ([IO.Path]::GetTempPath()) ("ccplug-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+$enabledPlugins = @($wantPlugins | Where-Object { $_ -ne 'typescript-lsp' -and $_ -ne 'pyright-lsp' })
+$installedUser = @($enabledPlugins + @('typescript-lsp'))
+Write-OfficialPluginFixture -ProfileHome $pluginHome -Enabled $enabledPlugins -InstalledUser $installedUser -InstalledOtherScope @('pyright-lsp')
+$plugArgs = @{
+  UserHome = $pluginHome
+  ProjectsRoot = (Join-Path $pluginHome 'Projects')
+  SkipMcp = $true
+  Quiet = $true
+}
+$r7 = @(& $helper @plugArgs -WhatIf)
+$would7 = @($r7 | Where-Object { $_.Status -eq 'WOULD' -and $_.Item -match 'install Claude Code plugin' })
+Check 'whatif would install only the plugin that is not enabled or user-installed' ($would7.Count -eq 1 -and $would7[0].Item -match 'pyright-lsp@claude-plugins-official')
+Check 'whatif ok for already enabled plugins' (@($r7 | Where-Object { $_.Status -eq 'OK' -and $_.Item -match 'already enabled' }).Count -eq $enabledPlugins.Count)
+Check 'whatif leaves the user-installed disabled plugin' (@($r7 | Where-Object { $_.Status -eq 'OK' -and $_.Item -match 'typescript-lsp@claude-plugins-official already installed' }).Count -eq 1)
+$wouldItem = ''
+if ($would7.Count) { $wouldItem = [string]$would7[0].Item }
+$touched = @($enabledPlugins + @('typescript-lsp') | Where-Object { $wouldItem -match [regex]::Escape("$_@") })
+Check 'whatif does not name an enabled or user-installed plugin' ($touched.Count -eq 0)
+
+$r7b = @(& $helper @plugArgs)
+Check 'test mode still skips the plugin that is not installed' (@($r7b | Where-Object { $_.Status -eq 'SKIP' -and $_.Item -match 'not installed in -UserHome test mode' }).Count -eq 1)
+Check 'test mode does not would-install enabled plugins' (@($r7b | Where-Object Status -eq 'WOULD').Count -eq 0)
+Check 'test mode ok for already enabled plugins' (@($r7b | Where-Object { $_.Status -eq 'OK' -and $_.Item -match 'already enabled' }).Count -eq $enabledPlugins.Count)
+
+$rNone = @(& $helper -UserHome $root2 -ProjectsRoot (Join-Path $root2 'Projects') -SkipMcp -WhatIf -Quiet)
+Check 'whatif with no plugin state would install all 24' (@($rNone | Where-Object { $_.Status -eq 'WOULD' -and $_.Item -match 'install Claude Code plugin' }).Count -eq 24)
+
+$badHome = Join-Path ([IO.Path]::GetTempPath()) ("ccplugbad-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+$badPlug = Join-Path (Join-Path $badHome '.claude') 'plugins'
+New-Item -ItemType Directory -Path $badPlug -Force | Out-Null
+[IO.File]::WriteAllText((Join-Path (Join-Path $badHome '.claude') 'settings.json'), '{')
+[IO.File]::WriteAllText((Join-Path $badPlug 'installed_plugins.json'), '{')
+$rBad = @(& $helper -UserHome $badHome -ProjectsRoot (Join-Path $badHome 'Projects') -SkipMcp -WhatIf -Quiet)
+Check 'unreadable plugin state warns' (@($rBad | Where-Object Status -eq 'WARN').Count -ge 1)
+Check 'unreadable plugin state still would install all 24' (@($rBad | Where-Object { $_.Status -eq 'WOULD' -and $_.Item -match 'install Claude Code plugin' }).Count -eq 24)
+
+# Real path (not -UserHome test mode): a stand-in claude records the install lines.
+# Already-enabled and already-installed plugins must not appear.
+$fakeClaude = Join-Path $pluginHome 'fake-claude.ps1'
+$callLog = Join-Path $pluginHome 'claude-calls.txt'
+$utf8 = New-Object Text.UTF8Encoding $false
+[IO.File]::WriteAllText($fakeClaude, @'
+param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest)
+$log = $env:CLAUDE_CALL_LOG
+if ($log) {
+  $line = ''
+  if ($Rest) { $line = $Rest -join ' ' }
+  [IO.File]::AppendAllText($log, ($line + [Environment]::NewLine))
+}
+Write-Output '{"outcome":"ok","message":"installed"}'
+'@, $utf8)
+$env:CLAUDE_CALL_LOG = $callLog
+. $helper -UserHome $pluginHome -ProjectsRoot (Join-Path $pluginHome 'Projects') -SkipMcp -Quiet -PluginListPath (Join-Path $PSScriptRoot '..\plugins.json')
+function Get-Command {
+  [CmdletBinding()]
+  param([Parameter(Position = 0)][string]$Name)
+  if ($Name -eq 'claude') { return [pscustomobject]@{ Source = $script:fakeClaude } }
+  return Microsoft.PowerShell.Core\Get-Command @PSBoundParameters
+}
+$testMode = $false
+$WhatIf = $false
+$rReal = @(Install-ClaudePluginsFromList $plist)
+$logText = ''
+if (Test-Path -LiteralPath $callLog) { $logText = [IO.File]::ReadAllText($callLog) }
+$installLines = @($logText -split '\r?\n' | Where-Object { $_ -match 'plugin install' })
+Check 'real run installs only pyright-lsp' ($installLines.Count -eq 1 -and $installLines[0] -match 'plugin install pyright-lsp@claude-plugins-official --scope user')
+$reinstalled = @($installedUser | Where-Object { $logText -match [regex]::Escape("plugin install $_@") })
+Check ('real run does not reinstall enabled or user-installed plugins' + $(if ($reinstalled) { ': ' + ($reinstalled -join ',') } else { '' })) ($reinstalled.Count -eq 0)
+Check 'real run ok count for plugins left alone' (@($rReal | Where-Object { $_.Status -eq 'OK' -and $_.Item -match 'left as is' }).Count -eq $installedUser.Count)
+Check 'real run done only for pyright' (@($rReal | Where-Object { $_.Status -eq 'DONE' -and $_.Item -match 'pyright-lsp@' }).Count -eq 1)
+
+Write-OfficialPluginFixture -ProfileHome $pluginHome -Enabled $wantPlugins -InstalledUser $wantPlugins -InstalledOtherScope @()
+if (Test-Path -LiteralPath $callLog) { Remove-Item -LiteralPath $callLog -Force }
+$rAll = @(Install-ClaudePluginsFromList $plist)
+Check 'all-enabled run does not call claude' (-not (Test-Path -LiteralPath $callLog))
+Check 'all-enabled run is ok for every official plugin' (@($rAll | Where-Object { $_.Status -eq 'OK' -and $_.Item -match 'already enabled' }).Count -eq 24)
+Check 'all-enabled run has no WOULD' (@($rAll | Where-Object Status -eq 'WOULD').Count -eq 0)
+
+Remove-Item $root, $root2, $pluginHome, $badHome -Recurse -Force -ErrorAction SilentlyContinue
 if ($fail) { exit 1 } else { 'ALL PASS' }

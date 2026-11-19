@@ -51,7 +51,9 @@
     Existing servers of the same name are left alone. API keys come from env (or a
     prompt unless -Quiet / CI / -WhatIf / -UserHome); a server that still lacks a required key is skipped with a
     message, not a failed install. Then installs Claude Code plugins at user scope from claude\plugins.json
-    (Anthropic official marketplace). That file is the source of truth for plugin names.
+    (Anthropic official marketplace). A plugin already enabled in ~\.claude\settings.json, or already
+    installed at user scope, is left as is (a dry run says OK, not WOULD install). That file is the source
+    of truth for plugin names. Nothing is scheduled and nothing reinstalls in the background.
   - Adds no autostart: nothing of this package starts at sign-in or app launch. An existing Cursor sign-in entry is
     only reported (WARN), never added or removed. Desktop Commander is a manual shortcut only.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
