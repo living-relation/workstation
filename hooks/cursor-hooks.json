@@ -16,6 +16,12 @@
         "matcher": "Write|Edit|Delete|NotebookEdit|Bash|PowerShell|Shell"
       }
     ],
+    "postToolUse": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/hooks/sot-after-edit.ps1\"",
+        "matcher": "Write|Edit"
+      }
+    ],
     "beforeShellExecution": [
       {
         "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/hooks/protected-files-guard.ps1\"",

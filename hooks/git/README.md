@@ -9,6 +9,8 @@ Per-repo git hooks for live state in the memory store. They call the workstation
 | `post-checkout` | On a branch checkout, creates `STATE-<branch-slug>.md` if it is missing (`state_manager.py new-branch`). |
 | `post-merge` | After `git merge <branch>` into the trunk (`main`, `master`, `trunk`, or the default named by `origin/HEAD`), archives that branch's STATE file (`state_manager.py archive-branch`), then removes the branch's untracked `TASK.md`. A merge into a stacking or feature branch does nothing. |
 
+`pre-commit` also runs `sot_guard.py check` when the repo has `.claude/sot.json`: a changed source of truth must pass every check its entry lists, and a generated (derived) file may change only with its source.
+
 No hook writes the root `STATE.md`: it has one writer, the coordinator, and its `Branch_States` line
 is generated (`state_manager.py branches`).
 
