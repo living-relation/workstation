@@ -158,6 +158,16 @@ automations:
     committed: no
     auto_commit: false
     enabled: true
+  - id: fusion-addins
+    script: workstation/fusion-addins/update-fusion-addins.ps1
+    helpers: [workstation/fusion-addins/fusion-addins-lib.ps1, workstation/fusion-addins/tests/test-fusion-addins.ps1, workstation/fusion-addins/README.md, install.ps1, uninstall.ps1, workstation/health/workstation-status.ps1]
+    trigger: manual
+    reads: [AddIns directory junctions and the git clones those junctions point at]
+    writes: [LOCALAPPDATA Workstation logs fusion-addins-update.log and fusion-addins-last.json (outside the repo)]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/fusion-addins/tests/test-fusion-addins.ps1
   - id: fusion-lock
     script: workstation/fusion-lock/fusion-lock.ps1
     helpers: [workstation/fusion-lock/tests/test-fusion-lock.ps1, workstation/fusion-lock/tests/test-harness-lock.ps1, workstation/paths.ps1]

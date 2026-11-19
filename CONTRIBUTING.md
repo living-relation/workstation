@@ -16,7 +16,9 @@ plugin hooks under `hooks/`.
 **Never:** CAD code or models (they belong to the CAD repo), part files, binaries, archives
 (except the generated Claude-importable `skills/<name>.zip` files owned by pack-skill-zips),
 secrets, personal paths or data, batch git shortcuts (scripts that pull/push/merge many repos),
-project-specific notes.
+project-specific notes. One exception: `workstation/fusion-addins/update-fusion-addins.ps1`
+fast-forwards only the Fusion add-in clones discovered from AddIns junctions. It skips a dirty
+tree, a non-default branch, and a repo with no upstream. It never resets, stashes, cleans, or force-pushes.
 
 **Process:** branch -> PR -> owner's yes. No edits on `main`, no force-push
 (except the skill-zips CI bot may `git push --force-with-lease` the

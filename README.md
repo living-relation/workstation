@@ -38,7 +38,7 @@ Reload the Cursor window after the copy.
 The Workstation toolkit (`workstation\`: Health check, app locks, the manual Cursor worker, and the manual Desktop Commander shortcuts) runs
 straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`.
 Runtime files live in `%LOCALAPPDATA%\Workstation\`, never in the clone.
-**Nothing starts on its own.** No sign-in links, no scheduled tasks, no Run key.
+**Desktop Commander and the Cursor worker do not start on their own.** No Startup item and no Run key. After you run `install.ps1`, one per-user task updates Fusion add-in clones at logon and every 60 minutes. It does not start Fusion. See [workstation/fusion-addins/README.md](workstation/fusion-addins/README.md).
 
 **Desktop Commander (manual, one phone remote per PC).** It serves every chat and project. The MCP plugin that
 Claude starts is separate and is not changed here. `install.ps1` creates these manual links in `shortcuts\` (gitignored). Nothing starts at sign-in:
@@ -52,6 +52,30 @@ Claude starts is separate and is not changed here. `install.ps1` creates these m
 On Windows one phone remote is a chain: cmd, then npx's node, then cmd, then the node remote. That chain is one copy. A healthy copy has a live parent and a live console. Leave that copy alone. Kill orphaned remote processes offers a copy whose terminal is gone, and extra copies when more than one remote is running (it keeps the newest and asks first). `-WhatIf` only lists. `-Force` stops the listed copies but never stops the newest remote unless you also pass `-IncludeActiveRemote`. Stopping uses taskkill /T on that copy's own chain, so a yes does not take down the healthy remote. The single healthy copy is never listed. Claude's Desktop Commander plugin is not listed. Health check says OK when zero or one remote is running, and warns only when extra copies or other leftovers are present. It also checks that the remote does not start at sign-in.
 
 **Cursor worker (manual, one per folder you pick).** `install.ps1` adds **Start Cursor worker** and **Stop Cursor worker** in `shortcuts\`. Nothing starts at sign-in, reboot, or app launch. Start lists the folders in `<Projects>\active` on this PC (the root is detected, not hard-coded) and starts one worker for the folder you pick. Run Start again to add another folder. Stop lists the workers this tool started and stops one or all. The command is `agent worker --name <pc>-<folder> --worker-dir <folder> --data-dir <local instance dir> --management-addr 127.0.0.1:<port> --idle-release-timeout 0 --label workstation=manual start`. Details and the doc links are in `workstation\cursor-worker\README.md`. Health check can report running workers. It does not warn when none is running. It warns if a sign-in item, Run key, scheduled task, or app hook would start the worker. A folder with no git origin can still be started; Cursor may not match it to a repo.
+
+## Fusion add-in updates
+
+The updater fast-forwards the git clones behind the Fusion AddIns junctions. It does not restart Fusion. Nothing registers the task until you or an agent run `install.ps1` (or the manual command in the install README). The plugin catalog does not register it.
+
+**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** any folder.
+
+```powershell
+cd ((Get-ChildItem -Path @((Join-Path $env:USERPROFILE 'projects\active'),(Join-Path $env:USERPROFILE 'Projects\active'),(Join-Path $env:SystemDrive 'projects\active')) -Filter workstation -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'install.ps1') } | Select-Object -First 1).FullName)
+```
+
+**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** this repo.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** this repo.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\workstation\fusion-addins\update-fusion-addins.ps1
+```
+
+The four install methods (installer, commands, agent prompt, manual steps) are in [workstation/fusion-addins/README.md](workstation/fusion-addins/README.md).
 
 `install.ps1` removes `shortcuts\rc` only when that folder is empty. A folder that still has files, or that is a link, is left alone.
 

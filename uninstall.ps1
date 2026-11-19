@@ -34,7 +34,9 @@
   - the Cursor.lnk autostart if install created it. Existing Cursor autostarts are never touched.
   Every changed or removed file is copied first to <Projects>\_archive\automation-uninstall-backup-<time>\.
   Keeps: the memory store, Cursor's copy, all notes, the Projects layout folders, all projects.
-  Scheduled tasks need admin: the commands are printed for you to run in an admin PowerShell.
+  The Fusion add-in task Workstation-UpdateFusionAddins is per-user. When the manifest lists it, uninstall
+  removes it with no admin. The older Claude-Memory-To-Cursor-Sync task still needs an admin PowerShell;
+  that command is printed.
 #>
 [CmdletBinding()]
 param(
@@ -531,6 +533,24 @@ if (-not $testMode) {
   foreach ($sc in $TK.Shortcuts) {
     $lp = Join-Path $scDir "$($sc.Name).lnk"
     if ((Test-Path -LiteralPath $lp) -and -not @($listedLnk | Where-Object { $_ -ieq $lp }).Count) { Note 'OK' "not installed by this package, left alone: $lp" }
+  }
+}
+
+# 6b. Fusion add-in update task, only when the manifest says install registered it. No admin.
+$fusionTask = 'Workstation-UpdateFusionAddins'
+$fusionRec = @($ManifestJson | Where-Object { $_.kind -eq 'scheduled-task' -and [string]$_.name -eq $fusionTask })
+if ($fusionRec) {
+  if ($testMode) { Note 'SKIP' "test mode: not removing scheduled task $fusionTask" }
+  elseif ($WhatIf) { Note 'WOULD' "remove per-user task $fusionTask (no admin)" }
+  else {
+    $fusionLib = Join-Path (Join-Path $PkgRoot $TK.PackageFolder) 'fusion-addins\fusion-addins-lib.ps1'
+    if (-not (Test-Path -LiteralPath $fusionLib)) { Note 'WARN' "cannot remove ${fusionTask}: missing $fusionLib" }
+    else {
+      . $fusionLib
+      try { $ur = Unregister-FusionAddinTask }
+      catch { $ur = [pscustomobject]@{ Ok = $false; Message = $_.Exception.Message } }
+      if ($ur.Ok) { Note 'DONE' $ur.Message } else { Note 'WARN' $ur.Message }
+    }
   }
 }
 

@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Workstation setup: shared Claude / Cursor memory, the Bridge toolkit and the 80% handoff hooks, for the CURRENT
-  Windows user. Adds no autostart.
+  Windows user. The only autostart it adds is the per-user Fusion add-in update task.
 
 .DESCRIPTION
   Run as a normal user (not elevated) from the workstation repo clone (normally <Projects>\active\workstation; the
@@ -35,7 +35,9 @@
     Start, Stop, and status for Desktop Commander, and the orphan tool) in this package's shortcuts\
     folder. Those links are gitignored.
     An empty shortcuts\rc folder left by the old per-project links is removed. A folder that still has
-    files, or that is a link, is left alone. Nothing starts at sign-in.
+    files, or that is a link, is left alone. Then it registers one per-user scheduled task,
+    Workstation-UpdateFusionAddins (at logon and every 60 minutes, hidden window, no admin). That task
+    fast-forwards Fusion add-in clones. It does not start Fusion. No Startup item and no Run key.
     An old installed copy (<Projects>\_workstation or _bridge, LegacyFolders) is only reported, never moved.
   - Does not create, check or remove ~\.claude\working-memory. That junction only let Cowork / Chat
     pointer lines find the store. Claude desktop no longer writes local memory files (personal account
@@ -54,8 +56,11 @@
     (Anthropic official marketplace). A plugin already enabled in ~\.claude\settings.json, or already
     installed at user scope, is left as is (a dry run says OK, not WOULD install). That file is the source
     of truth for plugin names. Nothing is scheduled and nothing reinstalls in the background.
-  - Adds no autostart: nothing of this package starts at sign-in or app launch. An existing Cursor sign-in entry is
-    only reported (WARN), never added or removed. Desktop Commander is a manual shortcut only.
+  - Registers one per-user scheduled task, Workstation-UpdateFusionAddins (at logon and every 60 minutes,
+    hidden window, no admin). It only fast-forwards Fusion add-in clones and does not start Fusion.
+    -WhatIf does not register it. -UserHome does not register it. No Startup item and no Run key.
+    An existing Cursor sign-in entry is only reported (WARN), never added or removed.
+    Desktop Commander is a manual shortcut only.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
   - Does NOT migrate old memory. See MIGRATION.md.
   - Ends by running Health check (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts.
@@ -882,6 +887,26 @@ else {
   if ($scExit -eq 0) { Note 'DONE' "manual shortcuts in $scDir (they do not start at sign-in)" }
   else { Note 'WARN' "$(Split-Path $shortcutScript -Leaf) reported failures (exit $scExit). See its output above." }
 }
+# 9a. Fusion add-in clones: one per-user task, no admin. Hidden. At logon and every 60 minutes.
+#     It does not start Fusion. -WhatIf and -UserHome do not register it.
+$fusionLib = Join-Path $BridgeDir 'fusion-addins\fusion-addins-lib.ps1'
+$fusionScript = Join-Path $BridgeDir 'fusion-addins\update-fusion-addins.ps1'
+if (-not (Test-Path -LiteralPath $fusionLib)) { Note 'ERROR' "missing $fusionLib" }
+elseif (-not (Test-Path -LiteralPath $fusionScript)) { Note 'ERROR' "missing $fusionScript" }
+else {
+  . $fusionLib
+  if ($testMode) { Note 'SKIP' "test mode (-UserHome): not registering scheduled task $(Get-FusionAddinTaskName)" }
+  else {
+    try { $fr = Register-FusionAddinTask -ScriptPath $fusionScript -WhatIf:$WhatIf }
+    catch { $fr = [pscustomobject]@{ Ok = $false; Changed = $false; Unavailable = $false; Message = $_.Exception.Message } }
+    if ($WhatIf) { Note 'WOULD' $fr.Message }
+    elseif ($fr.Unavailable -or -not $fr.Ok) { Note 'WARN' $fr.Message }
+    else {
+      Add-ManifestJson @{ kind = 'scheduled-task'; name = (Get-FusionAddinTaskName); script = 'update-fusion-addins.ps1' }
+      if ($fr.Changed) { Note 'DONE' $fr.Message } else { Note 'OK' $fr.Message }
+    }
+  }
+}
 # An old installed toolkit copy (LegacyFolders) is never moved or deleted; it is only reported.
 foreach ($lf in @($TK.LegacyFolders | Where-Object { $_ })) {
   $lp = Join-Path $ProjectsRoot $lf
@@ -941,7 +966,7 @@ if ($attention.Count) {
 }
 Write-Host ''
 if ($WhatIf) { Write-Host 'Dry run only. Nothing was changed. Run again without -WhatIf to apply.' -ForegroundColor Cyan }
-else { Write-Host 'Nothing starts at sign-in. Desktop Commander and the Cursor worker run only from their manual shortcuts. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
+else { Write-Host 'Fusion add-in clones update from the per-user task Workstation-UpdateFusionAddins (at logon and every 60 minutes). It does not start Fusion. Desktop Commander and the Cursor worker run only from their manual shortcuts. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
 Invoke-StatusCheck
 if (@($Summary | Where-Object Status -eq 'ERROR').Count) { exit 1 }
 exit 0

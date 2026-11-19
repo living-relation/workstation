@@ -20,7 +20,8 @@
   ShortcutsInstaller = 'make-shortcuts.ps1'
 
   # Manual shortcuts only. make-shortcuts.ps1 writes them in ShortcutFolder (gitignored .lnk files).
-  # Nothing in this list starts at sign-in. No scheduled task, no Startup item, no Run key.
+  # Nothing in this list starts at sign-in. No Startup item and no Run key.
+  # install.ps1 registers one per-user task, Workstation-UpdateFusionAddins. A shortcut does not.
   ShortcutFolder     = 'shortcuts'
   Shortcuts          = @(
     @{ Name = 'Health check'; Script = 'health\workstation-status.ps1'; Icon = 23 }
