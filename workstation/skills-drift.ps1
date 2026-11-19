@@ -1,5 +1,6 @@
 #Requires -Version 5.1
-# Manual. Compares each claude.ai synced skill with this repo.
+# Optional. Skills reach Claude Chat, Cowork and Claude Code through the account plugin; no zip upload.
+# Use this only to spot older uploaded copies (to delete them). Manual. Compares each claude.ai synced skill with this repo.
 # Synced copies live at ~\.claude\skills\synced\<bucket>\<name>.
 # claude.ai rewrites frontmatter, so only the body after the frontmatter is compared.
 # Lists zips that need a fresh upload, and repo skills that are not on claude.ai at all.
