@@ -96,8 +96,8 @@ automations:
     script: claude/claude-setup.ps1
     helpers: [claude/mcp-servers.json, claude/plugins.json, claude/tests/test-claude-setup.ps1]
     trigger: called-by:install
-    reads: [claude/mcp-servers.json, claude/plugins.json, user .claude.json]
-    writes: [user .claude.json MCP servers (merge); Claude Code plugins via claude plugin install]
+    reads: [claude/mcp-servers.json, claude/plugins.json, user .claude.json, user .claude/settings.json, user .claude/plugins/installed_plugins.json]
+    writes: [user .claude.json MCP servers (merge); Claude Code plugins via claude plugin install only when that plugin is not already enabled or installed at user scope]
     committed: no
     auto_commit: false
     enabled: true
