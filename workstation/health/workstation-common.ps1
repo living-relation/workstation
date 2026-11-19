@@ -10,6 +10,10 @@ $BridgeRoot = Split-Path -Parent $HealthDir
 . (Join-Path $HealthDir 'claude-ai-plugin.ps1')
 $__cwLib = Join-Path (Join-Path $BridgeRoot 'cursor-worker') 'cursor-worker-lib.ps1'
 if (-not (Get-Command Get-CursorWorkerHealthLines -ErrorAction SilentlyContinue)) { . $__cwLib }
+$__faLib = Join-Path (Join-Path $BridgeRoot 'fusion-addins') 'fusion-addins-lib.ps1'
+if (-not (Get-Command Get-FusionAddinHealthLines -ErrorAction SilentlyContinue)) {
+    if (Test-Path -LiteralPath $__faLib) { . $__faLib }
+}
 $BridgeProjects = $WsProjectsRoot
 
 function Write-Title([string]$t) {
@@ -162,6 +166,21 @@ function Show-CursorWorker {
     Write-Host 'Cursor worker' -ForegroundColor Cyan
     foreach ($line in @(Get-CursorWorkerHealthLines)) {
         if ($line.Level -eq 'WARN') { Write-Warn $line.Text } else { Write-Ok $line.Text }
+    }
+}
+
+function Show-FusionAddins {
+    Write-Host ''
+    Write-Host 'Fusion add-ins' -ForegroundColor Cyan
+    if (-not (Get-Command Get-FusionAddinHealthLines -ErrorAction SilentlyContinue)) {
+        Write-Ok 'Fusion add-in update task is not installed'
+        return
+    }
+    foreach ($line in @(Get-FusionAddinHealthLines)) {
+        if ($line.Level -eq 'WARN') { Write-Warn $line.Text }
+        elseif ($line.Level -eq 'FAIL') { Write-Bad $line.Text }
+        elseif ($line.Level -eq 'OFF') { Write-Off $line.Text }
+        else { Write-Ok $line.Text }
     }
 }
 

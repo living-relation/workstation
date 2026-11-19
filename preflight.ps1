@@ -240,7 +240,10 @@ else { Add-Finding 'OK' 'prereq' 'elevation' 'normal window (right for install.p
 
 # ---------------------------------------------------------------- 2. scheduled tasks
 # No memory sync task any more (Claude-Memory-To-Cursor-Sync is retired; see $RetiredNameRx).
-$knownTasks = @{}
+# Workstation-UpdateFusionAddins is the one per-user task install.ps1 registers (no admin).
+$knownTasks = @{
+  'Workstation-UpdateFusionAddins' = @('update-fusion-addins.ps1')
+}
 $tasks = $null
 try { $tasks = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskPath -notlike '\Microsoft\*' }) }
 catch { Add-Finding 'WARN' 'tasks' 'scheduled tasks' "could not list them: $($_.Exception.Message)" }

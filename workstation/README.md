@@ -7,9 +7,10 @@
 - `skills-drift.ps1` - optional, manual. Compares older uploaded claude.ai copies with this repo. Skills get in only by installing the plugins (see `INSTALL.md`). This script does not install or link. No sign-in item.
 - `check-upstream.ps1` - manual. Merges upstream into a skill that has `metadata.upstream` and opens a PR. No schedule.
 - `fusion-lock/` - one Fusion lock and one harness.design lock per PC. `-Repo` is recorded and shown. It does not change who is blocked.
+- `fusion-addins/` - fast-forward Fusion add-in clones found from AddIns junctions. `install.ps1` registers a per-user task (logon and every 60 minutes, hidden, no admin). It does not start Fusion. See `fusion-addins/README.md`.
 - `repo-status.ps1`, `repo-branch.ps1` - read-only status of project repos.
 - `paths.ps1` - shared paths. The Projects root comes from `%LOCALAPPDATA%\Workstation\workstation.json`, which install.ps1 writes.
 
 These scripts run straight from the workstation repo clone. Keep the clone on `main`.
 
-Pull and push one repo at a time (`git pull --ff-only`), by hand.
+Pull and push one repo at a time (`git pull --ff-only`), by hand. The Fusion add-in updater is the one script that fast-forwards more than one clone, and only the clones the AddIns junctions point at, and only when each tree is clean, on the default branch, and has an upstream.

@@ -1,6 +1,7 @@
 #Requires -Version 5.1
 # Health check (read-only): memory, hooks, skills, app locks, the phone remote,
-# and the manual Cursor worker. A worker that is not running is normal.
+# the manual Cursor worker, and the Fusion add-in update task. A worker that is
+# not running is normal. A missing Fusion add-in task is normal until install.ps1.
 # -NoPause never prompts. -Locks runs only the app-lock check.
 # Exit 1 if any app-lock item fails.
 param([switch]$NoPause, [switch]$Locks)
@@ -19,6 +20,7 @@ Show-Skills
 Show-DcRemote
 Show-DcAutostart
 Show-CursorWorker
+Show-FusionAddins
 Show-Orphans
 Write-Host ''
 $lockFails = Show-AppLocks
