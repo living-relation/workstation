@@ -3,6 +3,7 @@
 # A skill that is already in the claude.ai synced bucket (~.claude\skills\synced\<bucket>\<name>) is not linked,
 # so Claude Code does not load it twice. An existing junction for that skill is removed (the link only, never the
 # target, and never anything under synced\). Skills that are not on claude.ai still get a junction.
+# Opt-in: the account plugin delivers skills to every app; install.ps1 runs this only with -LinkSkills.
 # Usage: .\link-skills.ps1 [-From <skills folder>] [-WhatIf]   (default: this repo's skills\)
 # A same-name skill that is not already this link is moved to -BackupRoot first; never touches other skills.
 # The only delete: a junction into -From whose skill is gone (renamed or removed) is removed - the link only,

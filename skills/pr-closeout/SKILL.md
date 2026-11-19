@@ -68,8 +68,8 @@ hygiene, and reports in a few lines. Any repo.
 One skill file for every agent. Workstation `install.ps1` copies `handoff/claude/pr-closeout-nudge.ps1`
 into `~\.claude\hooks` and wires it in `~\.claude\settings.json` PostToolUse (merge; other hook
 entries stay). Cursor on the PC also runs those user Claude hooks, so the same script fires there.
-The Grok Bot reads this same skill from `~\.claude\skills`. Claude Code cloud sessions and Cowork
-get it as a skill uploaded to claude.ai. Where no hook runs (Grok, cloud, Cowork), the description
+Skills reach Claude Chat, Cowork and Claude Code through the account plugin; no zip upload. The Grok Bot reads
+`~\.claude\skills` (link it there with `install.ps1 -LinkSkills`). Where no hook runs (Grok, cloud, Cowork), the description
 above is the trigger: run it as soon as you open a PR, or when the user says "run pr-closeout" /
 "close out".
 

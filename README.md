@@ -39,36 +39,24 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).
 - No CAD here: this repo does not install, pin or link any CAD tool, CAD skill or CAD repo.
-- `skills/` - this repo's (non-CAD) skills; skills live only in their repo. `install.ps1` links
-  (junctions) each one into `~\.claude\skills` only (Cursor reads it too; old `~\.cursor\skills` links are removed) with `link-skills.ps1`, so a `git pull` updates them
-  (by hand: `link-skills.ps1 [-WhatIf]`). Opt out with `install.ps1 -NoLinkSkills`. `-LinkSkills` is still accepted and ignored.
-  Re-running it removes only its own links whose skill was renamed or removed (the
-  link only). CAD skills live in the CAD repo, which links them from its own setup.
+- `skills/` - this repo's (non-CAD) skills; skills live only in their repo. Skills reach Claude Chat, Cowork and Claude Code through the account plugin; no zip upload.
+  Linking into `~\.claude\skills` is opt-in: `install.ps1 -LinkSkills` (by hand: `link-skills.ps1 [-WhatIf]`) makes
+  junctions (Cursor reads that folder too; old `~\.cursor\skills` links are removed). `-NoLinkSkills` is accepted and ignored.
+  Re-running `link-skills.ps1` removes only its own links whose skill was renamed or removed (the
+  link only). CAD skills live in the CAD repo and reach the apps through its own plugin.
   `skills/EXCLUDE.txt` lists Claude-app-owned skills (harness-design, st185-*); those, and any SKILL.md with
   `source: harness-design-app`, are never linked or zipped, and `link-skills.ps1` never moves or removes their folders.
-  Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching `skills/<name>.zip` for upload to Claude.
+  Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching generated `skills/<name>.zip` (CI builds it; nobody uploads it).
 
   **This repo is the source of truth for Dan's skills** (all 16 are his). `wizard` is his copy of
   [claude-wizard](https://github.com/vlad-ko/claude-wizard) `skill/` at base `43756e1` (`skills/wizard/UPSTREAM.md`).
-  claude.ai does not read this repo. After a skill change merges:
-
-  1. Upload the new `skills/<name>.zip` at claude.ai: **Customize > Skills > Upload**, on each of Dan's two accounts.
-  2. Run `workstation\skills-drift.ps1` (or the **Skills drift** shortcut). It compares each account's synced copy
-     (`~\.claude\skills\synced\<bucket>\<name>`, the skill body only, because claude.ai rewrites the frontmatter)
-     with the repo and lists zips that still need that upload.
-
-  `link-skills.ps1` does not add a junction for a skill that is already in a synced bucket, so Claude Code does not
-  load it twice. It removes an old junction only (never the folder it points at, and never anything under `synced`).
-  Skills that are not on claude.ai still get a junction.
+  `workstation\skills-drift.ps1` is optional: it lists older uploaded copies under `~\.claude\skills\synced\` that differ
+  from the repo. With `-LinkSkills`, `link-skills.ps1` skips a skill that has a synced copy, so it does not load twice.
 
   `workstation\check-upstream.ps1` is manual. For a skill with `metadata.upstream` it fetches upstream, shows
   `base..HEAD`, three-way merges into Dan's copy, bumps `upstream-base`, and opens a PR. No schedule and no
   sign-in item. The same check can be started by hand from Actions: workflow **check-upstream**
   (`workflow_dispatch` only, no cron).
-  `install.ps1` ends with a Windows popup reminding you to upload new or changed zips in Claude desktop
-  (Settings > Capabilities > Skills); click OK to open `skills\` in Explorer. The popup is skipped for
-  `-NoPopup` (alias `-Quiet`), `-WhatIf`, `-UserHome`, and CI. Changed zip names are tracked in
-  `%LOCALAPPDATA%\Workstation\skill-zips.json`.
   Zips update automatically: on a same-repo PR that touches skills (and whose head is not main), a GitHub Action
   rebuilds them and commits any changes back onto that PR branch. If main's zips are ever stale, the Action
   resets `chore/skill-zips` to `origin/main` and opens or updates that one PR (it never pushes to main).

@@ -43,9 +43,9 @@
     junction is left as it is and is harmless. Claude Code still uses the autoMemoryDirectory junction.
   - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
     pr-closeout-nudge.ps1 (Claude Code PostToolUse, after a PR is opened), handoff-at-80.py (Cursor preCompact +
-    stop, needs py -3); the skill the handoff hooks trigger, agent-handoff-pack, is linked by default (section 9b;
-    opt out with -NoLinkSkills), which also moves an old handoff-sync-continue copy to ~\.skills-backup.
-    -LinkSkills is accepted and ignored. Entries are merged by script name (never duplicated); an unrelated
+    stop, needs py -3); the skill the handoff hooks trigger, agent-handoff-pack, comes from the workstation-core
+    plugin. Skills reach Claude Chat, Cowork and Claude Code through the account plugin; no zip upload. Linking skills\ into
+    ~\.claude\skills is opt-in (-LinkSkills, section 9b). Entries are merged by script name (never duplicated); an unrelated
     statusLine is never overwritten; other hook entries are left alone.
   - Merges Claude Code MCP connectors into ~\.claude.json (user-scope) from claude\mcp-servers.json.
     Existing servers of the same name are left alone. API keys come from env (or a
@@ -56,11 +56,7 @@
     only reported (WARN), never added or removed. Desktop Commander is a manual shortcut only.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
   - Does NOT migrate old memory. See MIGRATION.md.
-  - Ends by running Health check (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts,
-    then a Windows popup reminding you to upload skills\*.zip to the Claude desktop app for each Claude account
-    (Settings > Capabilities > Skills). Click OK to open skills\ in Explorer. The popup is skipped for -NoPopup
-    (alias -Quiet), -WhatIf, -UserHome (tests), and CI. Changed zip names since last install are tracked in
-    %LOCALAPPDATA%\<StateFolder>\skill-zips.json; if that file is missing, the popup lists every zip.
+  - Ends by running Health check (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts.
     The manual steps (admin command, the two instruction pastes, sign-ins) are walked through by the
     installing agent from SETUP-PROMPT.txt. Setup is finished only when Health check shows 0 FAIL, 0 WARN.
 
@@ -82,16 +78,15 @@
   (test mode: under -UserHome).
 
 .PARAMETER LinkSkills
-  Accepted for compatibility; skill linking is now the default. Ignored (same as omitting it).
+  Opt in: link (junction) this repo's skills\ into ~\.claude\skills with link-skills.ps1 (Cursor reads it too).
+  Off by default: the account plugin already delivers the skills, and a linked copy would load twice. Re-running
+  also removes links this repo made whose skill was renamed or removed (the link only).
 
 .PARAMETER NoLinkSkills
-  Skip linking this repo's skills\ into ~\.claude\skills. Default is to link (link-skills.ps1, junctions; Cursor
-  reads ~\.claude\skills too). Re-running also removes links this repo made whose skill was renamed or removed
-  (the link only).
+  Accepted for compatibility and ignored: skills are linked only with -LinkSkills.
 
 .PARAMETER NoPopup
-  Skip the end-of-install Windows popup that reminds you to upload skills\*.zip to Claude desktop. Also skipped
-  for -WhatIf, -UserHome (tests), and CI (CI / GITHUB_ACTIONS). Alias: Quiet.
+  Quiet run: passed to claude\claude-setup.ps1 as -Quiet (no API key prompts). Alias: Quiet.
 
 .PARAMETER ReportDir
   Folder for the preflight report. Default: %TEMP% (never the package/repo folder).
@@ -131,8 +126,8 @@ $TK = Import-PowerShellDataFile -LiteralPath $ToolkitDef
 $realHome = $env:USERPROFILE
 if (-not $realHome) { $realHome = $HOME }
 $testMode = [bool]$UserHome
-# -LinkSkills is a no-op (kept so old shortcuts that pass it still run). Linking is the default.
-$null = $LinkSkills
+# -NoLinkSkills is a no-op (kept so old shortcuts that pass it still run). Linking is opt-in (-LinkSkills).
+$null = $NoLinkSkills
 if (-not $UserHome) { $UserHome = $realHome }
 $UserHome = [IO.Path]::GetFullPath($UserHome).TrimEnd('\')
 if (-not $ProjectsRoot -and $testMode) { $ProjectsRoot = Join-Path $UserHome 'Projects' }
@@ -472,85 +467,6 @@ function Invoke-StatusCheck {
   Write-Host ("  Health check: {0} FAIL, {1} WARN" -f $fails, $warns) -ForegroundColor White
   if ($fails -or $warns) { Write-Host '  Setup is finished only at 0 FAIL and 0 WARN. The remaining SETUP-PROMPT.txt steps usually clear these.' -ForegroundColor Yellow }
   else { Write-Host '  Health check: 0 FAIL, 0 WARN.' -ForegroundColor Green }
-}
-
-# End-of-install reminder: upload skills\<name>.zip in Claude desktop. Hashes of those zips are stored in
-# %LOCALAPPDATA%\<StateFolder>\skill-zips.json so the popup can list only what changed since last install.
-function Read-SkillZipHashes([string]$Path) {
-  $h = @{}
-  if (-not (Test-Path -LiteralPath $Path)) { return $h }
-  try {
-    $obj = [IO.File]::ReadAllText($Path) | ConvertFrom-Json
-    if (-not $obj -or -not $obj.PSObject.Properties['hashes'] -or -not $obj.hashes) { return $h }
-    foreach ($p in $obj.hashes.PSObject.Properties) {
-      if ($p.Value -is [string] -and $p.Value) { $h[$p.Name] = [string]$p.Value }
-    }
-  } catch { }
-  return $h
-}
-function Get-SkillZipHashes([string]$Dir) {
-  $h = @{}
-  foreach ($z in @(Get-ChildItem -LiteralPath $Dir -File -Filter '*.zip' -ErrorAction SilentlyContinue | Sort-Object Name)) {
-    try { $h[$z.Name] = (Get-FileHash -LiteralPath $z.FullName -Algorithm SHA256).Hash } catch { }
-  }
-  return $h
-}
-# Notes + writes hashes before the summary so they show in the counts. Popup is shown after
-# Health check (end of the run). $SkillZipPopup holds -Skip / -Message / -Dir.
-$SkillZipPopup = $null
-function Update-SkillZipState {
-  $skillsDir = Join-Path $PkgRoot 'skills'
-  $stateFile = Join-Path $StateDir 'skill-zips.json'
-  $cur = Get-SkillZipHashes $skillsDir
-  $prev = Read-SkillZipHashes $stateFile
-  $changed = @($cur.Keys | Where-Object { -not $prev.ContainsKey($_) -or $prev[$_] -ne $cur[$_] } | Sort-Object)
-  $names = @($cur.Keys | Sort-Object)
-  $script:SkillZipPopup = @{ Skip = $true; Message = $null; Dir = $skillsDir }
-  if ($names.Count -eq 0) { Note 'OK' 'skill zip reminder: no skills\*.zip found'; return }
-  $listed = if ($prev.Count -eq 0 -or $changed.Count -eq 0) { $names } else { $changed }
-  if ($changed.Count) { Note 'TODO' ('upload skill zips to Claude desktop for each account (Settings > Capabilities > Skills): ' + ($listed -join ', ')) }
-  else { Note 'OK' ('no skill zips changed since last install (re-upload in Claude desktop if a previous reminder was skipped): ' + ($names -join ', ')) }
-  if (-not $WhatIf) {
-    try {
-      if (-not (Test-Path -LiteralPath $StateDir -PathType Container)) { New-Item -ItemType Directory -Path $StateDir -Force | Out-Null }
-      $hashObj = New-Object psobject
-      foreach ($k in $names) { $hashObj | Add-Member -NotePropertyName $k -NotePropertyValue $cur[$k] }
-      $text = (ConvertTo-Json -InputObject ([pscustomobject]@{ hashes = $hashObj }) -Depth 5) + "`r`n"
-      [IO.File]::WriteAllText($stateFile, $text, $Utf8NoBom)
-    } catch { Note 'WARN' "could not write $stateFile -- $($_.Exception.Message)" }
-  }
-  $skipPopup = $NoPopup -or $testMode -or $WhatIf
-  if (-not $skipPopup) {
-    if ($env:CI -or $env:GITHUB_ACTIONS -or $env:TF_BUILD -or $env:GITLAB_CI) { $skipPopup = $true }
-    elseif (-not [Environment]::UserInteractive) { $skipPopup = $true }
-  }
-  if ($skipPopup) { Note 'SKIP' 'skill zip popup skipped (-NoPopup/-Quiet, -WhatIf, -UserHome, CI, or non-interactive)'; return }
-  $nl = "`r`n"
-  $head = 'Upload new or changed skill zips to the Claude desktop app for each Claude account (Settings > Capabilities > Skills).'
-  if ($prev.Count -eq 0) { $body = 'Skill zips in skills:' + $nl + (($names | ForEach-Object { '  ' + $_ }) -join $nl) }
-  elseif ($changed.Count) { $body = 'Changed since last install:' + $nl + (($changed | ForEach-Object { '  ' + $_ }) -join $nl) }
-  else { $body = 'No skill zips changed since last install.' }
-  $script:SkillZipPopup = @{
-    Skip = $false
-    Message = ($head + $nl + $nl + $body + $nl + $nl + 'Click OK to open the skills folder in Explorer.')
-    Dir = $skillsDir
-  }
-}
-function Show-SkillZipPopup {
-  if (-not $SkillZipPopup -or $SkillZipPopup.Skip) { return }
-  $title = 'Workstation install'
-  try {
-    try {
-      Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
-      [void][System.Windows.Forms.MessageBox]::Show($SkillZipPopup.Message, $title, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    } catch {
-      $wsh = New-Object -ComObject WScript.Shell
-      [void]$wsh.Popup($SkillZipPopup.Message, 0, $title, 0x40)
-    }
-    if ($SkillZipPopup.Dir -and (Test-Path -LiteralPath $SkillZipPopup.Dir -PathType Container)) {
-      Start-Process -FilePath explorer.exe -ArgumentList $SkillZipPopup.Dir
-    }
-  } catch { Note 'WARN' "skill zip popup failed -- $($_.Exception.Message)" }
 }
 
 # ---------------------------------------------------------------- start
@@ -989,13 +905,12 @@ $cs = @($Preflight.CursorStartup)
 if ($cs.Count) { foreach ($e in $cs) { Note 'WARN' "Cursor starts at sign-in (not added by this install; remove it by hand if unwanted): $($e.Path)" } }
 else { Note 'OK' 'Cursor does not start at sign-in (install adds no autostart)' }
 
-# 9b. Skills (default): link (junction) this repo's skills\ into ~\.claude\skills only (Cursor reads it too);
-#     old links from this repo in ~\.cursor\skills are removed (link only) so skills are not listed twice.
-#     link-skills.ps1 backs up a same-name folder first and removes only its own links whose skill is gone (link only).
-#     Other repos link their own skills from their own setup. -LinkSkills is a no-op (kept for old shortcuts).
-#     -NoLinkSkills skips this step.
+# 9b. Skills (opt-in, -LinkSkills). The account plugin delivers skills to every app, so linking is off by default.
+#     With -LinkSkills: link (junction) this repo's skills\ into ~\.claude\skills only (Cursor reads it too); old links
+#     from this repo in ~\.cursor\skills are removed (link only). link-skills.ps1 backs up a same-name folder first and
+#     removes only its own links whose skill is gone (link only). -NoLinkSkills is a no-op (kept for old shortcuts).
 $skillTargets = @((Join-Path $DotClaude 'skills'))
-if ($NoLinkSkills) { Note 'OK' 'skills: not linked (-NoLinkSkills)' }
+if (-not $LinkSkills) { Note 'OK' 'skills: not linked (the account plugin delivers them; pass -LinkSkills to link)' }
 else { try {
   foreach ($r in @(& (Join-Path $PSScriptRoot 'link-skills.ps1') -From (Join-Path $PSScriptRoot 'skills') -Targets $skillTargets -Unlink @((Join-Path $DotCursor 'skills')) -BackupRoot (Join-Path $UserHome '.skills-backup') -WhatIf:$WhatIf)) {
     if ($r.Action -eq 'ok') { Note 'OK' "skill link already in place: $($r.Path)" }
@@ -1032,8 +947,6 @@ if (($AddedFiles.Count -gt 0 -or $AddedLinks.Count -gt 0 -or $AddedJson.Count -g
   } catch { Note 'ERROR' "could not write $ManifestPath -- $($_.Exception.Message)" }
 }
 
-Update-SkillZipState
-
 # ---------------------------------------------------------------- summary
 Write-Host ''
 Write-Host '==================== SUMMARY ====================' -ForegroundColor White
@@ -1052,6 +965,5 @@ Write-Host ''
 if ($WhatIf) { Write-Host 'Dry run only. Nothing was changed. Run again without -WhatIf to apply.' -ForegroundColor Cyan }
 else { Write-Host 'Nothing starts at sign-in. Desktop Commander and the Cursor worker run only from their manual shortcuts. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
 Invoke-StatusCheck
-Show-SkillZipPopup
 if (@($Summary | Where-Object Status -eq 'ERROR').Count) { exit 1 }
 exit 0
