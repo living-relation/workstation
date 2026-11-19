@@ -6,6 +6,26 @@ non-CAD agent skills, and a single pin file (`workstation.lock.yaml`) that says 
 upstream tools to fetch, at which versions. It holds **no CAD code and no models** - those come
 from the repos listed in the pin file.
 
+## Starting work
+
+**Pick up existing work:** open a chat (Grok, Claude Code or Cursor) in the repo's folder and say `run session-start`. It reads AGENTS.md, DECISIONS, SPEC if the repo has one, and STATE, confirms in 3 lines, spots a cut-off last session, and asks before each follow-up.
+
+**Start new work:** create the repo or pick the folder, say `run state-init`, and pick a profile. Full (milestones) gets AGENTS.md, SPEC, DECISIONS, rules, data, and the git hook pack only if you say yes. Toolkit (shared tools, no milestone) gets AGENTS.md, DECISIONS and rules, plus STATE, BACKLOG and archives in the store. Light (small repos) gets AGENTS.md only, and STATE in the store when work starts. A SoT registry entry is added for each data file the repo treats as a source of truth. It shows a plan, waits for yes, opens a PR, and never overwrites. Then use session-start each session.
+
+**Bring an existing repo in line with the new agent docs:** 1) `run session-start` (folds any CLAUDE.md into AGENTS.md and deletes it in that PR on the task branch; reports drift), 2) `run state-init` (keeps files that already fill a role and adds only what's missing), 3) `repo-cleanup` only if agent, decision, plan, handoff or state files have sprawled or duplicated (asks before deleting superseded docs; git history is the backup). One line: `run session-start, then state-init`.
+
+**During and after a session:**
+
+| Skill | When |
+|---|---|
+| state-closeout | At 80% context, a pivot, a blocker, a milestone, or a PR |
+| agent-handoff-pack | The job moves to a new chat. It forwards to state-closeout handoff, which prints a paste block. The record is the store's STATE file |
+| coordinator-kit | One chat coordinates a repo's agent work |
+| safe-repo-preflight | Before a change, commit or push |
+| pr-closeout | After a PR opens |
+
+Note: ask for skills by name in plain words. Whether Claude lists them under / with a workstation-core: prefix is unverified. Progress goes only in the store's STATE file (`STATE.md` on main, `STATE-<slug>.md` on a branch), never in the repo and never in memory. Until this repo's state moves to the store, its root `STATE.md` is that file.
+
 ## Setup
 ```powershell
 git clone <repo-url> <Projects>\active\workstation
