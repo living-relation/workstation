@@ -69,7 +69,7 @@ One skill file for every agent. Workstation `install.ps1` copies `handoff/claude
 into `~\.claude\hooks` and wires it in `~\.claude\settings.json` PostToolUse (merge; other hook
 entries stay). Cursor on the PC also runs those user Claude hooks, so the same script fires there.
 Skills get in only by turning on the workstation-core plugin from the workstation-plugins catalog on claude.ai
-(`INSTALL.md`). Do not copy skills into `~\.claude\skills` and do not upload a skill zip. Where no hook runs (Grok, cloud, Cowork), the description
+(`INSTALL.md`). Turn Sync automatically on so updates arrive after merges to main. Do not copy skills into `~\.claude\skills` and do not upload a skill zip. Where no hook runs (Grok, cloud, Cowork), the description
 above is the trigger: run it as soon as you open a PR, or when the user says "run pr-closeout" /
 "close out".
 

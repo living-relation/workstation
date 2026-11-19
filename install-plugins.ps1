@@ -9,7 +9,7 @@
   ~\.cursor\plugins\local\workstation-core.
   It does not copy skills into ~\.claude\skills.
   It does not create a scheduled task, a sign-in item, or a Run key.
-  Leave Sync automatically off. Nothing runs in the background.
+  Turn Sync automatically on. Nothing runs in the background.
   -WhatIf prints the clicks and changes nothing.
   -UserHome is for tests: the Cursor copy goes under that folder, and the
   browser is not opened.
@@ -47,11 +47,11 @@ Write-Output '3. Open Plugins.'
 Write-Output '4. Click Add, then Add marketplace.'
 Write-Output '5. Choose Add from a repository.'
 Write-Output "6. Paste $Catalog."
-Write-Output '7. Turn Sync automatically off. Leave it off.'
+Write-Output '7. Turn Sync automatically on.'
 Write-Output '8. Confirm the add.'
 Write-Output '9. Turn on workstation-core.'
 Write-Output 'That covers chat, Cowork, and Claude Code signed in to this account.'
-Write-Output 'Updates later: open this catalog and choose Check for updates. Leave Sync automatically off.'
+Write-Output 'Updates later: updates arrive automatically after merges to main. Check for updates in the catalog forces it sooner.'
 
 $dest = Join-Path $copyHome '.cursor\plugins\local\workstation-core'
 $src = $PSScriptRoot

@@ -1,6 +1,6 @@
 # Install the workstation plugin
 
-Skills get in only by turning on the `workstation-core` plugin on claude.ai. That one plugin covers chat, Cowork, and Claude Code signed in to the same account. Cursor on an individual account uses a folder copy. This package cannot change claude.ai from a script. It does not copy skills into `~\.claude\skills`, upload a skill zip, or start anything at sign-in. It does not reinstall in the background. Leave Sync automatically off.
+Skills get in only by turning on the `workstation-core` plugin on claude.ai. That one plugin covers chat, Cowork, and Claude Code signed in to the same account. Cursor on an individual account uses a folder copy. This package cannot change claude.ai from a script. It does not copy skills into `~\.claude\skills`, upload a skill zip, or start anything at sign-in. It does not reinstall in the background. Turn Sync automatically on.
 
 The only catalog is `.claude-plugin/marketplace.json`.
 
@@ -40,11 +40,11 @@ After the script prints the clicks, do them:
 4. Click Add, then Add marketplace.
 5. Choose Add from a repository.
 6. Paste `living-relation/workstation`.
-7. Turn Sync automatically off. Leave it off.
+7. Turn Sync automatically on.
 8. Confirm the add.
 9. Turn on workstation-core.
 
-Catalog name: `workstation-plugins`. Updates later: open this catalog and choose Check for updates. Leave Sync automatically off.
+Catalog name: `workstation-plugins`. Updates later: updates arrive automatically after merges to main. Check for updates in the catalog forces it sooner.
 
 The same run copies this repo to `%USERPROFILE%\.cursor\plugins\local\workstation-core` (a real copy, not a shortcut that points outside that folder). Reload the Cursor window. Run the script again when you want a newer copy, then reload again.
 
@@ -66,11 +66,11 @@ Then, in the browser:
 4. Click Add, then Add marketplace.
 5. Choose Add from a repository.
 6. Paste `living-relation/workstation`.
-7. Turn Sync automatically off. Leave it off.
+7. Turn Sync automatically on.
 8. Confirm the add.
 9. Turn on workstation-core.
 
-Catalog name: `workstation-plugins`. That covers chat, Cowork, and Claude Code signed in to this account. Updates later: open this catalog and choose Check for updates. Leave Sync automatically off.
+Catalog name: `workstation-plugins`. That covers chat, Cowork, and Claude Code signed in to this account. Updates later: updates arrive automatically after merges to main. Check for updates in the catalog forces it sooner.
 
 **Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** this repo.
 
@@ -85,7 +85,7 @@ Reload the Cursor window after the copy. A shortcut that points outside `~\.curs
 Paste this to an agent. It should run the installer, tell you the clicks, and then stop.
 
 ```text
-Set up the workstation-core plugin on this PC. Do not edit the workstation repo. Do not copy skills into ~\.claude\skills. Do not upload a skill zip. Do not create a scheduled task, Startup item, or Run key. In a normal Windows PowerShell 5.1 window (not admin), from this repo, run: powershell -NoProfile -ExecutionPolicy Bypass -File .\install-plugins.ps1. That opens https://claude.ai/customize/plugins and prints the clicks, and it copies this repo to %USERPROFILE%\.cursor\plugins\local\workstation-core. Tell me to do these clicks and wait until I say done: sign in to the claude.ai account used for chat, Cowork, and Claude Code; open Customize, then Plugins; click Add, then Add marketplace; choose Add from a repository; paste living-relation/workstation (catalog name workstation-plugins); turn Sync automatically off; turn on workstation-core. That one plugin covers chat, Cowork, and Claude Code signed in to that account. Then reload the Cursor window. Updates later: on claude.ai open the catalog and choose Check for updates, and leave Sync automatically off. For Cursor, run the installer again and reload the window.
+Set up the workstation-core plugin on this PC. Do not edit the workstation repo. Do not copy skills into ~\.claude\skills. Do not upload a skill zip. Do not create a scheduled task, Startup item, or Run key. In a normal Windows PowerShell 5.1 window (not admin), from this repo, run: powershell -NoProfile -ExecutionPolicy Bypass -File .\install-plugins.ps1. That opens https://claude.ai/customize/plugins and prints the clicks, and it copies this repo to %USERPROFILE%\.cursor\plugins\local\workstation-core. Tell me to do these clicks and wait until I say done: sign in to the claude.ai account used for chat, Cowork, and Claude Code; open Customize, then Plugins; click Add, then Add marketplace; choose Add from a repository; paste living-relation/workstation (catalog name workstation-plugins); turn Sync automatically on; turn on workstation-core. That one plugin covers chat, Cowork, and Claude Code signed in to that account. Then reload the Cursor window. Updates later: updates arrive automatically after merges to main. Check for updates in the catalog forces it sooner. For Cursor, run the installer again and reload the window.
 ```
 
 An agent was not asked to paste this prompt on a PC. The installer command inside it is the one in section 1.
@@ -99,16 +99,16 @@ These clicks follow Customize > Plugins as described at https://claude.com/docs/
 3. Click Add, then Add marketplace.
 4. Choose Add from a repository.
 5. Paste `living-relation/workstation`.
-6. Turn Sync automatically off. Leave it off.
+6. Turn Sync automatically on.
 7. Confirm the add. The catalog name is `workstation-plugins`.
 8. Turn on workstation-core.
 9. That covers chat, Cowork, and Claude Code signed in to this account. Start Claude Code again, signed in to this account, so the account copy downloads. Health check looks for that download under `~\.claude\plugins\synced`. Until it is there, health check warns that the plugin is not added yet.
-10. Updates later: open this catalog and choose Check for updates. Leave Sync automatically off.
+10. Updates later: updates arrive automatically after merges to main. Check for updates in the catalog forces it sooner.
 
 Cursor, on this PC:
 
 1. Copy this repo's files into `%USERPROFILE%\.cursor\plugins\local\workstation-core`. Use a real copy. A shortcut that points outside that folder is skipped.
-2. Reload the Cursor window (Command Palette, Developer: Reload Window).
+2. Reload the Cursor window (Command Palette, Developer: Reload Window). Copy the files again when you want a newer copy, then reload again. The claude.ai catalog still updates on its own after merges to main.
 
 ## What this does not do
 

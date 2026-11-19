@@ -44,6 +44,9 @@ BANNED = (
     "skills not linked",
     "skills: not linked",
     "linking",
+    "sync automatically off",
+    "leave it off",
+    "leave marketplace auto-update off",
 )
 
 
@@ -75,7 +78,10 @@ class InstallPluginsDocs(unittest.TestCase):
             "## 4. Manual steps",
         ):
             self.assertIn(heading, install)
-        self.assertIn("Sync automatically off", install)
+        self.assertIn("Turn Sync automatically on", install)
+        self.assertNotIn("Sync automatically off", install)
+        self.assertNotIn("Leave it off", install)
+        self.assertNotIn("leave marketplace auto-update off", install.lower())
         self.assertIn("does not copy skills", install.lower())
         self.assertIn(PASTE, install)
         self.assertIn("workstation-plugins", install)
@@ -118,7 +124,9 @@ class InstallPluginsDocs(unittest.TestCase):
         out = proc.stdout + proc.stderr
         self.assertEqual(proc.returncode, 0, out)
         self.assertIn("Catalog to paste: " + PASTE, out)
-        self.assertIn("Sync automatically off", out)
+        self.assertIn("Turn Sync automatically on", out)
+        self.assertIn("after merges to main", out)
+        self.assertNotIn("Sync automatically off", out)
         self.assertIn("Turn on workstation-core", out)
         self.assertIn("browser was not opened", out)
         self.assertIn("Nothing was copied", out)

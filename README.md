@@ -15,7 +15,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -ProjectsRoot <P
 
 ## Plugins
 
-Skills get in only by turning on `workstation-core` on claude.ai (Customize, Plugins). That covers chat, Cowork, and Claude Code signed in to the same account. Nothing in this repo copies skills into `~\.claude\skills` on its own, and nothing uploads a skill zip. Leave Sync automatically off. No scheduled task, no Startup item, and no background reinstall.
+Skills get in only by turning on `workstation-core` on claude.ai (Customize, Plugins). That covers chat, Cowork, and Claude Code signed in to the same account. Nothing in this repo copies skills into `~\.claude\skills` on its own, and nothing uploads a skill zip. Turn Sync automatically on. No scheduled task, no Startup item, and no background reinstall.
 
 The only catalog is `.claude-plugin/marketplace.json`, name `workstation-plugins`. Paste `living-relation/workstation`, then turn on `workstation-core` (this repo, source `./`). `.cursor-plugin/marketplace.json` lists the same plugin with source `.`. See [INSTALL.md](INSTALL.md) for the installer, the commands, the agent prompt, and the manual clicks.
 
@@ -25,7 +25,7 @@ The only catalog is `.claude-plugin/marketplace.json`, name `workstation-plugins
 Start-Process "https://claude.ai/customize/plugins"
 ```
 
-Then: Customize, Plugins, Add, Add marketplace, Add from a repository, paste `living-relation/workstation`, turn Sync automatically off, and turn on workstation-core.
+Then: Customize, Plugins, Add, Add marketplace, Add from a repository, paste `living-relation/workstation`, turn Sync automatically on, and turn on workstation-core. Updates later: updates arrive automatically after merges to main. Check for updates in the catalog forces it sooner. The Cursor copy still updates by running that copy command again, then reloading the window.
 
 **Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** this repo.
 
