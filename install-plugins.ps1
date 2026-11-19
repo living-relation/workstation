@@ -1,12 +1,12 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Install workstation-core and handbuilt-cad from the living-relation-plugins catalog.
+  Install workstation-core from the workstation-plugins catalog.
 .DESCRIPTION
   Manual only. Double-click install-plugins.cmd, or run this file.
   Does not link skills. Does not create a scheduled task, a sign-in item, or a Run key.
   Does not turn on marketplace auto-update. Updates later come from the Plugins menu.
-  -WhatIf prints the two commands and runs none.
+  -WhatIf prints the command and runs none.
 .PARAMETER Marketplace
   Marketplace source passed to --marketplace. Default: living-relation/workstation.
 #>
@@ -22,16 +22,14 @@ if ($Marketplace -notmatch '^[A-Za-z0-9_./:@\\-]+$') {
 }
 
 $lines = @(
-  "claude plugin install workstation-core --marketplace $Marketplace --scope user",
-  "claude plugin install handbuilt-cad --marketplace $Marketplace --scope user"
+  "claude plugin install workstation-core --marketplace $Marketplace --scope user"
 )
 # Nested arrays (the leading comma). Without it, PowerShell flattens the list.
 $steps = @(
-  ,@('plugin', 'install', 'workstation-core', '--marketplace', $Marketplace, '--scope', 'user'),
-  ,@('plugin', 'install', 'handbuilt-cad', '--marketplace', $Marketplace, '--scope', 'user')
+  ,@('plugin', 'install', 'workstation-core', '--marketplace', $Marketplace, '--scope', 'user')
 )
 
-if (-not $PSCmdlet.ShouldProcess('living-relation-plugins', 'install plugins')) {
+if (-not $PSCmdlet.ShouldProcess('workstation-plugins', 'install plugins')) {
   foreach ($line in $lines) { Write-Output $line }
   Write-Output 'WhatIf: no command was run. Skills were not linked. Nothing was scheduled.'
   exit 0
@@ -52,5 +50,5 @@ for ($i = 0; $i -lt $steps.Count; $i++) {
     exit $LASTEXITCODE
   }
 }
-Write-Output 'Installed both plugins at user scope. Updates come from the Plugins menu. Leave auto-update off. Skills were not linked.'
+Write-Output 'Installed workstation-core at user scope. Updates come from the Plugins menu. Leave auto-update off. Skills were not linked.'
 exit 0

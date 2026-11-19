@@ -17,7 +17,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -ProjectsRoot <P
 
 Skills get in only by installing the plugins. Nothing in this repo links `~\.claude\skills` on its own, and nothing uploads a skill zip. Updates later come from the Plugins menu. Leave marketplace auto-update off. No scheduled task, no Startup item, and no background reinstall.
 
-The only catalog is `.claude-plugin/marketplace.json`, name `living-relation-plugins`. It lists `workstation-core` (this repo, source `./`) and `handbuilt-cad` (GitHub `living-relation/handbuilt-cad`). Cursor's `.cursor-plugin/marketplace.json` is not a second catalog: its source is a folder path, so it cannot point at the CAD repo. See [INSTALL.md](INSTALL.md) for the installer, the agent prompt, the manual Plugins-menu steps, and the Cursor limit.
+The only catalog is `.claude-plugin/marketplace.json`, name `workstation-plugins`. It lists `workstation-core` (this repo, source `./`). `.cursor-plugin/marketplace.json` lists the same plugin with source `.`. See [INSTALL.md](INSTALL.md) for the installer, the agent prompt, the manual Plugins-menu steps, and Cursor.
 
 **Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** any folder. `claude` is on PATH. Claude Code 2.1.292 or newer.
 
@@ -25,18 +25,10 @@ The only catalog is `.claude-plugin/marketplace.json`, name `living-relation-plu
 claude plugin install workstation-core --marketplace living-relation/workstation --scope user
 ```
 
-```powershell
-claude plugin install handbuilt-cad --marketplace living-relation/workstation --scope user
-```
-
 **Terminal:** Claude Code session prompt. **Mode:** interactive session (not `claude -p`).
 
 ```text
 /plugin install workstation-core --marketplace living-relation/workstation
-```
-
-```text
-/plugin install handbuilt-cad --marketplace living-relation/workstation
 ```
 
 The Workstation toolkit (`workstation\`: Health check, app locks, the manual Cursor worker, and the manual Desktop Commander shortcuts) runs
@@ -65,9 +57,8 @@ On a PC that still has the old local setup, run `cleanup-legacy.ps1 -WhatIf`, th
 WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `bash setup.sh`.
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).
-- No CAD code or models in this repo. The catalog entry for `handbuilt-cad` points at that repo's plugin. This repo does not contain those files, and `workstation.lock.yaml` does not pin them.
-- `skills/` - this repo's (non-CAD) skills; skills live only in their repo. They get in only when the `workstation-core` plugin is installed (see [INSTALL.md](INSTALL.md)). No zip upload. `install.ps1` does not link them.
-  CAD skills live in the handbuilt-cad repo and get in only when that plugin is installed from the same catalog.
+- No CAD code or models in this repo. `workstation.lock.yaml` does not pin any.
+- `skills/` - this repo's skills; skills live only in their repo. They get in only when the `workstation-core` plugin is installed (see [INSTALL.md](INSTALL.md)). No zip upload. `install.ps1` does not link them.
   `skills/EXCLUDE.txt` lists Claude-app-owned skills (harness-design, st185-*); those, and any SKILL.md with
   `source: harness-design-app`, are never zipped, and `link-skills.ps1` never moves or removes their folders.
   Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching generated `skills/<name>.zip` (CI builds it; nobody uploads it).

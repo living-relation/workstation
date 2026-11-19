@@ -204,11 +204,9 @@ def test_claude_marketplace_is_the_only_catalog():
         (ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8")
     )
     assert market == chk.CLAUDE_MARKETPLACE
+    assert market["name"] == "workstation-plugins"
+    assert [entry["name"] for entry in market["plugins"]] == ["workstation-core"]
     assert market["plugins"][0]["source"] == "./"
-    assert market["plugins"][1]["source"] == {
-        "source": "github",
-        "repo": "living-relation/handbuilt-cad",
-    }
     cursor = json.loads(
         (ROOT / ".cursor-plugin" / "marketplace.json").read_text(encoding="utf-8")
     )

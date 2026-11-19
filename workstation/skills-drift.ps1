@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-# Optional. Skills get in only by installing the living-relation plugins (INSTALL.md). No zip upload. This script does not install or link.
+# Optional. Skills get in only by installing the workstation-plugins catalog (INSTALL.md). No zip upload. This script does not install or link.
 # Use this only to spot older uploaded copies (to delete them). Manual. Compares each claude.ai synced skill with this repo.
 # Synced copies live at ~\.claude\skills\synced\<bucket>\<name>.
 # claude.ai rewrites frontmatter, so only the body after the frontmatter is compared.

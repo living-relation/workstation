@@ -10,12 +10,10 @@ Official rules this encodes (no version field, by the approved plan):
   https://cursor.com/docs/reference/plugins
   Schema: https://github.com/cursor/plugins/blob/main/schemas/plugin.schema.json
 - Cursor marketplace `source` is a string of length >= 1 (a path, or in the
-  schema text a remote URL). "." is a legal path. An object such as Claude's
-  `{"source":"github","repo":"owner/repo"}` is rejected (`additionalProperties`
-  is false, and `source` must be a string). The published resolver loads
-  `<source>/.cursor-plugin/plugin.json` with path.resolve(root, source). "."
-  resolves to the repo root. That is not a way to clone another GitHub repo,
-  so handbuilt-cad is listed only in `.claude-plugin/marketplace.json`.
+  schema text a remote URL). "." is a legal path. An object is rejected
+  (`additionalProperties` is false, and `source` must be a string). The
+  published resolver loads `<source>/.cursor-plugin/plugin.json` with
+  path.resolve(root, source). "." resolves to the repo root.
   https://github.com/cursor/plugins/blob/main/schemas/marketplace.schema.json
   https://cursor.com/docs/reference/plugins
   https://github.com/cursor/plugins/blob/main/scripts/validate-plugins.mjs
@@ -61,25 +59,16 @@ CURSOR_MARKETPLACE = {
     "owner": {"name": "living-relation"},
     "plugins": [{"name": "workstation-core", "source": "."}],
 }
-# The only cross-repo catalog. Cursor's marketplace file stays the local plugin
-# above: its source cannot be a GitHub repo object.
+# The only plugin catalog. It lists this repo's plugin only.
 CLAUDE_MARKETPLACE = {
-    "name": "living-relation-plugins",
-    "description": (
-        "Plugins from the living-relation repos. "
-        "workstation-core is this repo. handbuilt-cad is the CAD repo."
-    ),
+    "name": "workstation-plugins",
+    "description": "The workstation-core plugin from this repo.",
     "owner": {"name": "living-relation"},
     "plugins": [
         {
             "name": "workstation-core",
             "source": "./",
             "description": "Non-CAD skills, rules, and hooks from this repo.",
-        },
-        {
-            "name": "handbuilt-cad",
-            "source": {"source": "github", "repo": "living-relation/handbuilt-cad"},
-            "description": "CAD skills from living-relation/handbuilt-cad.",
         },
     ],
 }
@@ -110,7 +99,7 @@ def _version_keys(obj, where):
 
 
 def _extra_marketplace_files(root: Path):
-    """The Claude catalog is the only cross-repo catalog. No third marketplace file."""
+    """No marketplace file besides the Claude catalog and the Cursor plugin file."""
     errors = []
     skip = {".git", ".venv", "node_modules"}
     found = []
