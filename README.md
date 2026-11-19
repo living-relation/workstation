@@ -12,6 +12,33 @@ git clone <repo-url> <Projects>\active\workstation
 powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1      # hooks, gitleaks, models folder, local.toml
 powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -ProjectsRoot <Projects> -WhatIf   # then without -WhatIf
 ```
+
+## Plugins
+
+Skills get in only by installing the plugins. Nothing in this repo links `~\.claude\skills` on its own, and nothing uploads a skill zip. Updates later come from the Plugins menu. Leave marketplace auto-update off. No scheduled task, no Startup item, and no background reinstall.
+
+The only catalog is `.claude-plugin/marketplace.json`, name `living-relation-plugins`. It lists `workstation-core` (this repo, source `./`) and `handbuilt-cad` (GitHub `living-relation/handbuilt-cad`). Cursor's `.cursor-plugin/marketplace.json` is not a second catalog: its source is a folder path, so it cannot point at the CAD repo. See [INSTALL.md](INSTALL.md) for the installer, the agent prompt, the manual Plugins-menu steps, and the Cursor limit.
+
+**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** any folder. `claude` is on PATH. Claude Code 2.1.292 or newer.
+
+```powershell
+claude plugin install workstation-core --marketplace living-relation/workstation --scope user
+```
+
+```powershell
+claude plugin install handbuilt-cad --marketplace living-relation/workstation --scope user
+```
+
+**Terminal:** Claude Code session prompt. **Mode:** interactive session (not `claude -p`).
+
+```text
+/plugin install workstation-core --marketplace living-relation/workstation
+```
+
+```text
+/plugin install handbuilt-cad --marketplace living-relation/workstation
+```
+
 The Workstation toolkit (`workstation\`: Health check, app locks, the manual Cursor worker, and the manual Desktop Commander shortcuts) runs
 straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`.
 Runtime files live in `%LOCALAPPDATA%\Workstation\`, never in the clone.
@@ -38,20 +65,17 @@ On a PC that still has the old local setup, run `cleanup-legacy.ps1 -WhatIf`, th
 WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `bash setup.sh`.
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).
-- No CAD here: this repo does not install, pin or link any CAD tool, CAD skill or CAD repo.
-- `skills/` - this repo's (non-CAD) skills; skills live only in their repo. Skills reach Claude Chat, Cowork and Claude Code through the account plugin; no zip upload.
-  Linking into `~\.claude\skills` is opt-in: `install.ps1 -LinkSkills` (by hand: `link-skills.ps1 [-WhatIf]`) makes
-  junctions (Cursor reads that folder too; old `~\.cursor\skills` links are removed). `-NoLinkSkills` is accepted and ignored.
-  Re-running `link-skills.ps1` removes only its own links whose skill was renamed or removed (the
-  link only). CAD skills live in the CAD repo and reach the apps through its own plugin.
+- No CAD code or models in this repo. The catalog entry for `handbuilt-cad` points at that repo's plugin. This repo does not contain those files, and `workstation.lock.yaml` does not pin them.
+- `skills/` - this repo's (non-CAD) skills; skills live only in their repo. They get in only when the `workstation-core` plugin is installed (see [INSTALL.md](INSTALL.md)). No zip upload. `install.ps1` does not link them.
+  CAD skills live in the handbuilt-cad repo and get in only when that plugin is installed from the same catalog.
   `skills/EXCLUDE.txt` lists Claude-app-owned skills (harness-design, st185-*); those, and any SKILL.md with
-  `source: harness-design-app`, are never linked or zipped, and `link-skills.ps1` never moves or removes their folders.
+  `source: harness-design-app`, are never zipped, and `link-skills.ps1` never moves or removes their folders.
   Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching generated `skills/<name>.zip` (CI builds it; nobody uploads it).
 
   **This repo is the source of truth for Dan's skills** (all 16 are his). `wizard` is his copy of
   [claude-wizard](https://github.com/vlad-ko/claude-wizard) `skill/` at base `43756e1` (`skills/wizard/UPSTREAM.md`).
   `workstation\skills-drift.ps1` is optional: it lists older uploaded copies under `~\.claude\skills\synced\` that differ
-  from the repo. With `-LinkSkills`, `link-skills.ps1` skips a skill that has a synced copy, so it does not load twice.
+  from the repo. It does not install or link anything.
 
   `workstation\check-upstream.ps1` is manual. For a skill with `metadata.upstream` it fetches upstream, shows
   `base..HEAD`, three-way merges into Dan's copy, bumps `upstream-base`, and opens a PR. No schedule and no
