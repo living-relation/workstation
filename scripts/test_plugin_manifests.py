@@ -98,6 +98,16 @@ def _write_good(root: Path):
         json.dumps(chk.CURSOR_MARKETPLACE) + "\n", encoding="utf-8"
     )
     _write_hooks(root)
+    _write_rules(root)
+
+
+GOOD_RULE = "---\ndescription: demo\nalwaysApply: true\n---\n\n# Rule\n"
+
+
+def _write_rules(root: Path, text: str = GOOD_RULE):
+    rules = root / "rules"
+    rules.mkdir(exist_ok=True)
+    (rules / "sot-permission.mdc").write_text(text, encoding="utf-8")
 
 
 def test_repo_manifests_pass():
@@ -128,6 +138,35 @@ def test_version_field_fails(tmp_path):
     (tmp_path / ".claude-plugin" / "plugin.json").write_text(json.dumps(plugin) + "\n")
     errors = chk.check(tmp_path)
     assert any("version" in e for e in errors)
+
+
+def test_missing_always_on_rule_fails(tmp_path):
+    _write_good(tmp_path)
+    (tmp_path / "rules" / "sot-permission.mdc").unlink()
+    errors = chk.check(tmp_path)
+    assert any("sot-permission.mdc is missing" in e for e in errors)
+
+
+def test_rule_without_always_apply_fails(tmp_path):
+    _write_good(tmp_path)
+    _write_rules(tmp_path, GOOD_RULE.replace("alwaysApply: true", "alwaysApply: false"))
+    errors = chk.check(tmp_path)
+    assert any("alwaysApply: true" in e for e in errors)
+
+
+def test_manifest_without_rules_path_fails(tmp_path):
+    _write_good(tmp_path)
+    plugin = dict(chk.CURSOR_PLUGIN)
+    plugin.pop("rules")
+    (tmp_path / ".cursor-plugin" / "plugin.json").write_text(json.dumps(plugin) + "\n")
+    errors = chk.check(tmp_path)
+    assert any("rules" in e for e in errors)
+
+
+def test_repo_sot_rule_asks_for_the_owners_yes():
+    text = (ROOT / "rules" / "sot-permission.mdc").read_text(encoding="utf-8")
+    assert "explicit yes" in text
+    assert "report every changed value" in text
 
 
 def test_parent_source_is_rejected(tmp_path):

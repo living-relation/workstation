@@ -1,5 +1,6 @@
 {
   "name": "workstation-core",
   "skills": "./skills/",
-  "hooks": "./hooks/cursor-hooks.json"
+  "hooks": "./hooks/cursor-hooks.json",
+  "rules": "./rules/"
 }

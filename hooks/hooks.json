@@ -6,11 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/projects-root-guard.ps1\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/projects-root-guard.ps1\""
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/protected-files-guard.ps1\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/protected-files-guard.ps1\""
           }
         ]
       }
@@ -20,11 +20,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/projects-root-report.ps1\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/projects-root-report.ps1\""
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/state-lint-stop.ps1\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/state-lint-stop.ps1\""
           }
         ]
       }
@@ -34,11 +34,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/agents-md-only-warn.ps1\" || pwsh -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/agents-md-only-warn.ps1\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/agents-md-only-warn.ps1\""
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/state-inject.ps1\" || pwsh -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/state-inject.ps1\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/state-inject.ps1\""
           }
         ]
       }

@@ -16,6 +16,12 @@
         "matcher": "Write|Edit|Delete|NotebookEdit|Bash|PowerShell|Shell"
       }
     ],
+    "beforeShellExecution": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/hooks/protected-files-guard.ps1\"",
+        "matcher": "deliverable_lock"
+      }
+    ],
     "stop": [
       {
         "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/hooks/projects-root-report.ps1\"",

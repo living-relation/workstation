@@ -1,0 +1,17 @@
+---
+description: Sources of truth, locked deliverables, SPEC and protected files change only with the owner's explicit yes, and every change is checked.
+alwaysApply: true
+---
+
+# Source-of-truth edits need the owner's yes
+
+Sources of truth (SoT) are written and kept by agents, never by hand. You may edit them, but never
+silently or in the background.
+
+- Covers: SoT files, files locked in `VERIFIED.lock`, `VERIFIED.lock` itself, SPEC files, paths in
+  `.claude/protected-paths.txt`, and the project's root `STATE.md` from a branch session.
+- Before editing one: say which file and why, and get the owner's explicit yes in this chat.
+  No yes: do not edit.
+- After the edit: report every changed value and the result of each check that ran (the
+  protected-files-guard warning names them).
+- Never write another branch's `STATE-<slug>.md`; that is the one hard block.
