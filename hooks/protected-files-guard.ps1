@@ -12,21 +12,28 @@
 #   session's; archives\ are not judged here). Ask before a write to the project's root STATE.md when
 #   this session's own file is a STATE-<slug>.md (one writer: the coordinator).
 # Allow everything else. Claude Code: only hookSpecificOutput; allow prints nothing. Cursor: only
-#   {"permission", "user_message", "agent_message"}, one line every run; Cursor does not enforce "ask"
-#   in preToolUse, so an ask is sent to Cursor as deny. Any error allows.
+#   {"permission", "user_message", "agent_message"}, one line every run. Rule: agents may edit these
+#   files, only with the owner's explicit yes, and checks prove each edit; the one hard block is another
+#   branch's STATE-<slug>.md. Cursor does not enforce "ask" in preToolUse (https://cursor.com/docs/hooks),
+#   so there an ask becomes allow plus a warning naming the yes it needs and the checks that will run.
+#   Cursor beforeShellExecution does enforce "ask": the unlock command asks there.
+# Any error allows.
 . (Join-Path $PSScriptRoot 'state-common.ps1')
 
 $script:IsCursor = $false
+$script:IsCursorShellEvent = $false
 
 function Write-GuardDecision {
-  param([string]$Decision, [string]$Msg)
+  param([string]$Decision, [string]$Msg, [string]$Checks)
   if ($script:IsCursor) {
-    if ($Decision -eq 'ask') {
-      $Decision = 'deny'
-      $Msg = $Msg + ' (Cursor does not enforce "ask" in preToolUse, so this is denied: get the owner''s yes in chat, then the owner makes or approves the change.)'
+    if ($Decision -eq 'ask' -and -not $script:IsCursorShellEvent) {
+      $Decision = 'allow'
+      $Msg = $Msg + ' Cursor allows this without a hard block, but you must already have the owner''s explicit yes in this chat for this exact edit (name the file and why). No yes: stop and ask first. After the edit, report every changed value and the check results.'
     }
+    if ($Checks) { $Msg = $Msg + " Checks: $Checks." }
     $obj = [ordered]@{ permission = $Decision; user_message = $Msg; agent_message = $Msg }
   } else {
+    if ($Checks) { $Msg = $Msg + " Checks: $Checks." }
     $obj = [ordered]@{
       hookSpecificOutput = [ordered]@{
         hookEventName = 'PreToolUse'
@@ -37,6 +44,14 @@ function Write-GuardDecision {
   }
   [Console]::Out.WriteLine(($obj | ConvertTo-Json -Compress -Depth 5))
   exit 0
+}
+
+$script:UnlockMessage = 'protected-files-guard: this command unlocks a verified deliverable (deliverable_lock unlock). Only the owner may approve it, in their own words.'
+$script:UnlockChecks = 'deliverable_lock.py logs the owner phrase in VERIFIED.lock _history; Cursor asks the owner in beforeShellExecution'
+
+function Test-GuardUnlockCommand {
+  param([string]$Command)
+  return ($Command -match '(?i)deliverable_lock(\.py)?\b[^\r\n;|&]*\bunlock\b')
 }
 
 function Exit-GuardAllow {
@@ -96,14 +111,19 @@ function ConvertFrom-GuardGlob {
   return ('^' + $sb.ToString() + '$')
 }
 
+function New-GuardReason {
+  param([string]$Why, [string]$Checks)
+  return [pscustomobject]@{ Why = $Why; Checks = $Checks }
+}
+
 function Find-ProtectedReason {
   param([string]$FullPath, [string]$Root, [string]$Key)
   $leaf = Split-Path $FullPath -Leaf
   if ($Key -eq 'verified.lock') {
-    return 'VERIFIED.lock is written only by deliverable_lock.py (lock / unlock on the owner''s words), never by hand'
+    return (New-GuardReason 'VERIFIED.lock is written only by deliverable_lock.py (lock / unlock on the owner''s words), never by hand' 'deliverable_lock.py verify (git pre-commit) fails on any hand edit')
   }
   if ($leaf -match '(?i)^SPEC([-_.][^\\/]*)?\.md$' -or $leaf -match '(?i)^SPEC$') {
-    if (Test-GuardRepoMigrated $Root) { return "$Key is a SPEC file" }
+    if (Test-GuardRepoMigrated $Root) { return (New-GuardReason "$Key is a SPEC file" 'the repo''s git pre-commit hooks and CI') }
   }
   $lock = Join-Path $Root 'VERIFIED.lock'
   if (Test-Path -LiteralPath $lock -PathType Leaf) {
@@ -111,7 +131,7 @@ function Find-ProtectedReason {
       $data = [IO.File]::ReadAllText($lock) | ConvertFrom-Json
       foreach ($prop in $data.PSObject.Properties) {
         if ($prop.Name -eq '_history') { continue }
-        if ((ConvertTo-GuardKey $prop.Name) -eq $Key) { return "$Key is locked in VERIFIED.lock (verified deliverable)" }
+        if ((ConvertTo-GuardKey $prop.Name) -eq $Key) { return (New-GuardReason "$Key is locked in VERIFIED.lock (verified deliverable)" 'deliverable_lock.py verify (git pre-commit) fails until the owner unlocks it') }
       }
     } catch { }
   }
@@ -121,7 +141,7 @@ function Find-ProtectedReason {
       $glob = $line.Trim()
       if (-not $glob -or $glob.StartsWith('#')) { continue }
       try {
-        if ($Key -match (ConvertFrom-GuardGlob $glob)) { return "$Key matches '$glob' in .claude/protected-paths.txt" }
+        if ($Key -match (ConvertFrom-GuardGlob $glob)) { return (New-GuardReason "$Key matches '$glob' in .claude/protected-paths.txt" 'the repo''s git pre-commit hooks and CI') }
       } catch { }
     }
   }
@@ -171,6 +191,13 @@ if ($MyInvocation.InvocationName -ne '.') {
     $hookIn = Read-StateHookInput
     if (Test-CursorHook $hookIn) { $script:IsCursor = $true }
     if (-not $hookIn) { Exit-GuardAllow }
+    if ($script:IsCursor -and ([string]$hookIn.hook_event_name) -eq 'beforeShellExecution') {
+      $script:IsCursorShellEvent = $true
+      if (Test-GuardUnlockCommand ([string]$hookIn.command)) {
+        Write-GuardDecision 'ask' $script:UnlockMessage $script:UnlockChecks
+      }
+      Exit-GuardAllow
+    }
     $tool = [string]$hookIn.tool_name
     $ti = $hookIn.tool_input
     if (-not $ti) { Exit-GuardAllow }
@@ -178,8 +205,8 @@ if ($MyInvocation.InvocationName -ne '.') {
     $shellTools = @('Bash', 'PowerShell', 'Shell')
     if ($shellTools -contains $tool) {
       $command = [string]$ti.command
-      if ($command -match '(?i)deliverable_lock(\.py)?\b[^\r\n;|&]*\bunlock\b') {
-        Write-GuardDecision 'ask' 'protected-files-guard: this command unlocks a verified deliverable (deliverable_lock unlock). Only the owner may approve it, in their own words.'
+      if (Test-GuardUnlockCommand $command) {
+        Write-GuardDecision 'ask' $script:UnlockMessage $script:UnlockChecks
       }
       Exit-GuardAllow
     }
@@ -194,7 +221,7 @@ if ($MyInvocation.InvocationName -ne '.') {
       $deny = Find-OtherBranchState $full $cwd
       if ($deny) { Write-GuardDecision 'deny' ("protected-files-guard: " + $deny) }
       $rootAsk = Find-RootStateFromBranch $full $cwd
-      if ($rootAsk) { Write-GuardDecision 'ask' ("protected-files-guard: " + $rootAsk + '.') }
+      if ($rootAsk) { Write-GuardDecision 'ask' ("protected-files-guard: " + $rootAsk + '.') 'state_lint.py (Stop hook and git pre-commit)' }
     }
     $root = Get-GuardRepoRoot $full
     if ($root) {
@@ -202,7 +229,7 @@ if ($MyInvocation.InvocationName -ne '.') {
       if ($key) {
         $why = Find-ProtectedReason $full $root $key
         if ($why) {
-          Write-GuardDecision 'ask' ("protected-files-guard: $why. Changing it needs the owner's yes; say what you will change and why.")
+          Write-GuardDecision 'ask' ("protected-files-guard: $($why.Why). Changing it needs the owner's yes; say what you will change and why.") $why.Checks
         }
       }
     }

@@ -33,7 +33,7 @@ jobs:
         run: |
           python -m pip install --quiet pytest==9.1.1
           python scripts/check_cursor_plugin.py
-          python -m pytest -q scripts/test_plugin_manifests.py
+          python -m pytest -q scripts/test_plugin_manifests.py scripts/test_run_ps_launcher.py
       - name: Validate Claude plugin
         env:
           CI: "true"

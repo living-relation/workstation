@@ -26,6 +26,10 @@ Official rules this encodes (no version field, by the approved plan):
   PreToolUse / Stop, `${CLAUDE_PLUGIN_ROOT}`).
   https://code.claude.com/docs/en/plugins-reference
   The two files stay separate so neither host parses the other's event names.
+- Cursor plugin `rules` is a path to rule files or folders; `rules/` holds
+  `.mdc` files with `description`, `globs` and `alwaysApply` frontmatter.
+  `sot-permission.mdc` must set `alwaysApply: true`.
+  https://cursor.com/docs/reference/plugins
 - `agents-md-only-warn.ps1` is Claude SessionStart only. No Cursor variant
   until decision C1.
 
@@ -46,7 +50,9 @@ CURSOR_PLUGIN = {
     "name": "workstation-core",
     "skills": "./skills/",
     "hooks": "./hooks/cursor-hooks.json",
+    "rules": "./rules/",
 }
+ALWAYS_ON_RULES = ("sot-permission.mdc",)
 CURSOR_MARKETPLACE = {
     "name": "workstation-core",
     "owner": {"name": "living-relation"},
@@ -137,6 +143,7 @@ def check(root: Path):
     cursor = loaded.get(".cursor-plugin/plugin.json")
     if isinstance(cursor, dict):
         errors.extend(_check_cursor_hooks(root, cursor.get("hooks")))
+        errors.extend(_check_cursor_rules(root, cursor.get("rules")))
     errors.extend(_check_claude_hooks(root))
     return errors
 
@@ -180,6 +187,48 @@ def _check_cursor_hooks(root: Path, hooks_field):
         errors.append(
             f"{hooks_field}: agents-md-only-warn is Claude-only until decision C1"
         )
+    return errors
+
+
+def _frontmatter(text: str):
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    fields = {}
+    for line in lines[1:]:
+        if line.strip() == "---":
+            return fields
+        key, sep, value = line.partition(":")
+        if sep:
+            fields[key.strip()] = value.strip()
+    return None
+
+
+def _check_cursor_rules(root: Path, rules_field):
+    """Plugin rules folder: each always-on rule exists and sets alwaysApply: true."""
+    errors = []
+    if not isinstance(rules_field, str) or not rules_field:
+        return ["cursor plugin rules must be a path to the rules folder"]
+    folder = (root / rules_field).resolve()
+    try:
+        folder.relative_to(root.resolve())
+    except ValueError:
+        return [f"cursor rules path escapes the repo: {rules_field}"]
+    if not folder.is_dir():
+        return [f"cursor rules path {rules_field} is missing"]
+    for name in ALWAYS_ON_RULES:
+        path = folder / name
+        if not path.is_file():
+            errors.append(f"rules/{name} is missing")
+            continue
+        fields = _frontmatter(path.read_text(encoding="utf-8"))
+        if fields is None:
+            errors.append(f"rules/{name}: needs --- frontmatter")
+            continue
+        if fields.get("alwaysApply") != "true":
+            errors.append(f"rules/{name}: must set alwaysApply: true")
+        if not fields.get("description"):
+            errors.append(f"rules/{name}: needs a description")
     return errors
 
 

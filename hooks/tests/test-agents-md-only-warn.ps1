@@ -107,7 +107,7 @@ Check 'hook script has no nonzero exit' ($hookText -notmatch 'exit\s+[1-9]')
 $claudeHooks = Get-Content -LiteralPath $hooksJson -Raw | ConvertFrom-Json
 $sessionCmd = [string]$claudeHooks.hooks.SessionStart[0].hooks[0].command
 Check 'SessionStart uses CLAUDE_PLUGIN_ROOT' ($sessionCmd -match '\$\{CLAUDE_PLUGIN_ROOT\}/hooks/agents-md-only-warn\.ps1')
-Check 'SessionStart tries powershell and pwsh' ($sessionCmd -match 'powershell\s+-NoProfile' -and $sessionCmd -match '\|\|\s*pwsh\s+-NoProfile')
+Check 'SessionStart runs through run-ps.sh (powershell, then pwsh, else silent)' ($sessionCmd -match '^sh "\$\{CLAUDE_PLUGIN_ROOT\}/hooks/run-ps\.sh" ' -and $sessionCmd -notmatch 'pwsh|powershell')
 $cursorText = Get-Content -LiteralPath $cursorJson -Raw
 Check 'cursor hooks have no agents-md-only-warn' ($cursorText -notmatch 'agents-md-only-warn')
 

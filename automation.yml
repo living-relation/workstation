@@ -211,7 +211,7 @@ automations:
   - id: state-hooks
     script: [hooks/state-inject.ps1, hooks/state-lint-stop.ps1, hooks/protected-files-guard.ps1]
     helpers: [hooks/state-common.ps1, hooks/hooks.json, hooks/cursor-hooks.json, hooks/tests/state-test-support.ps1, hooks/tests/test-state-inject.ps1, hooks/tests/test-state-lint-stop.ps1, hooks/tests/test-state-protected-files-guard.ps1]
-    trigger: agent-hook:SessionStart+Stop+PreToolUse (Claude hooks/hooks.json; Cursor hooks/cursor-hooks.json sessionStart+preToolUse+stop)
+    trigger: agent-hook:SessionStart+Stop+PreToolUse (Claude hooks/hooks.json via hooks/run-ps.sh; Cursor hooks/cursor-hooks.json sessionStart+preToolUse+beforeShellExecution+stop)
     reads: [hook payload on stdin, WORKSTATION_MEMORY_STORE, WORKSTATION_STATE_TOOLS, STATE.md and STATE-*.md in the memory store project folder (outside the repo), SPEC files, VERIFIED.lock and .claude/protected-paths.txt of the repo being edited; calls scripts/state state_paths and state_lint]
     writes: []
     committed: no
@@ -228,6 +228,16 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-state-git-hooks.ps1
+  - id: hook-launcher
+    script: hooks/run-ps.sh
+    helpers: [hooks/README.md, hooks/hooks.json, scripts/test_run_ps_launcher.py]
+    trigger: called-by:state-hooks (every Claude hooks/hooks.json command runs through it)
+    reads: [PATH (powershell, else pwsh)]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    check_cmd: python -m pytest -q scripts/test_run_ps_launcher.py
   - id: no-claude-md
     script: .github/workflows/no-claude-md.yml
     helpers: [scripts/check_no_claude_md.py, scripts/test_check_no_claude_md.py]
@@ -241,9 +251,9 @@ automations:
     check_cmd: python3 scripts/test_check_no_claude_md.py
   - id: plugin-validate
     script: .github/workflows/plugin-validate.yml
-    helpers: [scripts/check_cursor_plugin.py, scripts/test_plugin_manifests.py]
+    helpers: [scripts/check_cursor_plugin.py, scripts/test_plugin_manifests.py, scripts/test_run_ps_launcher.py, rules/sot-permission.mdc]
     trigger: pr-check
-    reads: [.claude-plugin/**, .cursor-plugin/**, skills/**, scripts/check_cursor_plugin.py]
+    reads: [.claude-plugin/**, .cursor-plugin/**, rules/**, skills/**, hooks/hooks.json, hooks/run-ps.sh, scripts/check_cursor_plugin.py]
     writes: []
     committed: no
     auto_commit: false
