@@ -1,0 +1,22 @@
+{
+  "name": "living-relation-plugins",
+  "description": "Plugins from the living-relation repos. workstation-core is this repo. handbuilt-cad is the CAD repo.",
+  "owner": {
+    "name": "living-relation"
+  },
+  "plugins": [
+    {
+      "name": "workstation-core",
+      "source": "./",
+      "description": "Non-CAD skills, rules, and hooks from this repo."
+    },
+    {
+      "name": "handbuilt-cad",
+      "source": {
+        "source": "github",
+        "repo": "living-relation/handbuilt-cad"
+      },
+      "description": "CAD skills from living-relation/handbuilt-cad."
+    }
+  ]
+}

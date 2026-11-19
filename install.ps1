@@ -44,8 +44,8 @@
   - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
     pr-closeout-nudge.ps1 (Claude Code PostToolUse, after a PR is opened), handoff-at-80.py (Cursor preCompact +
     stop, needs py -3); the skill the handoff hooks trigger, agent-handoff-pack, comes from the workstation-core
-    plugin. Skills reach Claude Chat, Cowork and Claude Code through the account plugin; no zip upload. Linking skills\ into
-    ~\.claude\skills is opt-in (-LinkSkills, section 9b). Entries are merged by script name (never duplicated); an unrelated
+    plugin. Skills get in only by installing the living-relation plugins (INSTALL.md). This script does not
+    link skills\ into ~\.claude\skills unless -LinkSkills is passed. No zip upload. Entries are merged by script name (never duplicated); an unrelated
     statusLine is never overwritten; other hook entries are left alone.
   - Merges Claude Code MCP connectors into ~\.claude.json (user-scope) from claude\mcp-servers.json.
     Existing servers of the same name are left alone. API keys come from env (or a
@@ -80,9 +80,9 @@
   (test mode: under -UserHome).
 
 .PARAMETER LinkSkills
-  Opt in: link (junction) this repo's skills\ into ~\.claude\skills with link-skills.ps1 (Cursor reads it too).
-  Off by default: the account plugin already delivers the skills, and a linked copy would load twice. Re-running
-  also removes links this repo made whose skill was renamed or removed (the link only).
+  Not the install path. Skills get in only from the plugin (INSTALL.md). Passing this switch still runs
+  link-skills.ps1. Off by default, so a normal install does not link skills. Re-running also removes links
+  this repo made whose skill was renamed or removed (the link only).
 
 .PARAMETER NoLinkSkills
   Accepted for compatibility and ignored: skills are linked only with -LinkSkills.
@@ -907,12 +907,12 @@ $cs = @($Preflight.CursorStartup)
 if ($cs.Count) { foreach ($e in $cs) { Note 'WARN' "Cursor starts at sign-in (not added by this install; remove it by hand if unwanted): $($e.Path)" } }
 else { Note 'OK' 'Cursor does not start at sign-in (install adds no autostart)' }
 
-# 9b. Skills (opt-in, -LinkSkills). The account plugin delivers skills to every app, so linking is off by default.
+# 9b. Skills. The plugin install is the only way skills get in (INSTALL.md), so linking is off unless -LinkSkills.
 #     With -LinkSkills: link (junction) this repo's skills\ into ~\.claude\skills only (Cursor reads it too); old links
 #     from this repo in ~\.cursor\skills are removed (link only). link-skills.ps1 backs up a same-name folder first and
 #     removes only its own links whose skill is gone (link only). -NoLinkSkills is a no-op (kept for old shortcuts).
 $skillTargets = @((Join-Path $DotClaude 'skills'))
-if (-not $LinkSkills) { Note 'OK' 'skills: not linked (the account plugin delivers them; pass -LinkSkills to link)' }
+if (-not $LinkSkills) { Note 'OK' 'skills: not linked (install the living-relation plugins; this script does not link them)' }
 else { try {
   foreach ($r in @(& (Join-Path $PSScriptRoot 'link-skills.ps1') -From (Join-Path $PSScriptRoot 'skills') -Targets $skillTargets -Unlink @((Join-Path $DotCursor 'skills')) -BackupRoot (Join-Path $UserHome '.skills-backup') -WhatIf:$WhatIf)) {
     if ($r.Action -eq 'ok') { Note 'OK' "skill link already in place: $($r.Path)" }
