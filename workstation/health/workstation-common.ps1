@@ -7,6 +7,7 @@ $BridgeRoot = Split-Path -Parent $HealthDir
 . (Join-Path $BridgeRoot 'paths.ps1')
 . (Join-Path $HealthDir 'claude-auth-status.ps1')
 . (Join-Path $HealthDir 'orphans.ps1')
+. (Join-Path $HealthDir 'claude-ai-plugin.ps1')
 $__cwLib = Join-Path (Join-Path $BridgeRoot 'cursor-worker') 'cursor-worker-lib.ps1'
 if (-not (Get-Command Get-CursorWorkerHealthLines -ErrorAction SilentlyContinue)) { . $__cwLib }
 $BridgeProjects = $WsProjectsRoot
@@ -114,29 +115,8 @@ function Show-MemoryAndHooks {
 function Show-Skills {
     Write-Host ''
     Write-Host 'Skills' -ForegroundColor Cyan
-    $repoRoot = Split-Path -Parent $BridgeRoot
-    $skillRoot = Join-Path $repoRoot 'skills'
-    $dest = Join-Path $HOME '.claude\skills'
-    $exclude = @()
-    $exFile = Join-Path $skillRoot 'EXCLUDE.txt'
-    if (Test-Path -LiteralPath $exFile) {
-        $exclude = @(Get-Content -LiteralPath $exFile | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -notmatch '^\s*#' })
-    }
-    $missing = @()
-    if (Test-Path -LiteralPath $skillRoot) {
-        foreach ($d in @(Get-ChildItem -LiteralPath $skillRoot -Directory -ErrorAction SilentlyContinue)) {
-            $skillMd = Join-Path $d.FullName 'SKILL.md'
-            if (-not (Test-Path -LiteralPath $skillMd)) { continue }
-            if ($exclude -contains $d.Name) { continue }
-            $text = ''
-            try { $text = Get-Content -LiteralPath $skillMd -Raw -ErrorAction Stop } catch { $text = '' }
-            if ($text -match '(?m)^source:\s*harness-design-app\s*$') { continue }
-            $link = Join-Path $dest $d.Name
-            if (-not (Test-Path -LiteralPath $link)) { $missing += $d.Name }
-        }
-    }
-    if ($missing) { Write-Warn ("skills not linked: " + ($missing -join ', ')) }
-    else { Write-Ok "skills linked ($dest)" }
+    if (Test-WorkstationCoreOnClaudeAi -UserRoot $HOME) { Write-Ok $WsPluginPresentText }
+    else { Write-Warn $WsPluginMissingText }
 }
 
 function Show-DcRemote {

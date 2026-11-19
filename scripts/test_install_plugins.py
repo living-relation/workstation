@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""The plugin installer prints its one command on -WhatIf and does not link or schedule.
+"""The plugin installer prints claude.ai clicks on -WhatIf and does not schedule.
 
-The command is the same single-line block as README.md and INSTALL.md.
+The commands are the same single-line blocks as README.md and INSTALL.md.
 """
+import os
 import shutil
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -12,16 +14,40 @@ ROOT = Path(__file__).resolve().parents[1]
 PS1 = ROOT / "install-plugins.ps1"
 README = ROOT / "README.md"
 INSTALL = ROOT / "INSTALL.md"
+PROMPT = ROOT / "SETUP-PROMPT.txt"
 PWSH = shutil.which("pwsh") or shutil.which("powershell")
 
-CORE = (
-    "claude plugin install workstation-core "
-    "--marketplace living-relation/workstation --scope user"
+OPEN = 'Start-Process "https://claude.ai/customize/plugins"'
+CURSOR = (
+    'New-Item -ItemType Directory -Force -Path '
+    '"$env:USERPROFILE\\.cursor\\plugins\\local\\workstation-core" | Out-Null; '
+    "Get-ChildItem -Force -LiteralPath . | Where-Object { $_.Name -ne '.git' "
+    "-and $_.Name -ne '.venv' } | ForEach-Object { Copy-Item -LiteralPath "
+    '$_.FullName -Destination (Join-Path '
+    '"$env:USERPROFILE\\.cursor\\plugins\\local\\workstation-core" '
+    "$_.Name) -Recurse -Force }"
 )
-SESSION_CORE = "/plugin install workstation-core --marketplace living-relation/workstation"
-BY_ID = "claude plugin install workstation-core@workstation-plugins --scope user"
 INSTALLER = r"powershell -NoProfile -ExecutionPolicy Bypass -File .\install-plugins.ps1"
 WHATIF = INSTALLER + " -WhatIf"
+PASTE = "living-relation/workstation"
+MISSING = (
+    "workstation-core plugin not added on claude.ai yet: "
+    "add catalog living-relation/workstation and turn on workstation-core"
+)
+PRESENT = "workstation-core plugin is present on claude.ai"
+BANNED = (
+    "claude plugin install",
+    "claude plugin marketplace",
+    "/plugin install",
+    "/plugin marketplace",
+    "-LinkSkills",
+    "skills not linked",
+    "skills: not linked",
+    "linking",
+    "sync automatically off",
+    "leave it off",
+    "leave marketplace auto-update off",
+)
 
 
 def _fence_lines(text: str):
@@ -44,24 +70,48 @@ class InstallPluginsDocs(unittest.TestCase):
     def test_four_methods_and_single_line_commands(self):
         install = INSTALL.read_text(encoding="utf-8")
         readme = README.read_text(encoding="utf-8")
-        for heading in ("## 1. Installer", "## 2. Commands", "## 3. Agent prompt", "## 4. Manual steps"):
+        prompt = PROMPT.read_text(encoding="utf-8")
+        for heading in (
+            "## 1. Installer",
+            "## 2. Commands",
+            "## 3. Agent prompt",
+            "## 4. Manual steps",
+        ):
             self.assertIn(heading, install)
-        self.assertIn("Plugins menu", install)
-        self.assertIn("Leave marketplace auto-update off", install)
-        self.assertIn("does not link", install.lower())
-        for line in (CORE, SESSION_CORE, BY_ID, INSTALLER, WHATIF):
+        self.assertIn("Turn Sync automatically on", install)
+        self.assertNotIn("Sync automatically off", install)
+        self.assertNotIn("Leave it off", install)
+        self.assertNotIn("leave marketplace auto-update off", install.lower())
+        self.assertIn("does not copy skills", install.lower())
+        self.assertIn(PASTE, install)
+        self.assertIn("workstation-plugins", install)
+        for line in (OPEN, CURSOR, INSTALLER, WHATIF):
             self.assertIn(line, install)
             self.assertIn([line], _fence_lines(install))
-        for line in (CORE, SESSION_CORE):
+        for line in (OPEN, CURSOR):
             self.assertIn([line], _fence_lines(readme))
+        for blob in (install, readme, prompt):
+            low = blob.lower()
+            for banned in BANNED:
+                self.assertNotIn(banned.lower(), low)
         script = PS1.read_text(encoding="utf-8")
-        self.assertIn("[string]$Marketplace = 'living-relation/workstation'", script)
-        self.assertIn("'plugin', 'install', 'workstation-core'", script)
-        self.assertEqual(script.count("'plugin', 'install'"), 1)
-        for banned in ("Register-ScheduledTask", "schtasks", "link-skills.ps1", "Startup"):
+        self.assertIn("[string]$Catalog = 'living-relation/workstation'", script)
+        self.assertIn("https://claude.ai/customize/plugins", script)
+        self.assertNotIn("plugin', 'install'", script)
+        for banned in (
+            "Register-ScheduledTask",
+            "schtasks",
+            "link-skills.ps1",
+            "Startup",
+            "claude plugin",
+            "-LinkSkills",
+        ):
             self.assertNotIn(banned, script)
+        install_ps1 = (ROOT / "install.ps1").read_text(encoding="utf-8")
+        self.assertNotIn("LinkSkills", install_ps1)
+        self.assertNotIn("link-skills.ps1", install_ps1)
 
-    def test_whatif_prints_commands_and_does_not_run_them(self):
+    def test_whatif_prints_clicks_and_does_not_open_or_copy(self):
         if not PWSH:
             self.skipTest("powershell is not installed")
         proc = subprocess.run(
@@ -73,11 +123,92 @@ class InstallPluginsDocs(unittest.TestCase):
         )
         out = proc.stdout + proc.stderr
         self.assertEqual(proc.returncode, 0, out)
-        self.assertIn(CORE, out)
-        self.assertEqual(out.count("claude plugin install"), 1)
-        self.assertIn("Skills were not linked", out)
+        self.assertIn("Catalog to paste: " + PASTE, out)
+        self.assertIn("Turn Sync automatically on", out)
+        self.assertIn("after merges to main", out)
+        self.assertNotIn("Sync automatically off", out)
+        self.assertIn("Turn on workstation-core", out)
+        self.assertIn("browser was not opened", out)
+        self.assertIn("Nothing was copied", out)
         self.assertIn("Nothing was scheduled", out)
-        self.assertNotIn("Successfully installed", out)
+        self.assertNotIn("Opened ", out)
+        self.assertNotIn("Copied workstation-core", out)
+
+    def test_userhome_copies_plugin_and_does_not_open_a_browser(self):
+        if not PWSH:
+            self.skipTest("powershell is not installed")
+        with tempfile.TemporaryDirectory() as home:
+            proc = subprocess.run(
+                [
+                    PWSH,
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-File",
+                    str(PS1),
+                    "-UserHome",
+                    home,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                cwd=ROOT,
+            )
+            out = proc.stdout + proc.stderr
+            self.assertEqual(proc.returncode, 0, out)
+            dest = (
+                Path(home)
+                / ".cursor"
+                / "plugins"
+                / "local"
+                / "workstation-core"
+                / ".cursor-plugin"
+                / "plugin.json"
+            )
+            self.assertTrue(dest.is_file(), out)
+            self.assertFalse((Path(home) / ".cursor" / "plugins" / "local" / "workstation-core" / ".git").exists())
+            self.assertIn("Copied workstation-core", out)
+            self.assertIn("browser was not opened", out)
+            self.assertNotIn("Opened ", out)
+            self.assertIn("Nothing was scheduled", out)
+
+
+class PluginPresence(unittest.TestCase):
+    def _status(self, home: Path) -> str:
+        env = os.environ.copy()
+        env.pop("CLAUDE_CODE_PLUGIN_CACHE_DIR", None)
+        script = (
+            f". '{ROOT / 'workstation' / 'health' / 'claude-ai-plugin.ps1'}'; "
+            f"if (Test-WorkstationCoreOnClaudeAi -UserRoot '{home}') "
+            f"{{ Write-Output '{PRESENT}' }} else {{ Write-Output '{MISSING}' }}"
+        )
+        proc = subprocess.run(
+            [PWSH, "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return proc.stdout
+
+    def test_missing_and_present_and_turned_off(self):
+        if not PWSH:
+            self.skipTest("powershell is not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            self.assertIn(MISSING, self._status(home))
+            plugin = home / ".claude" / "plugins" / "synced" / "workstation-core" / ".claude-plugin"
+            plugin.mkdir(parents=True)
+            (plugin / "plugin.json").write_text('{"name":"workstation-core"}\n', encoding="utf-8")
+            self.assertIn(PRESENT, self._status(home))
+            settings = home / ".claude" / "settings.json"
+            settings.write_text(
+                '{"enabledPlugins":{"workstation-core@synced":false}}\n',
+                encoding="utf-8",
+            )
+            self.assertIn(MISSING, self._status(home))
+            settings.write_text('{"syncClaudeAiPlugins":false}\n', encoding="utf-8")
+            self.assertIn(MISSING, self._status(home))
 
 
 if __name__ == "__main__":

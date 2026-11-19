@@ -44,8 +44,8 @@
   - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
     pr-closeout-nudge.ps1 (Claude Code PostToolUse, after a PR is opened), handoff-at-80.py (Cursor preCompact +
     stop, needs py -3); the skill the handoff hooks trigger, agent-handoff-pack, comes from the workstation-core
-    plugin. Skills get in only by installing the workstation-plugins catalog (INSTALL.md). This script does not
-    link skills\ into ~\.claude\skills unless -LinkSkills is passed. No zip upload. Entries are merged by script name (never duplicated); an unrelated
+    plugin. Skills get in only by turning on workstation-core on claude.ai (INSTALL.md). This script does not
+    copy skills into ~\.claude\skills. No zip upload. On a real run it opens the Plugins page and prints the clicks. Entries are merged by script name (never duplicated); an unrelated
     statusLine is never overwritten; other hook entries are left alone.
   - Merges Claude Code MCP connectors into ~\.claude.json (user-scope) from claude\mcp-servers.json.
     Existing servers of the same name are left alone. API keys come from env (or a
@@ -79,14 +79,6 @@
   Testing only. Startup folder for the Cursor autostart. Default: the user's Startup folder
   (test mode: under -UserHome).
 
-.PARAMETER LinkSkills
-  Not the install path. Skills get in only from the plugin (INSTALL.md). Passing this switch still runs
-  link-skills.ps1. Off by default, so a normal install does not link skills. Re-running also removes links
-  this repo made whose skill was renamed or removed (the link only).
-
-.PARAMETER NoLinkSkills
-  Accepted for compatibility and ignored: skills are linked only with -LinkSkills.
-
 .PARAMETER NoPopup
   Quiet run: passed to claude\claude-setup.ps1 as -Quiet (no API key prompts). Alias: Quiet.
 
@@ -106,8 +98,6 @@ param(
   [switch]$AcceptConflicts,
   [string]$StartupFolder,
   [string]$ReportDir,
-  [switch]$LinkSkills,
-  [switch]$NoLinkSkills,
   [Alias('Quiet')]
   [switch]$NoPopup
 )
@@ -128,8 +118,6 @@ $TK = Import-PowerShellDataFile -LiteralPath $ToolkitDef
 $realHome = $env:USERPROFILE
 if (-not $realHome) { $realHome = $HOME }
 $testMode = [bool]$UserHome
-# -NoLinkSkills is a no-op (kept so old shortcuts that pass it still run). Linking is opt-in (-LinkSkills).
-$null = $NoLinkSkills
 if (-not $UserHome) { $UserHome = $realHome }
 $UserHome = [IO.Path]::GetFullPath($UserHome).TrimEnd('\')
 if (-not $ProjectsRoot -and $testMode) { $ProjectsRoot = Join-Path $UserHome 'Projects' }
@@ -907,29 +895,17 @@ $cs = @($Preflight.CursorStartup)
 if ($cs.Count) { foreach ($e in $cs) { Note 'WARN' "Cursor starts at sign-in (not added by this install; remove it by hand if unwanted): $($e.Path)" } }
 else { Note 'OK' 'Cursor does not start at sign-in (install adds no autostart)' }
 
-# 9b. Skills. The plugin install is the only way skills get in (INSTALL.md), so linking is off unless -LinkSkills.
-#     With -LinkSkills: link (junction) this repo's skills\ into ~\.claude\skills only (Cursor reads it too); old links
-#     from this repo in ~\.cursor\skills are removed (link only). link-skills.ps1 backs up a same-name folder first and
-#     removes only its own links whose skill is gone (link only). -NoLinkSkills is a no-op (kept for old shortcuts).
-$skillTargets = @((Join-Path $DotClaude 'skills'))
-if (-not $LinkSkills) { Note 'OK' 'skills: not linked (install the workstation-plugins catalog; this script does not link them)' }
-else { try {
-  foreach ($r in @(& (Join-Path $PSScriptRoot 'link-skills.ps1') -From (Join-Path $PSScriptRoot 'skills') -Targets $skillTargets -Unlink @((Join-Path $DotCursor 'skills')) -BackupRoot (Join-Path $UserHome '.skills-backup') -WhatIf:$WhatIf)) {
-    if ($r.Action -eq 'ok') { Note 'OK' "skill link already in place: $($r.Path)" }
-    elseif ($r.Action -eq 'would-link') { Note 'WOULD' "link skill $($r.Path) -> $($r.Target)" }
-    elseif ($r.Action -eq 'would-prune') { Note 'WOULD' "remove dead skill link $($r.Path) -> $($r.Target)" }
-    elseif ($r.Action -eq 'pruned') { Note 'DONE' "removed dead skill link $($r.Path) -> $($r.Target)" }
-    elseif ($r.Action -eq 'would-unlink') { Note 'WOULD' "remove duplicate skill link $($r.Path) -> $($r.Target)" }
-    elseif ($r.Action -eq 'unlinked') { Note 'DONE' "removed duplicate skill link $($r.Path) -> $($r.Target)" }
-    elseif ($r.Action -eq 'would-retire') { Note 'WOULD' "move retired skill $($r.Path) to $($r.Target)" }
-    elseif ($r.Action -eq 'retired') { Note 'DONE' "moved retired skill $($r.Path) to $($r.Target)" }
-    elseif ($r.Action -eq 'synced-skip') { Note 'OK' "no junction (claude.ai synced copy is present): $($r.Path)" }
-    elseif ($r.Action -eq 'synced-left-real') { Note 'OK' "left real folder alone (claude.ai synced copy is present): $($r.Path)" }
-    elseif ($r.Action -eq 'would-remove-synced-junction') { Note 'WOULD' "remove duplicate junction $($r.Path) -> $($r.Target)" }
-    elseif ($r.Action -eq 'removed-synced-junction') { Note 'DONE' "removed duplicate junction $($r.Path) -> $($r.Target)" }
-    else { Note 'DONE' "skill $($r.Path) -> $($r.Target) ($($r.Action))"; Add-ManifestJson @{ kind = 'skill-link'; path = $r.Path; target = $r.Target; backup = $r.Backup } }
-  }
-} catch { Note 'ERROR' ("link skills -- " + $_.Exception.Message) } }
+# 9b. Skills come from the claude.ai plugin (INSTALL.md). This script does not copy them into ~\.claude\skills.
+#     A real run opens the Plugins page and prints the clicks. -WhatIf does not open a browser or copy files.
+. (Join-Path $PSScriptRoot 'workstation\health\claude-ai-plugin.ps1')
+if (Test-WorkstationCoreOnClaudeAi -UserRoot $UserHome) { Note 'OK' $WsPluginPresentText }
+else { Note 'WARN' $WsPluginMissingText }
+$pluginArgs = @{ WhatIf = [bool]$WhatIf }
+if ($testMode) { $pluginArgs.UserHome = $UserHome }
+try {
+  & (Join-Path $PSScriptRoot 'install-plugins.ps1') @pluginArgs
+  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Note 'WARN' "install-plugins.ps1 exit $LASTEXITCODE" }
+} catch { Note 'ERROR' ("plugin setup -- " + $_.Exception.Message) }
 
 # 9d. Ownership notes in the folders this install creates (add-only).
 try {

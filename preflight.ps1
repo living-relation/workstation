@@ -579,7 +579,7 @@ foreach ($name in 'claude-cowork', 'handoff-sync-continue') {
     continue
   }
   if (-not $found.Count) { Add-Finding 'OK' 'skills' "skill '$name'" 'retired (merged into agent-handoff-pack); no old copy found' }
-  foreach ($f in $found) { Add-Finding 'WARN' 'skills' $f.Path "retired skill (merged into agent-handoff-pack); link-skills.ps1 (install.ps1) moves it to ~\.skills-backup" }
+  foreach ($f in $found) { Add-Finding 'WARN' 'skills' $f.Path "retired skill (merged into agent-handoff-pack); an old copy is still in a skills folder" }
 }
 
 # Claude instruction texts (package instructions\, pasted by hand; never edited by install). Read-only reminder.

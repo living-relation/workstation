@@ -44,6 +44,9 @@ Set-Content (Join-Path $profile '.claude\CLAUDE.md') $rule
 $pstate = Join-Path $profile 'AppData\Local\Workstation'
 New-Item -ItemType Directory -Path $pstate -Force | Out-Null
 (@{ projectsRoot = $projects } | ConvertTo-Json) | Set-Content (Join-Path $pstate 'workstation.json')
+$syncedPlugin = Join-Path $userDir '.claude\plugins\synced\workstation-core\.claude-plugin'
+New-Item -ItemType Directory -Path $syncedPlugin -Force | Out-Null
+Set-Content (Join-Path $syncedPlugin 'plugin.json') '{"name":"workstation-core"}'
 $dest = Join-Path $userDir '.claude\skills'
 New-Item -ItemType Directory -Path $dest | Out-Null
 $exclude = @()
