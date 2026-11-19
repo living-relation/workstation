@@ -18,6 +18,10 @@ Read `agents/projects-AGENTS.md` (shared rules) and `CONTRIBUTING.md` first; fol
 script and hook is listed in `automation.yml`. Before driving Autodesk Fusion, follow the Fusion lock rule in `agents/projects-AGENTS.md` section 5. Before driving the harness.design desktop app, follow section 5b: acquire before use, check in at least every 10 min, and release when done. This repo is public but still generic: no machine-specific, project-specific or
 personal content, no secrets, no CAD code or models.
 
-Plugin manifests may be committed: `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`,
-and `.cursor-plugin/marketplace.json`. They have no `version` field. Skills stay in
-`skills/<name>/SKILL.md`. The plugin ships Claude hooks in `hooks/hooks.json` and Cursor hooks in `hooks/cursor-hooks.json` (the Cursor manifest `hooks` path). No MCP server and no `bin/`.
+Plugin manifests may be committed: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,
+`.cursor-plugin/plugin.json`, and `.cursor-plugin/marketplace.json`. They have no `version` field.
+The only plugin catalog is `.claude-plugin/marketplace.json` (`living-relation-plugins`:
+`workstation-core` at `./`, and `handbuilt-cad` from GitHub `living-relation/handbuilt-cad`).
+`.cursor-plugin/marketplace.json` lists only this repo's plugin (`source` `.`). A Cursor marketplace
+source is a path inside the repo, not another GitHub repo, so handbuilt-cad is not listed there.
+Skills stay in `skills/<name>/SKILL.md`. The plugin ships Claude hooks in `hooks/hooks.json` and Cursor hooks in `hooks/cursor-hooks.json` (the Cursor manifest `hooks` path). No MCP server and no `bin/`.

@@ -1,5 +1,6 @@
 """Plugin manifests: no version field, and Cursor source "." resolves to the repo root."""
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -90,6 +91,9 @@ def _write_good(root: Path):
     (skill / "SKILL.md").write_text("demo\n", encoding="utf-8")
     (root / ".claude-plugin" / "plugin.json").write_text(
         json.dumps(chk.CLAUDE_PLUGIN) + "\n", encoding="utf-8"
+    )
+    (root / ".claude-plugin" / "marketplace.json").write_text(
+        json.dumps(chk.CLAUDE_MARKETPLACE) + "\n", encoding="utf-8"
     )
     (root / ".cursor-plugin" / "plugin.json").write_text(
         json.dumps(chk.CURSOR_PLUGIN) + "\n", encoding="utf-8"
@@ -195,6 +199,38 @@ def test_coordinator_kit_is_picked_up_with_the_other_skills():
     assert "SKILL.md" in packer and "EXCLUDE.txt" in packer
 
 
+def test_claude_marketplace_is_the_only_catalog():
+    market = json.loads(
+        (ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8")
+    )
+    assert market == chk.CLAUDE_MARKETPLACE
+    assert market["plugins"][0]["source"] == "./"
+    assert market["plugins"][1]["source"] == {
+        "source": "github",
+        "repo": "living-relation/handbuilt-cad",
+    }
+    cursor = json.loads(
+        (ROOT / ".cursor-plugin" / "marketplace.json").read_text(encoding="utf-8")
+    )
+    assert cursor["plugins"] == [{"name": "workstation-core", "source": "."}]
+    assert all(isinstance(entry["source"], str) for entry in cursor["plugins"])
+    names = []
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in {".git", ".venv", "node_modules"}]
+        if "marketplace.json" in filenames:
+            names.append(Path(dirpath, "marketplace.json").relative_to(ROOT).as_posix())
+    assert sorted(names) == sorted(chk.MARKETPLACE_FILES)
+
+
+def test_extra_marketplace_file_fails(tmp_path):
+    _write_good(tmp_path)
+    extra = tmp_path / "other" / "marketplace.json"
+    extra.parent.mkdir()
+    extra.write_text("{}\n", encoding="utf-8")
+    errors = chk.check(tmp_path)
+    assert any("extra marketplace catalog" in e for e in errors)
+
+
 def test_workflow_runs_validate_without_strict():
     yml = (ROOT / ".github" / "workflows" / "plugin-validate.yml").read_text(encoding="utf-8")
     code = [line.strip() for line in yml.splitlines() if not line.strip().startswith("#")]
@@ -205,6 +241,7 @@ def test_workflow_runs_validate_without_strict():
     assert ".github/workflows/plugin-validate.yml" in auto
     agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     assert ".claude-plugin/plugin.json" in agents
+    assert ".claude-plugin/marketplace.json" in agents
     assert ".cursor-plugin/marketplace.json" in agents
     contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
     assert ".claude-plugin/" in contributing

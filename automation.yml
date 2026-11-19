@@ -66,6 +66,16 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -WhatIf
+  - id: install-plugins
+    script: install-plugins.ps1
+    helpers: [install-plugins.cmd, INSTALL.md, .claude-plugin/marketplace.json, scripts/test_install_plugins.py]
+    trigger: manual
+    reads: [.claude-plugin/marketplace.json]
+    writes: [outside the repo (inferred) - user Claude Code plugins from living-relation-plugins]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File install-plugins.ps1 -WhatIf
   - id: uninstall
     script: uninstall.ps1
     trigger: manual

@@ -9,13 +9,15 @@ Official rules this encodes (no version field, by the approved plan):
 - Cursor plugin manifest: `name` is the only required field. `skills` is optional.
   https://cursor.com/docs/reference/plugins
   Schema: https://github.com/cursor/plugins/blob/main/schemas/plugin.schema.json
-- Marketplace `source` is a string of length >= 1 (a path or a remote URL).
-  "." is a legal path. Schema required fields are `name` and `plugins`; `owner`
-  is allowed and the docs page also asks for it.
+- Cursor marketplace `source` is a string of length >= 1 (a path, or in the
+  schema text a remote URL). "." is a legal path. An object such as Claude's
+  `{"source":"github","repo":"owner/repo"}` is rejected (`additionalProperties`
+  is false, and `source` must be a string). The published resolver loads
+  `<source>/.cursor-plugin/plugin.json` with path.resolve(root, source). "."
+  resolves to the repo root. That is not a way to clone another GitHub repo,
+  so handbuilt-cad is listed only in `.claude-plugin/marketplace.json`.
   https://github.com/cursor/plugins/blob/main/schemas/marketplace.schema.json
   https://cursor.com/docs/reference/plugins
-- Resolution looks for `<source>/.cursor-plugin/plugin.json`, using
-  path.resolve(root, source). "." resolves to the repo root.
   https://github.com/cursor/plugins/blob/main/scripts/validate-plugins.mjs
 - Cursor plugin `hooks` is a path or an inline object. A set path replaces
   default discovery of `hooks/hooks.json`.
@@ -37,6 +39,7 @@ Official rules this encodes (no version field, by the approved plan):
 This does not run Cursor's importer. A passing check is not a live import.
 """
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -58,6 +61,32 @@ CURSOR_MARKETPLACE = {
     "owner": {"name": "living-relation"},
     "plugins": [{"name": "workstation-core", "source": "."}],
 }
+# The only cross-repo catalog. Cursor's marketplace file stays the local plugin
+# above: its source cannot be a GitHub repo object.
+CLAUDE_MARKETPLACE = {
+    "name": "living-relation-plugins",
+    "description": (
+        "Plugins from the living-relation repos. "
+        "workstation-core is this repo. handbuilt-cad is the CAD repo."
+    ),
+    "owner": {"name": "living-relation"},
+    "plugins": [
+        {
+            "name": "workstation-core",
+            "source": "./",
+            "description": "Non-CAD skills, rules, and hooks from this repo.",
+        },
+        {
+            "name": "handbuilt-cad",
+            "source": {"source": "github", "repo": "living-relation/handbuilt-cad"},
+            "description": "CAD skills from living-relation/handbuilt-cad.",
+        },
+    ],
+}
+MARKETPLACE_FILES = (
+    ".claude-plugin/marketplace.json",
+    ".cursor-plugin/marketplace.json",
+)
 
 
 def _load(path: Path):
@@ -80,6 +109,24 @@ def _version_keys(obj, where):
     return found
 
 
+def _extra_marketplace_files(root: Path):
+    """The Claude catalog is the only cross-repo catalog. No third marketplace file."""
+    errors = []
+    skip = {".git", ".venv", "node_modules"}
+    found = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in skip]
+        if "marketplace.json" in filenames:
+            found.append(Path(dirpath, "marketplace.json").relative_to(root).as_posix())
+    for rel in found:
+        if rel not in MARKETPLACE_FILES:
+            errors.append(
+                f"extra marketplace catalog {rel}; "
+                "the only catalog is .claude-plugin/marketplace.json"
+            )
+    return errors
+
+
 def resolve_source(root: Path, source: str) -> Path:
     """Same resolution as path.resolve(root, source). Rejects absolute paths and '..'."""
     if not isinstance(source, str) or not source:
@@ -96,6 +143,7 @@ def check(root: Path):
     errors = []
     files = {
         ".claude-plugin/plugin.json": CLAUDE_PLUGIN,
+        ".claude-plugin/marketplace.json": CLAUDE_MARKETPLACE,
         ".cursor-plugin/plugin.json": CURSOR_PLUGIN,
         ".cursor-plugin/marketplace.json": CURSOR_MARKETPLACE,
     }
@@ -131,6 +179,7 @@ def check(root: Path):
                 )
             elif source == "." and plugin_dir != root.resolve():
                 errors.append(f'source "." resolved to {plugin_dir}, not the repo root')
+    errors.extend(_extra_marketplace_files(root))
     skills = root / "skills"
     if not skills.is_dir() or not any(skills.glob("*/SKILL.md")):
         errors.append("skills/*/SKILL.md is missing; plugin skills stay in skills/<name>/SKILL.md")
