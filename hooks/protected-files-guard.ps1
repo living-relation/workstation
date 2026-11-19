@@ -2,6 +2,8 @@
 # Ask (permissionDecision "ask") before a Write / Edit / NotebookEdit of:
 #   - a SPEC file (SPEC.md, SPEC-*.md, SPEC_*.md, SPEC.*.md anywhere in a repo);
 #   - a file listed in the repo's VERIFIED.lock (JSON: repo-relative path -> sha256);
+#   - a source of truth listed in the repo's optional .claude/sot.json (sot_guard.py match), or that
+#     registry itself; the message names the entry's checks;
 #   - a path matched by a line of the repo's optional .claude/protected-paths.txt
 #     (repo-relative globs: * and ? stay in one folder, ** crosses folders, a trailing / means the folder;
 #      # starts a comment).
@@ -116,6 +118,27 @@ function New-GuardReason {
   return [pscustomobject]@{ Why = $Why; Checks = $Checks }
 }
 
+function Find-SotReason {
+  param([string]$FullPath, [string]$Root, [string]$Key)
+  $registry = Join-Path (Join-Path $Root '.claude') 'sot.json'
+  if (-not (Test-Path -LiteralPath $registry -PathType Leaf)) { return $null }
+  if ($Key -eq '.claude/sot.json') {
+    return (New-GuardReason '.claude/sot.json is the source-of-truth registry (it decides which checks prove each SoT edit)' 'sot_guard.py lint-registry; git pre-commit sot_guard.py check')
+  }
+  $m = Invoke-StateTool 'sot_guard.py' @('--repo', $Root, 'match', $FullPath)
+  if (-not $m) { return $null }
+  if ($m.Code -ne 0) {
+    return (New-GuardReason "$Key may be a source of truth: .claude/sot.json is invalid ($(([string]$m.Err).Trim()))" 'fix the registry first: sot_guard.py lint-registry')
+  }
+  try { $info = ([string]$m.Out) | ConvertFrom-Json } catch { return $null }
+  if (-not $info -or $info.kind -ne 'sot') { return $null }
+  $fast = (@($info.fast_checks) | Where-Object { $_ }) -join '; '
+  $all = (@($info.checks) | Where-Object { $_ }) -join '; '
+  if (-not $fast) { $fast = 'no fast check' }
+  if (-not $all) { $all = 'none (the entry has no checks; sot_guard.py check fails)' }
+  return (New-GuardReason "$Key is a source of truth (entry '$($info.entry)' in .claude/sot.json)" "after the edit, sot-after-edit runs $fast; at commit, git pre-commit sot_guard.py check runs $all")
+}
+
 function Find-ProtectedReason {
   param([string]$FullPath, [string]$Root, [string]$Key)
   $leaf = Split-Path $FullPath -Leaf
@@ -135,6 +158,8 @@ function Find-ProtectedReason {
       }
     } catch { }
   }
+  $sot = Find-SotReason $FullPath $Root $Key
+  if ($sot) { return $sot }
   $listFile = Join-Path (Join-Path $Root '.claude') 'protected-paths.txt'
   if (Test-Path -LiteralPath $listFile -PathType Leaf) {
     foreach ($line in [IO.File]::ReadAllLines($listFile)) {
