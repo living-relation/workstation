@@ -9,7 +9,7 @@ function Get-FullPathSafe {
   if (-not $Path) { return $null }
   $p = "$Path".Trim()
   if (-not $p) { return $null }
-  if ($p -match '^[A-Za-z]:[\\/]*$') { return ($Matches[1].ToUpper() + ':\') }
+  if ($p -match '^([A-Za-z]):[\\/]*$') { return ($Matches[1].ToUpper() + ':\') }
   $sep = [IO.Path]::DirectorySeparatorChar
   if ($sep -eq '/' -and $p -match '^[A-Za-z]:') { return $null }
   try { $full = [IO.Path]::GetFullPath($p) } catch { return $null }
