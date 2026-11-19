@@ -30,5 +30,15 @@ Cursor does not enforce "ask" in `preToolUse`; it does in `beforeShellExecution`
 chat, must report every changed value afterwards, and names the checks that will run. The always-on
 Cursor rule `rules/sot-permission.mdc` says the same before any edit.
 
+## Sources of truth (`.claude/sot.json`)
+
+The guard also reads the repo's SoT registry (schema: `scripts/state/README.md`): a listed SoT, or the
+registry itself, asks (Claude) or warns (Cursor) like any protected file, and the message names the
+entry's fast checks and its commit-time checks. `sot-after-edit.ps1` (Claude PostToolUse, Cursor
+postToolUse; Cursor's afterFileEdit has no output fields) runs `sot_guard.py after-edit` and hands the
+result to the agent; a failed check or a hand-edited derived file is loud but never blocks. The git
+pre-commit pack runs `sot_guard.py check`: there a failure blocks the commit.
+
 Tests: `powershell -NoProfile -File hooks/tests/test-state-protected-files-guard.ps1`,
+`powershell -NoProfile -File hooks/tests/test-state-sot-hooks.ps1`,
 `python -m pytest -q scripts/test_run_ps_launcher.py`.

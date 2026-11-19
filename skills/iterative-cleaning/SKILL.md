@@ -46,6 +46,7 @@ Update that section after every step, before replying. Keep each item short: wha
 5. **Wrap.** At the end of the list, go back to the top and continue until the next file is the start file. Then add a coverage statement: what was swept, what was only scripted, what was out of scope (data tables, generated files, code beyond docstrings).
 6. **State and backlog check** (store project folder; read-only):
    - **2-run rule:** list every line in `STATE.md` / `STATE-*.md` marked `(carried 2)` or more, or `python <workstation>/scripts/state/state_lint.py --project <project>` exit 2. Each must graduate (`[ADR]`, `[RULE]`, `[TASK]` or `[BKLG]`) with state-closeout.
+   - **SoT registry:** if the repo has `.claude/sot.json`, run `python <workstation>/scripts/state/sot_guard.py lint-registry` and list each warning (an entry with no checks, a derived glob overlapping SoT paths, a path that matches no file) with a suggested fix.
    - **Stale BACKLOG:** items older than 30 days (unless the project sets another age) with no `[closed]` line; items whose file, row or branch no longer exists; items already settled in DECISIONS, rules or `TASK.md`. Suggest close or keep for each; closing is a new `[closed <date>] <item>` line, only on the owner's yes.
 
 ## Rules
