@@ -71,7 +71,7 @@ automations:
     helpers: [install-plugins.cmd, INSTALL.md, .claude-plugin/marketplace.json, scripts/test_install_plugins.py]
     trigger: manual
     reads: [.claude-plugin/marketplace.json]
-    writes: [outside the repo (inferred) - user Claude Code plugins from living-relation-plugins]
+    writes: [outside the repo (inferred) - user Claude Code plugin from workstation-plugins]
     committed: no
     auto_commit: false
     enabled: true

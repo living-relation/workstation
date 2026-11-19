@@ -44,7 +44,7 @@
   - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
     pr-closeout-nudge.ps1 (Claude Code PostToolUse, after a PR is opened), handoff-at-80.py (Cursor preCompact +
     stop, needs py -3); the skill the handoff hooks trigger, agent-handoff-pack, comes from the workstation-core
-    plugin. Skills get in only by installing the living-relation plugins (INSTALL.md). This script does not
+    plugin. Skills get in only by installing the workstation-plugins catalog (INSTALL.md). This script does not
     link skills\ into ~\.claude\skills unless -LinkSkills is passed. No zip upload. Entries are merged by script name (never duplicated); an unrelated
     statusLine is never overwritten; other hook entries are left alone.
   - Merges Claude Code MCP connectors into ~\.claude.json (user-scope) from claude\mcp-servers.json.
@@ -912,7 +912,7 @@ else { Note 'OK' 'Cursor does not start at sign-in (install adds no autostart)' 
 #     from this repo in ~\.cursor\skills are removed (link only). link-skills.ps1 backs up a same-name folder first and
 #     removes only its own links whose skill is gone (link only). -NoLinkSkills is a no-op (kept for old shortcuts).
 $skillTargets = @((Join-Path $DotClaude 'skills'))
-if (-not $LinkSkills) { Note 'OK' 'skills: not linked (install the living-relation plugins; this script does not link them)' }
+if (-not $LinkSkills) { Note 'OK' 'skills: not linked (install the workstation-plugins catalog; this script does not link them)' }
 else { try {
   foreach ($r in @(& (Join-Path $PSScriptRoot 'link-skills.ps1') -From (Join-Path $PSScriptRoot 'skills') -Targets $skillTargets -Unlink @((Join-Path $DotCursor 'skills')) -BackupRoot (Join-Path $UserHome '.skills-backup') -WhatIf:$WhatIf)) {
     if ($r.Action -eq 'ok') { Note 'OK' "skill link already in place: $($r.Path)" }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The plugin installer prints its two commands on -WhatIf and does not link or schedule.
+"""The plugin installer prints its one command on -WhatIf and does not link or schedule.
 
-The commands are the same single-line blocks as README.md and INSTALL.md.
+The command is the same single-line block as README.md and INSTALL.md.
 """
 import shutil
 import subprocess
@@ -18,12 +18,8 @@ CORE = (
     "claude plugin install workstation-core "
     "--marketplace living-relation/workstation --scope user"
 )
-CAD = (
-    "claude plugin install handbuilt-cad "
-    "--marketplace living-relation/workstation --scope user"
-)
 SESSION_CORE = "/plugin install workstation-core --marketplace living-relation/workstation"
-SESSION_CAD = "/plugin install handbuilt-cad --marketplace living-relation/workstation"
+BY_ID = "claude plugin install workstation-core@workstation-plugins --scope user"
 INSTALLER = r"powershell -NoProfile -ExecutionPolicy Bypass -File .\install-plugins.ps1"
 WHATIF = INSTALLER + " -WhatIf"
 
@@ -53,15 +49,15 @@ class InstallPluginsDocs(unittest.TestCase):
         self.assertIn("Plugins menu", install)
         self.assertIn("Leave marketplace auto-update off", install)
         self.assertIn("does not link", install.lower())
-        for line in (CORE, CAD, SESSION_CORE, SESSION_CAD, INSTALLER, WHATIF):
+        for line in (CORE, SESSION_CORE, BY_ID, INSTALLER, WHATIF):
             self.assertIn(line, install)
             self.assertIn([line], _fence_lines(install))
-        for line in (CORE, CAD, SESSION_CORE, SESSION_CAD):
+        for line in (CORE, SESSION_CORE):
             self.assertIn([line], _fence_lines(readme))
         script = PS1.read_text(encoding="utf-8")
         self.assertIn("[string]$Marketplace = 'living-relation/workstation'", script)
         self.assertIn("'plugin', 'install', 'workstation-core'", script)
-        self.assertIn("'plugin', 'install', 'handbuilt-cad'", script)
+        self.assertEqual(script.count("'plugin', 'install'"), 1)
         for banned in ("Register-ScheduledTask", "schtasks", "link-skills.ps1", "Startup"):
             self.assertNotIn(banned, script)
 
@@ -78,7 +74,7 @@ class InstallPluginsDocs(unittest.TestCase):
         out = proc.stdout + proc.stderr
         self.assertEqual(proc.returncode, 0, out)
         self.assertIn(CORE, out)
-        self.assertIn(CAD, out)
+        self.assertEqual(out.count("claude plugin install"), 1)
         self.assertIn("Skills were not linked", out)
         self.assertIn("Nothing was scheduled", out)
         self.assertNotIn("Successfully installed", out)
