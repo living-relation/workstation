@@ -240,8 +240,10 @@ else { Add-Finding 'OK' 'prereq' 'elevation' 'normal window (right for install.p
 
 # ---------------------------------------------------------------- 2. scheduled tasks
 # No memory sync task any more (Claude-Memory-To-Cursor-Sync is retired; see $RetiredNameRx).
-# Workstation-UpdateFusionAddins is the one per-user task install.ps1 registers (no admin).
-$knownTasks = @{
+# install.ps1 registers no task. Workstation-UpdateFusionAddins came from an older install; the Fusion add-in
+# updater is manual only since 2026-11-20, so a task of that name is a WARN and install.ps1 removes it.
+$knownTasks = @{}
+$oldOwnTasks = @{
   'Workstation-UpdateFusionAddins' = @('update-fusion-addins.ps1')
 }
 $tasks = $null
@@ -253,7 +255,13 @@ if ($null -ne $tasks) {
     $name = $t.TaskName
     $act = (@($t.Actions) | ForEach-Object { ("$($_.Execute) $($_.Arguments)").Trim() }) -join ' ; '
     $label = "$($t.TaskPath)$name"
-    if ($knownTasks.ContainsKey($name)) {
+    if ($oldOwnTasks.ContainsKey($name)) {
+      $seen[$name] = $true
+      $actX = ([Environment]::ExpandEnvironmentVariables($act) -replace '/', '\').ToLower()
+      $own = @($oldOwnTasks[$name] | Where-Object { $actX.Contains($_.ToLower()) }).Count -gt 0
+      if ($own) { Add-Finding 'WARN' 'tasks' $label "starts on its own (state $($t.State)); the Fusion add-in updater is manual only now. install.ps1 removes this task (no admin)." }
+      else { Add-Finding 'WARN' 'tasks' $label "runs '$act', not this package's updater; left alone." }
+    } elseif ($knownTasks.ContainsKey($name)) {
       $seen[$name] = $true
       $want = $knownTasks[$name]
       $hit = $false
@@ -274,6 +282,7 @@ if ($null -ne $tasks) {
     }
   }
   foreach ($k in $knownTasks.Keys) { if (-not $seen[$k]) { Add-Finding 'OK' 'tasks' $k 'not registered' } }
+  foreach ($k in $oldOwnTasks.Keys) { if (-not $seen[$k]) { Add-Finding 'OK' 'tasks' $k 'not registered (the Fusion add-in updater is manual only)' } }
 }
 
 # ---------------------------------------------------------------- 3. Run / RunOnce / Startup folders

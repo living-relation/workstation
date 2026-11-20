@@ -275,22 +275,19 @@ try {
     $env:WORKSTATION_FUSION_LOG_DIR = (Join-Path $work 'empty-logs')
     New-Item -ItemType Directory -Path $env:WORKSTATION_FUSION_LOG_DIR | Out-Null
     $cleanLines = @(Get-FusionAddinHealthLines)
-    Check 'missing task is ok' $cleanLines[0].Level 'OK'
-    Check 'missing task text' ($cleanLines[0].Text -match 'not installed') True
+    Check 'no task is ok' $cleanLines[0].Level 'OK'
+    Check 'no task says manual only' ($cleanLines[0].Text -match 'manual only') True
     Check 'clean has no warn' @($cleanLines | Where-Object { $_.Level -eq 'WARN' }).Count 0
 
     $env:WORKSTATION_FUSION_FAKE_TASK = '{"present":true,"lastResult":0,"lastRun":"2026-11-19T00:00:00Z"}'
-    $okTask = @(Get-FusionAddinHealthLines)
-    Check 'task result 0 is ok' $okTask[0].Level 'OK'
-    Check 'task result text' ($okTask[0].Text -match 'last result 0') True
+    $autoTask = @(Get-FusionAddinHealthLines)
+    Check 'a task warns even with result 0' $autoTask[0].Level 'WARN'
+    Check 'task warning names the task' ($autoTask[0].Text -match 'Workstation-UpdateFusionAddins') True
+    Check 'task warning says it starts on its own' ($autoTask[0].Text -match 'starts on its own') True
 
     $env:WORKSTATION_FUSION_FAKE_TASK = '{"present":true,"lastResult":267011,"lastRun":""}'
     $never = @(Get-FusionAddinHealthLines)
-    Check 'never run is ok' $never[0].Level 'OK'
-
-    $env:WORKSTATION_FUSION_FAKE_TASK = '{"present":true,"lastResult":1,"lastRun":"2026-11-19T00:00:00Z"}'
-    $badTask = @(Get-FusionAddinHealthLines)
-    Check 'bad result warns' $badTask[0].Level 'WARN'
+    Check 'a never-run task still warns' $never[0].Level 'WARN'
 
     $dirtyJson = Join-Path $env:WORKSTATION_FUSION_LOG_DIR 'fusion-addins-last.json'
     @{ time = '2026-11-19T00:00:00Z'; exitCode = 0; note = ''; updated = @(); repos = @(
@@ -298,7 +295,7 @@ try {
         @{ name = 'SR Export'; root = 'C:\other'; action = 'skip'; reason = 'diverged'; ahead = 1; behind = 2 }
         @{ name = 'SR Fastener'; root = 'C:\third'; action = 'skip'; reason = 'not-default-branch'; ahead = 0; behind = 0 }
     ) } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $dirtyJson
-    $env:WORKSTATION_FUSION_FAKE_TASK = '{"present":true,"lastResult":0,"lastRun":"2026-11-19T00:00:00Z"}'
+    $env:WORKSTATION_FUSION_FAKE_TASK = 'missing'
     $skipLines = @(Get-FusionAddinHealthLines)
     Check 'dirty skip warns' @($skipLines | Where-Object { $_.Text -match 'skipped \(dirty\): SR BOM' -and $_.Level -eq 'WARN' }).Count 1
     Check 'behind warns' @($skipLines | Where-Object { $_.Text -match 'left behind: SR Export' -and $_.Level -eq 'WARN' }).Count 1
@@ -309,65 +306,59 @@ try {
     $status = Join-Path $repo 'workstation\health\workstation-status.ps1'
     $statusOut = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -NoPause 2>&1
     $statusText = @($statusOut | ForEach-Object { "$_" }) -join "`n"
-    Check 'status prints the task line' ($statusText -match 'Fusion add-in update task is not installed') True
+    Check 'status says manual only' ($statusText -match 'Fusion add-in updater is manual only') True
 
-    $what = Register-FusionAddinTask -ScriptPath $updater -WhatIf
-    Check 'whatif does not need the scheduler' $what.Ok True
-    Check 'whatif names the task' ($what.Message -match 'Workstation-UpdateFusionAddins') True
-    Check 'whatif says hidden' ($what.Message -match 'hidden') True
-    $gone = Register-FusionAddinTask -ScriptPath (Join-Path $work 'missing.ps1')
-    Check 'register unavailable here' $gone.Unavailable True
+    $registerRx = '(?<!Un)Register-ScheduledTask|(?<!Un)Register-FusionAddinTask|New-ScheduledTaskTrigger|schtasks'
+    Check 'lib has no register function' ([bool](Get-Command Register-FusionAddinTask -ErrorAction SilentlyContinue)) False
 
     $global:FakeExisting = $null
-    $global:FakeTask = $null
     $global:Unregistered = $null
     function global:Get-ScheduledTask {
         param($TaskName, $ErrorAction)
         return $global:FakeExisting
     }
-    function global:New-ScheduledTaskAction { param($Execute, $Argument) [pscustomobject]@{ Execute = $Execute; Argument = $Argument } }
-    function global:New-ScheduledTaskTrigger {
-        param([switch]$AtLogOn, [switch]$Once, $At, $User, $RepetitionInterval, $RepetitionDuration)
-        [pscustomobject]@{ AtLogOn = [bool]$AtLogOn; Once = [bool]$Once; User = $User; RepetitionInterval = $RepetitionInterval; RepetitionDuration = $RepetitionDuration }
-    }
-    function global:New-ScheduledTaskSettingsSet {
-        param([switch]$Hidden, [switch]$AllowStartIfOnBatteries, [switch]$DontStopIfGoingOnBatteries, [switch]$StartWhenAvailable, $MultipleInstances, $ExecutionTimeLimit)
-        [pscustomobject]@{ Hidden = [bool]$Hidden; MultipleInstances = "$MultipleInstances" }
-    }
-    function global:New-ScheduledTaskPrincipal { param($UserId, $LogonType, $RunLevel) [pscustomobject]@{ UserId = $UserId; LogonType = "$LogonType"; RunLevel = "$RunLevel" } }
-    function global:Register-ScheduledTask { param($TaskName, $Action, $Trigger, $Settings, $Principal, [switch]$Force) $global:FakeTask = [pscustomobject]@{ TaskName = $TaskName; Action = $Action; Trigger = @($Trigger); Settings = $Settings; Principal = $Principal; Force = [bool]$Force } }
     function global:Unregister-ScheduledTask { param($TaskName, [switch]$Confirm) $global:Unregistered = $TaskName }
-    $made = Register-FusionAddinTask -ScriptPath $updater
-    Check 'fake register ok' $made.Ok True
-    Check 'fake register changed' $made.Changed True
-    Check 'fake task name' $global:FakeTask.TaskName 'Workstation-UpdateFusionAddins'
-    Check 'fake hidden window' ($global:FakeTask.Action.Argument -match 'WindowStyle Hidden') True
-    Check 'fake script path' ($global:FakeTask.Action.Argument -match 'update-fusion-addins\.ps1') True
-    Check 'fake limited' $global:FakeTask.Principal.RunLevel 'Limited'
-    Check 'fake interactive' $global:FakeTask.Principal.LogonType 'Interactive'
-    $tr = @($global:FakeTask.Trigger)
-    Check 'fake logon trigger' @($tr | Where-Object { $_.AtLogOn }).Count 1
-    Check 'fake hourly trigger' @($tr | Where-Object { $_.RepetitionInterval -and $_.RepetitionInterval.TotalMinutes -eq 60 }).Count 1
-    Check 'fake settings hidden' $global:FakeTask.Settings.Hidden True
-    $global:FakeExisting = [pscustomobject]@{ Actions = @([pscustomobject]@{ Execute = 'powershell.exe'; Arguments = $global:FakeTask.Action.Argument }) }
-    $again = Register-FusionAddinTask -ScriptPath $updater
-    Check 'second register is unchanged' $again.Changed False
+    $none = Unregister-FusionAddinTask
+    Check 'no task to remove is ok' $none.Ok True
+    Check 'no task to remove is missing' $none.Missing True
+    Check 'no task removes nothing' ($null -eq $global:Unregistered) True
+    $global:FakeExisting = [pscustomobject]@{ Actions = @([pscustomobject]@{ Execute = 'powershell.exe'; Arguments = '-File "C:\other\someone-else.ps1"' }) }
+    $foreign = Unregister-FusionAddinTask
+    Check 'a foreign task of that name is left alone' $foreign.Ok False
+    Check 'foreign task not removed' ($null -eq $global:Unregistered) True
+    $global:FakeExisting = [pscustomobject]@{ Actions = @([pscustomobject]@{ Execute = 'powershell.exe'; Arguments = ('-NoProfile -WindowStyle Hidden -File "' + $updater + '"') }) }
     $removed = Unregister-FusionAddinTask
-    Check 'fake unregister ok' $removed.Ok True
-    Check 'fake unregister name' $global:Unregistered 'Workstation-UpdateFusionAddins'
+    Check 'old own task removed ok' $removed.Ok True
+    Check 'old own task removed by name' $global:Unregistered 'Workstation-UpdateFusionAddins'
+    Remove-Item Function:\global:Get-ScheduledTask, Function:\global:Unregister-ScheduledTask -ErrorAction SilentlyContinue
 
     $install = Get-Content -LiteralPath (Join-Path $repo 'install.ps1') -Raw
     $uninstall = Get-Content -LiteralPath (Join-Path $repo 'uninstall.ps1') -Raw
     $pre = Get-Content -LiteralPath (Join-Path $repo 'preflight.ps1') -Raw
-    Check 'install calls register' ($install -match 'Register-FusionAddinTask') True
-    Check 'install skips in test mode' ($install -match 'not registering scheduled task') True
+    $installCode = [regex]::Replace($install, '(?s)<#.*?#>', '')
+    $installCode = [regex]::Replace($installCode, '(?m)^\s*#.*$', '')
+    Check 'install must not register a task' ($installCode -match $registerRx) False
+    Check 'install removes an old task' ($installCode -match 'Unregister-FusionAddinTask') True
+    Check 'install reads the task read-only on a dry run' ($installCode -match 'Get-FusionAddinTaskStatus') True
+    Check 'install skips the task in test mode' ($installCode -match 'not checking scheduled task') True
     Check 'uninstall calls unregister' ($uninstall -match 'Unregister-FusionAddinTask') True
+    Check 'uninstall does not register' ($uninstall -match $registerRx) False
     Check 'preflight knows the task' ($pre -match "Workstation-UpdateFusionAddins") True
+    Check 'preflight no longer expects the task' ($pre -match "(?s)knownTasks\s*=\s*@\{[^}]*Workstation-UpdateFusionAddins") False
     $plugins = Get-Content -LiteralPath (Join-Path $repo 'install-plugins.ps1') -Raw
     Check 'plugin installer does not schedule' ($plugins -match 'Register-ScheduledTask|Unregister-ScheduledTask') False
 
+    $tk = Import-PowerShellDataFile -LiteralPath (Join-Path $repo 'toolkit.psd1')
+    $sc = @($tk.Shortcuts | Where-Object { $_.Name -eq 'Update Fusion add-ins' })
+    Check 'one Update Fusion add-ins shortcut' $sc.Count 1
+    Check 'shortcut runs the updater' $sc[0].Script 'fusion-addins\update-fusion-addins.ps1'
+    Check 'shortcut pauses so the result stays on screen' $sc[0].Args '-Pause'
+    $updaterText = Get-Content -LiteralPath $updater -Raw
+    Check 'updater has a Pause switch' ($updaterText -match '\[switch\]\$Pause') True
+
     $libText = Get-Content -LiteralPath $lib -Raw
     $codeOnly = [regex]::Replace($libText, '(?m)^\s*#.*$', '')
+    Check 'lib does not register a task' ($codeOnly -match $registerRx) False
     Check 'no git reset call' ($codeOnly -match '(?i)\bgit\b[^\r\n]{0,40}\breset\b') False
     Check 'allow list is the only git verbs' ($libText -match "'status', 'rev-parse', 'symbolic-ref', 'rev-list', 'fetch', 'pull'") True
     foreach ($f in @($lib, $updater, (Join-Path $repo 'install.ps1'), (Join-Path $repo 'uninstall.ps1'), $readme, $rootReadme)) {
@@ -428,9 +419,12 @@ try {
         Check 'fence parses' @($parseErr).Count 0
     }
     $manual = Section-Text $doc '## 4. Manual steps'
-    foreach ($token in @('Register-ScheduledTask', 'AtLogOn', '-Minutes 60', 'WindowStyle Hidden', 'RunLevel Limited', 'Unregister-ScheduledTask', 'update-fusion-addins.ps1', 'Workstation-UpdateFusionAddins')) {
+    foreach ($token in @('Unregister-ScheduledTask', 'update-fusion-addins.ps1', 'Workstation-UpdateFusionAddins')) {
         Check ("manual has " + $token) ($manual.Contains($token)) True
     }
+    Check 'readme registers no task' ($doc -match $registerRx) False
+    Check 'readme says manual only' ($doc -match 'manual only') True
+    Check 'readme names the shortcut' ($doc.Contains('Update Fusion add-ins')) True
     $prompt = Section-Text $doc '## 3. Agent prompt'
     Check 'prompt has installer' ($prompt.Contains('powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1')) True
     Check 'prompt has uninstall' ($prompt.Contains('powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1')) True
@@ -444,6 +438,8 @@ try {
     Check 'root section has cd' ($rootSec.Contains('cd ((Get-ChildItem')) True
     Check 'root section has install' ($rootSec.Contains('powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1')) True
     Check 'root section has the updater' ($rootSec.Contains('powershell -NoProfile -ExecutionPolicy Bypass -File .\workstation\fusion-addins\update-fusion-addins.ps1')) True
+    Check 'root section says manual only' ($rootSec -match 'manual only') True
+    Check 'root readme does not promise a task' ($rootDoc -match 'every 60 minutes') False
     foreach ($block in @(Get-Fences $rootSec | Where-Object { $_.Lang -eq 'powershell' })) {
         $live = @($block.Body | Where-Object { $_.Trim() })
         Check 'root fence is one line' $live.Count 1

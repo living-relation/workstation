@@ -58,7 +58,7 @@ Reload the Cursor window after the copy.
 The Workstation toolkit (`workstation\`: Health check, app locks, the manual Cursor worker, and the manual Desktop Commander shortcuts) runs
 straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`.
 Runtime files live in `%LOCALAPPDATA%\Workstation\`, never in the clone.
-**Desktop Commander and the Cursor worker do not start on their own.** No Startup item and no Run key. After you run `install.ps1`, one per-user task updates Fusion add-in clones at logon and every 60 minutes. It does not start Fusion. See [workstation/fusion-addins/README.md](workstation/fusion-addins/README.md).
+**Desktop Commander and the Cursor worker do not start on their own.** No Startup item, no Run key, and no scheduled task. Fusion add-in clones update only from the manual **Update Fusion add-ins** shortcut. See [workstation/fusion-addins/README.md](workstation/fusion-addins/README.md).
 
 **Desktop Commander (manual, one phone remote per PC).** It serves every chat and project. The MCP plugin that
 Claude starts is separate and is not changed here. `install.ps1` creates these manual links in `shortcuts\` (gitignored). Nothing starts at sign-in:
@@ -68,6 +68,7 @@ Claude starts is separate and is not changed here. `install.ps1` creates these m
 - **Stop Desktop Commander** stops the phone remote.
 - **DC remote status** lists each copy: PID, start time, whether its parent and console are alive, and an online / stale / duplicate verdict, plus the line `one copy serves all chats`.
 - **Kill orphaned remote processes** lists leftovers and asks once per item.
+- **Update Fusion add-ins** runs `workstation\fusion-addins\update-fusion-addins.ps1 -Pause` once (manual only).
 
 On Windows one phone remote is a chain: cmd, then npx's node, then cmd, then the node remote. That chain is one copy. A healthy copy has a live parent and a live console. Leave that copy alone. Kill orphaned remote processes offers a copy whose terminal is gone, and extra copies when more than one remote is running (it keeps the newest and asks first). `-WhatIf` only lists. `-Force` stops the listed copies but never stops the newest remote unless you also pass `-IncludeActiveRemote`. Stopping uses taskkill /T on that copy's own chain, so a yes does not take down the healthy remote. The single healthy copy is never listed. Claude's Desktop Commander plugin is not listed. Health check says OK when zero or one remote is running, and warns only when extra copies or other leftovers are present. It also checks that the remote does not start at sign-in.
 
@@ -75,7 +76,7 @@ On Windows one phone remote is a chain: cmd, then npx's node, then cmd, then the
 
 ## Fusion add-in updates
 
-The updater fast-forwards the git clones behind the Fusion AddIns junctions. It does not restart Fusion. Nothing registers the task until you or an agent run `install.ps1` (or the manual command in the install README). The plugin catalog does not register it.
+The updater fast-forwards the git clones behind the Fusion AddIns junctions. It is manual only: run the **Update Fusion add-ins** shortcut that `install.ps1` makes, or the command below. No scheduled task runs it. `install.ps1` removes the task `Workstation-UpdateFusionAddins` if an older install left it. It does not restart Fusion. The plugin catalog does not register a task.
 
 **Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** any folder.
 
