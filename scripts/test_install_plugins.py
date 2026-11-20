@@ -78,17 +78,33 @@ class InstallPluginsDocs(unittest.TestCase):
             "## 4. Manual steps",
         ):
             self.assertIn(heading, install)
-        self.assertIn("Turn Sync automatically on", install)
+        self.assertIn("turn Sync automatically on", install)
+        self.assertIn("turn Sync automatically on", readme)
         self.assertNotIn("Sync automatically off", install)
         self.assertNotIn("Leave it off", install)
         self.assertNotIn("leave marketplace auto-update off", install.lower())
+        self.assertNotIn("Check for updates in the catalog forces it sooner", install)
+        self.assertNotIn("Check for updates in the catalog forces it sooner", readme)
         self.assertIn("does not copy skills", install.lower())
         self.assertIn(PASTE, install)
         self.assertIn("workstation-plugins", install)
-        for line in (OPEN, CURSOR, INSTALLER, WHATIF):
+        self.assertIn("https://claude.ai/customize/plugins", install)
+        self.assertIn("https://claude.ai/customize/plugins", readme)
+        self.assertIn("https://github.com/living-relation/workstation", install)
+        self.assertIn("https://github.com/living-relation/workstation", readme)
+        self.assertIn("Fully quit Claude desktop", install)
+        self.assertIn("Fully quit Claude desktop", readme)
+        self.assertIn("Fully quit and reopen Cursor.", install)
+        self.assertIn("Fully quit and reopen Cursor.", readme)
+        cd = "cd <Projects>\\active\\workstation"
+        clone = (
+            "git clone https://github.com/living-relation/workstation "
+            "<Projects>\\active\\workstation"
+        )
+        for line in (cd, clone, CURSOR, OPEN, INSTALLER, WHATIF):
             self.assertIn(line, install)
             self.assertIn([line], _fence_lines(install))
-        for line in (OPEN, CURSOR):
+        for line in (cd, clone, CURSOR):
             self.assertIn([line], _fence_lines(readme))
         for blob in (install, readme, prompt):
             low = blob.lower()

@@ -35,25 +35,37 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -ProjectsRoot <P
 
 ## Plugins
 
-Skills get in only by turning on `workstation-core` on claude.ai (Customize, Plugins). That covers chat, Cowork, and Claude Code signed in to the same account. Nothing in this repo copies skills into `~\.claude\skills` on its own, and nothing uploads a skill zip. Turn Sync automatically on. No scheduled task, no Startup item, and no background reinstall.
+**Claude**
 
-The only catalog is `.claude-plugin/marketplace.json`, name `workstation-plugins`. Paste `living-relation/workstation`, then turn on `workstation-core` (this repo, source `./`). `.cursor-plugin/marketplace.json` lists the same plugin with source `.`. See [INSTALL.md](INSTALL.md) for the installer, the commands, the agent prompt, and the manual clicks.
+1. Open claude.ai Plugins: https://claude.ai/customize/plugins (signed in to the account you want the skills on).
+2. Click Add, then Add marketplace, then Add from a repository.
+3. Paste `https://github.com/living-relation/workstation`, turn Sync automatically on, and confirm.
+4. Find the `workstation-core` plugin in the plugin list and turn it on.
+5. Fully quit Claude desktop (from the tray icon, not just closing the window), then reopen it.
 
-**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** any folder.
+Updates arrive automatically after merges to main.
+
+**Cursor**
+
+1. Open a normal (not admin) Windows PowerShell 5.1 window.
+2. cd to the repo clone (`cd <Projects>\active\workstation`). If no clone exists, clone first with the full URL https://github.com/living-relation/workstation.
 
 ```powershell
-Start-Process "https://claude.ai/customize/plugins"
+cd <Projects>\active\workstation
 ```
 
-Then: Customize, Plugins, Add, Add marketplace, Add from a repository, paste `living-relation/workstation`, turn Sync automatically on, and turn on workstation-core. Updates later: updates arrive automatically after merges to main. Check for updates in the catalog forces it sooner. The Cursor copy still updates by running that copy command again, then reloading the window.
+```powershell
+git clone https://github.com/living-relation/workstation <Projects>\active\workstation
+```
 
-**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** this repo.
+3. Run the existing one copy command into ~/.cursor/plugins/local/workstation-core.
 
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" | Out-Null; Get-ChildItem -Force -LiteralPath . | Where-Object { $_.Name -ne '.git' -and $_.Name -ne '.venv' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" $_.Name) -Recurse -Force }
 ```
 
-Reload the Cursor window after the copy.
+4. Fully quit and reopen Cursor.
+5. Check that the plugin's skills show up.
 
 The Workstation toolkit (`workstation\`: Health check, app locks, the manual Cursor worker, and the manual Desktop Commander shortcuts) runs
 straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`.
