@@ -43,7 +43,7 @@ blocker or a reason to stop.
 - No secrets in files, logs or chat. Write a needed credential as "ask the owner".
 
 ## 4. Files
-- Part/model files stay out of repos unless that repo's own rules say otherwise; finished models go to the models folder (`$MODELS_DIR`), add-only.
+- Part/model files stay out of repos unless that repo's own rules say otherwise; finished models go to the models folder (`$MODELS_DIR`), following the models folder structure (<subject>-rev<current>\rev<X>\); keep only the newest and the previous rev of anything and delete the oldest when filing a new one; CAD model / assembly / STEP-copy rules live in handbuilt-cad (see its AGENTS.md).
 - Generic content only in shared repos: project-specific notes belong in that project.
 
 ## 5. Fusion
