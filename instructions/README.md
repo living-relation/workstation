@@ -48,4 +48,4 @@ cannot check them.
 
 `state-sot.mdc` is a one-line alwaysApply Cursor rule: read and keep current the project's state and source of truth (copy to `~/.cursor/rules/`).
 
-The Fusion lock and the harness.design lock are in `cowork-global-instructions.md`, `instructions-for-claude.md`, `cursor-user-rules.md` (inside the paste block), and `repo-rules.mdc`. Re-paste or re-copy those after pulling. On-disk copies are checked by `workstation\health\workstation-status.ps1 -Locks`.
+The Fusion note and the harness.design lock are in `cowork-global-instructions.md`, `instructions-for-claude.md`, `cursor-user-rules.md` (inside the paste block), and `repo-rules.mdc`. Re-paste or re-copy those after pulling. On-disk copies are checked by `workstation\health\workstation-status.ps1 -Locks`.

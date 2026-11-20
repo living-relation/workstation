@@ -167,7 +167,7 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   skill folders it adds only `README-workstation.md`, which lists the links this repo owns. Existing files are never changed.
 - `claude/` - Claude Code user-scope setup that `install.ps1` applies on each PC (merge; backup first; never
   removes or overwrites servers/plugins/hooks it did not add). `mcp-servers.json` is the connector list merged
-  into `~/.claude.json` (kapture, github, autodesk-fusion-mcp, githits, fetch, windows-mcp, context7). Required
+  into `~/.claude.json` (kapture, github, githits, fetch, windows-mcp, context7). Required
   API keys are read from env or prompted; a server that still lacks a key is skipped with a message.
   `plugins.json` is the source of truth for plugins installed from Anthropic's
   official marketplace at user scope. `handoff/claude/pr-closeout-nudge.ps1` is copied into `~/.claude/hooks` and
@@ -182,6 +182,6 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   Cowork / Chat do not write local memory files. Install does not create or check `~\.claude\working-memory`;
   a leftover junction is harmless. Stranded local Cowork notes can be copied into the store or brought in
   with the app's Import memory button. See `MIGRATION.md`.
-  Install does not change `autoMode` and does not write a remote-control startup flag. `cleanup-legacy.ps1` removes that flag and the one living-relation pull-request merge allow rule from a PC that already has them. The Fusion MCP url in `claude\mcp-servers.json` is `http://127.0.0.1:8765/mcp` (the add-in's port).
+  Install does not change `autoMode` and does not write a remote-control startup flag. `cleanup-legacy.ps1` removes that flag and the one living-relation pull-request merge allow rule from a PC that already has them. Fusion work uses Autodesk's official Fusion MCP servers (exact links and config line coming later).
 - `agents/projects-AGENTS.md` - the shared agent rules file for a projects root.
 - `install.ps1`, `preflight.ps1`, `uninstall.ps1`, `toolkit.psd1` - imported as they were; they are rewritten to read the pin file in a later PR.

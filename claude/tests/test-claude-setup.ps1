@@ -34,7 +34,7 @@ Check 'whatif would add windows-mcp' ($names -contains 'windows-mcp')
 Check 'whatif would add context7' ($names -contains 'context7')
 Check 'whatif would add fetch' ($names -contains 'fetch')
 Check 'whatif would add githits' ($names -contains 'githits')
-Check 'whatif would add autodesk-fusion-mcp' ($names -contains 'autodesk-fusion-mcp')
+Check 'whatif would not add autodesk-fusion-mcp' ($names -notcontains 'autodesk-fusion-mcp')
 
 # 2. Real merge into empty file.
 $r2 = Invoke-Setup
@@ -47,7 +47,7 @@ Check 'user fetch' ([bool]$doc.mcpServers.fetch)
 Check 'user windows-mcp' ([bool]$doc.mcpServers.'windows-mcp')
 Check 'user context7' ([bool]$doc.mcpServers.context7)
 Check 'user githits' ([bool]$doc.mcpServers.githits)
-Check 'user autodesk-fusion-mcp' ([bool]$doc.mcpServers.'autodesk-fusion-mcp')
+Check 'user has no autodesk-fusion-mcp' (-not $doc.mcpServers.PSObject.Properties['autodesk-fusion-mcp'])
 Check 'github is http' ($doc.mcpServers.github.type -eq 'http')
 Check 'github url' ($doc.mcpServers.github.url -match 'githubcopilot')
 Check 'firecrawl not user-scope' (-not $doc.mcpServers.PSObject.Properties['firecrawl'])
@@ -60,7 +60,7 @@ if ($doc.projects) {
 }
 Check 'firecrawl not local-scoped' (-not $fcLocal)
 Check 'unrelated keys not required' (-not $doc.PSObject.Properties['theme'])
-Check 'done count' (@($r2 | Where-Object Status -eq 'DONE').Count -ge 7)
+Check 'done count' (@($r2 | Where-Object Status -eq 'DONE').Count -ge 6)
 
 # 3. Idempotent: second run leaves a hand-made extra server and does not duplicate.
 $doc.mcpServers | Add-Member -NotePropertyName 'handmade' -NotePropertyValue ([pscustomobject]@{ type = 'stdio'; command = 'echo'; args = @('keep-me') })
@@ -68,7 +68,7 @@ $nl = if ([IO.File]::ReadAllText($jsonPath).Contains("`r`n")) { "`r`n" } else { 
 [IO.File]::WriteAllText($jsonPath, (($doc | ConvertTo-Json -Depth 20)))
 $r3 = Invoke-Setup
 $doc2 = [IO.File]::ReadAllText($jsonPath) | ConvertFrom-Json
-Check 'second run all OK' (@($r3 | Where-Object Status -eq 'OK').Count -ge 7)
+Check 'second run all OK' (@($r3 | Where-Object Status -eq 'OK').Count -ge 6)
 Check 'handmade server kept' ([bool]$doc2.mcpServers.handmade)
 Check 'kapture still one entry' ([bool]$doc2.mcpServers.kapture)
 
@@ -105,7 +105,7 @@ Check 'plugin list has no TODO' ($plist.sourceOfTruth -notmatch 'TODO')
 # Spec file itself has no firecrawl (not used; install must not prompt for its key).
 $spec = [IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\mcp-servers.json')) | ConvertFrom-Json
 $specNames = @($spec.servers | ForEach-Object { $_.name })
-Check 'spec has 7 servers' ($specNames.Count -eq 7)
+Check 'spec has 6 servers' ($specNames.Count -eq 6)
 Check 'spec has no firecrawl' ($specNames -notcontains 'firecrawl')
 Check 'spec has no FIRECRAWL env' (-not (@($spec.servers | ForEach-Object {
   @($_.envVars) + @($_.requiredEnvAny)

@@ -69,7 +69,7 @@ Keep track of these, and flag changes. Record project status in the project's ST
 At 80% context, run the state-closeout skill (closeout mode). On-demand handoff: state-closeout handoff (a paste block from the branch's STATE-<slug>.md). Handoffs never go in the repo.
 
 ## App locks
-- Before driving Autodesk Fusion, hold the per-PC Fusion lock: section 5 "Fusion lock" in the workstation repo agents/projects-AGENTS.md. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand.
+- Fusion work uses Autodesk's official Fusion MCP servers (exact links and config line coming later).
 - Before driving the harness.design desktop app, hold the per-PC harness.design lock: section 5b in that same file. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand. MCP cloud tools do not need the lock. An agent delete goes through the desktop app under the lock.
 
 ## End of every turn (skip any that don't apply)

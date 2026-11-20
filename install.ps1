@@ -15,10 +15,10 @@
     (only after the user reviewed the preflight report). -WhatIf runs preflight too.
   - Never moves or deletes folders, never overwrites memory or starter files.
   - Appends memory sections to rule files only when the marker <!-- shared-memory:v1 --> is missing.
-  - Appends the Fusion and harness.design lock rules (<!-- app-locks:v1 -->) to ~\.claude\CLAUDE.md,
+  - Appends the harness.design lock rules (<!-- app-locks:v1 -->) to ~\.claude\CLAUDE.md,
     ~\.cursor\rules\claude-shared-memory.mdc, an existing repo-rules.mdc, and <Projects>\AGENTS.md
     when that marker is missing and the file does not already say acquire, check in, and release
-    for both. uninstall removes only a block this install added.
+    for harness.design. uninstall removes only a block this install added.
   - Backs up ~\.claude\settings.json and ~\.claude.json (timestamped .bak next to each) before changing them.
   - Sets Claude Code's Project instructions to claude-md-and-agents-md (read CLAUDE.md AND AGENTS.md) in
     ~\.claude\settings.json > pluginConfigs (plugin cc-plugin-agents-md@builtin, or agents-md@builtin before
@@ -294,7 +294,7 @@ function Add-MemoryBlock([string]$Path, [string]$TemplateName, [switch]$CreateIf
 # Appends the app-lock block. Skips a file that already has the marker or the full rule text.
 function Test-AppLockText([string]$Text) {
   if (-not $Text) { return $false }
-  return ($Text -match '(?i)\bacquire\b' -and $Text -match '(?i)(check-?in|check in)\b' -and $Text -match '(?i)\brelease\b' -and $Text -match '(?i)\bfusion\b' -and $Text -match '(?i)harness\.design')
+  return ($Text -match '(?i)\bacquire\b' -and $Text -match '(?i)(check-?in|check in)\b' -and $Text -match '(?i)\brelease\b' -and $Text -match '(?i)harness\.design')
 }
 function Add-AppLockBlock([string]$Path) {
   $marker = '<!-- app-locks:v1 -->'

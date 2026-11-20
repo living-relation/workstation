@@ -170,14 +170,14 @@ automations:
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/fusion-addins/tests/test-fusion-addins.ps1
   - id: fusion-lock
     script: workstation/fusion-lock/fusion-lock.ps1
-    helpers: [workstation/fusion-lock/tests/test-fusion-lock.ps1, workstation/fusion-lock/tests/test-harness-lock.ps1, workstation/paths.ps1]
+    helpers: [workstation/fusion-lock/tests/test-harness-lock.ps1, workstation/paths.ps1]
     trigger: manual
-    reads: [LOCALAPPDATA Workstation fusion.lock (default) or harness-design.lock (-Name harness-design), AutodeskFusionMCP add-in at 127.0.0.1:8765 (Fusion check only), harness.design.exe window titles (harness.design check only)]
-    writes: [LOCALAPPDATA Workstation fusion.lock and fusion-lock.log by default; harness-design.lock and harness-design-lock.log when -Name harness-design; hidden pinger process (acquire -StartPinger)]
+    reads: [LOCALAPPDATA Workstation harness-design.lock (-Name harness-design), harness.design.exe window titles]
+    writes: [LOCALAPPDATA Workstation harness-design.lock and harness-design-lock.log when -Name harness-design; hidden pinger process (acquire -StartPinger)]
     committed: no
     auto_commit: false
     enabled: true
-    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/fusion-lock/fusion-lock.ps1 status
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/fusion-lock/fusion-lock.ps1 status -Name harness-design
   - id: check-upstream
     script: workstation/check-upstream.ps1
     helpers: [.github/workflows/check-upstream.yml, workstation/tests/test-check-upstream.ps1]

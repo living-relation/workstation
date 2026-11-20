@@ -55,7 +55,7 @@ Live state lives in the shared store's project folder (STATE.md, STATE-<slug>.md
 At 80% context, tell me and run the state-closeout skill (closeout mode).
 
 ## App locks
-- Before driving Autodesk Fusion, hold the per-PC Fusion lock: section 5 "Fusion lock" in the workstation repo agents/projects-AGENTS.md. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand.
+- Fusion work uses Autodesk's official Fusion MCP servers (exact links and config line coming later).
 - Before driving the harness.design desktop app, hold the per-PC harness.design lock: section 5b in that same file. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand. MCP cloud tools do not need the lock. An agent delete goes through the desktop app under the lock.
 
 ## Repos

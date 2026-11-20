@@ -23,7 +23,7 @@ Do not look for a `~\.claude\working-memory` link. The local store's path is in 
 - Branch + PR, never force-push, one repo at a time (no batch pull/push), `git pull --ff-only`.
 
 ## Fusion
-- Before driving Autodesk Fusion, hold the per-PC Fusion lock: follow section 5 "Fusion lock" in the workstation repo `agents/projects-AGENTS.md`. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand.
+Fusion work uses Autodesk's official Fusion MCP servers (exact links and config line coming later).
 
 ## harness.design
 - Before driving the harness.design desktop app (clicking or computer-use, including Dan by hand), hold the per-PC harness.design lock: follow section 5b "harness.design lock" in the workstation repo `agents/projects-AGENTS.md`. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand. MCP cloud tools do not need the lock. An agent delete goes through the desktop app under the lock.

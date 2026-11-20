@@ -18,12 +18,6 @@
       "requiredEnvAny": ["GITHUB_PERSONAL_ACCESS_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"]
     },
     {
-      "name": "autodesk-fusion-mcp",
-      "scope": "user",
-      "type": "http",
-      "url": "http://127.0.0.1:8765/mcp"
-    },
-    {
       "name": "githits",
       "scope": "user",
       "type": "stdio",
