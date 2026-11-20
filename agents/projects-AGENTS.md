@@ -1,6 +1,6 @@
 # Shared rules for every agent working under this projects folder
 
-Claude, Cursor, Grok Bot and any other agent read this file. Hooks, CI, and `CONTRIBUTING.md` in a repo add to it. Older agent docs do not override the workstation-core template.
+Claude, Cursor, Grok Bot and any other agent read this file. A repo's `AGENTS.md`, decisions, `CONTRIBUTING.md`, hooks, and CI add to it. Their rules and decisions still bind. Only an older agent doc's layout yields to the workstation-core template.
 
 ## 0. Read first, before starting work or asking
 Before starting work or asking the maintainer anything, read in order: (1) this repo's agent guide
@@ -19,17 +19,17 @@ Memory is a separate account-level list and is not this store.
 - **Store unreachable** (PC offline, cloud session): work from committed docs only.
 
 ## 1. Follow each repo's own rules
-Before changing anything in any repo, read and follow that repo's hooks (`.pre-commit-config.yaml`,
-`core.hooksPath`, `.git/hooks`), its CI workflows (`.github/workflows`), and `CONTRIBUTING.md`.
-Those still govern. Never bypass a hook or gate without the owner's explicit yes: no `--no-verify`,
-no skipping CI, and no direct pushes of generated or bot-owned files (let the workflow that owns a
-file regenerate it). If a planned step would bypass one, stop and ask.
+Before changing anything in any repo, read and follow that repo's `AGENTS.md`, decisions,
+`CONTRIBUTING.md`, hooks (`.pre-commit-config.yaml`, `core.hooksPath`, `.git/hooks`), and CI
+workflows (`.github/workflows`). Their rules and decisions still bind. Never bypass a hook or
+gate without the owner's explicit yes: no `--no-verify`, no skipping CI, and no direct pushes of
+generated or bot-owned files (let the workflow that owns a file regenerate it). If a planned step
+would bypass one, stop and ask.
 
-The workstation-core template is the target: `AGENTS.md` is the router, state-init profiles name the
-role files, and live state is the store STATE. When session-start, state-init, or repo-cleanup
-migrates a repo, an older agent doc (`AGENTS.md`, `CLAUDE.md`, a decision log, or a state, plan, or
-handoff file) that conflicts with that layout is migrated into it. That conflict is not a blocker
-and not a reason to stop.
+If an older agent doc's layout differs from the workstation-core template (`AGENTS.md` as the
+router, state-init profiles, store STATE), that layout is migrated into the template by
+session-start, state-init, or repo-cleanup, keeping every rule. A layout difference is not a
+blocker or a reason to stop.
 
 ## 2. Git
 - Branch -> PR -> review. No commits on `main`, never force-push. Exception: the skill-zips CI bot may force-push (with lease) its own `chore/skill-zips` branch only.

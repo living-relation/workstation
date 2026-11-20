@@ -145,7 +145,8 @@ sets Project instructions to `claude-md-and-agents-md` in `%USERPROFILE%\.claude
    `AGENTS.md` is the only agent instruction file. List every `CLAUDE.md`, `.claude\CLAUDE.md`,
    `CLAUDE.local.md`, and `AGENTS.md` with its folder, whether it is in a git repo, and whether the
    file is tracked. Fold each CLAUDE file into that project's `AGENTS.md` (keep every rule, drop
-   exact duplicates), then delete the CLAUDE file. That fold is pre-approved. A conflict with the
-   old file is not a blocker and not a reason to stop. Show the merged text before writing over
+   exact duplicates), then delete the CLAUDE file. That fold is pre-approved. Every rule is kept.
+   A layout difference is not a blocker or a reason to stop. The rules and decisions in those
+   files still bind. Show the merged text before writing over
    `AGENTS.md`. In a repo, Dan makes the commit himself, and nothing is pushed.
 3. Do not create a `CLAUDE.md` or `CLAUDE.local.md` in a repo or at the Projects root. The memory pointer goes in the project's `AGENTS.md`. Leave `%USERPROFILE%\.claude\CLAUDE.md` alone.

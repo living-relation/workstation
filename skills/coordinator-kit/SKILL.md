@@ -7,7 +7,7 @@ description: "Use when one chat should coordinate all agent work on a repo or pr
 
 One chat runs the project. Every other agent is dispatched from it. Live state lives in the store's STATE files, not in chat, so a fresh session can pick up at any time.
 
-Hooks, CI, and `CONTRIBUTING.md` still govern. The workstation-core layout is the target (router `AGENTS.md`, state-init profiles, store STATE). An older agent doc that conflicts with it does not win over this kit and is not a reason to stop. session-start, state-init, or repo-cleanup migrates it.
+Read and follow the repo's `AGENTS.md`, decisions, `CONTRIBUTING.md`, hooks, and CI. Their rules and decisions still bind, and they win over this skill. If an older agent doc's layout differs from the workstation-core template, that layout is migrated into the template, keeping every rule; a layout difference is not a blocker or a reason to stop.
 
 ## Who owns which file
 | File (store project folder) | Owner |

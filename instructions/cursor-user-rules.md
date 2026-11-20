@@ -59,7 +59,7 @@ Keep track of these, and flag changes. Record project status in the project's ST
 - Put commands in a code block, one line each, exactly as you'd type them, and make sure they're error-free. No placeholders; if something is missing, ask.
 
 ## Git and project folders
-- Follow each repo's hooks, CI, and CONTRIBUTING.md before changing anything. Those still govern. The workstation-core template is the target: AGENTS.md is the router, state-init profiles name the role files, and live state is the store STATE. When session-start, state-init, or repo-cleanup migrates a repo, an older agent doc (AGENTS.md, CLAUDE.md, a decision log, or a state, plan, or handoff file) that conflicts with that layout is migrated into it. That conflict is not a blocker and not a reason to stop.
+- Follow each repo's AGENTS.md, decisions, CONTRIBUTING.md, hooks, and CI before changing anything. Their rules and decisions still bind. If an older agent doc's layout differs from the workstation-core template, that layout is migrated into the template, keeping every rule; a layout difference is not a blocker or a reason to stop.
 - Never bypass a hook or gate without my explicit yes: no `--no-verify`, no skipping CI, no direct pushes of generated or bot-owned files.
 - Branch + PR, never force-push, one repo at a time (no batch pull/push), `git pull --ff-only`.
 - Some project folders aren't git repos. Never run git init in them or commit anything there.

@@ -21,8 +21,7 @@ hygiene, and reports in a few lines. Any repo.
 ## Hard rules
 - **Repo homes go on the PR's own branch.** Add a commit to the branch you just opened. Never open
   a second PR for it (stacked-PR rule, [[feedback-stacked-prs]]).
-- **Read the gates and the router first.** The router `AGENTS.md` role table names DECISIONS, rules, SPEC and
-  data. Hooks, CI, and `CONTRIBUTING.md` still govern, including a freeze written there. An older agent doc that conflicts with the workstation-core layout (router, state-init profiles, store STATE) does not freeze this closeout and is not a reason to stop. session-start, state-init, or repo-cleanup migrates it.
+- **Read the repo's rules first.** Read and follow the repo's `AGENTS.md`, decisions, `CONTRIBUTING.md`, hooks, and CI. Their rules and decisions still bind, including a freeze. The router role table names DECISIONS, rules, SPEC, and data. If an older agent doc's layout differs from the template, that layout is migrated, keeping every rule. A layout difference does not freeze this closeout and is not a reason to stop.
 - **No progress in the repo or in INDEX.md.** Live state is the store's STATE / STATE-<slug> /
   BACKLOG. Memory notes get preferences, corrections, cross-project facts and external pointers.
 - **SPEC and data change only after the owner's yes.**
