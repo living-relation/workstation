@@ -65,6 +65,8 @@ $env:LOCALAPPDATA = $local
 $env:WORKSTATION_FAKE_PROCS = 'none'
 $env:WORKSTATION_LOCKCHECK_USERS = $users
 $env:WORKSTATION_LOCKCHECK_SCRIPT = Join-Path $repo 'workstation\fusion-lock\fusion-lock.ps1'
+$env:WORKSTATION_FUSION_FAKE_TASK = 'missing'
+$env:WORKSTATION_FUSION_LOG_DIR = Join-Path $local 'Workstation\logs'
 $out = & pwsh -NoProfile -ExecutionPolicy Bypass -File $status -NoPause 2>&1
 $code = $LASTEXITCODE
 $text = $out -join "`n"
@@ -72,6 +74,20 @@ $bad = @($out | Where-Object { "$_" -match '\[(FAIL|WARN)\]' })
 if ($bad.Count -or $code -ne 0) {
     $text
     "FAILED exit $code warnings $($bad.Count)"
+    exit 1
+}
+if (-not @($out | Where-Object { "$_" -match '\[ OK \] Fusion add-in updater is manual only' }).Count) {
+    $text
+    'FAILED: no Fusion manual-only line'
+    exit 1
+}
+$env:WORKSTATION_FUSION_FAKE_TASK = '{"present":true,"lastResult":0,"lastRun":"2026-11-19T00:00:00Z"}'
+$taskOut = & pwsh -NoProfile -ExecutionPolicy Bypass -File $status -NoPause 2>&1
+$taskWarn = @($taskOut | Where-Object { "$_" -match '\[WARN\] .*Workstation-UpdateFusionAddins' })
+Remove-Item Env:WORKSTATION_FUSION_FAKE_TASK, Env:WORKSTATION_FUSION_LOG_DIR -ErrorAction SilentlyContinue
+if ($taskWarn.Count -ne 1) {
+    $taskOut -join "`n"
+    'FAILED: a Fusion add-in task must warn (the updater is manual only)'
     exit 1
 }
 'ALL PASS'

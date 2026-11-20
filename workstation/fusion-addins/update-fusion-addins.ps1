@@ -1,11 +1,14 @@
 #Requires -Version 5.1
 # Fast-forward Fusion add-in git clones discovered from AddIns folder junctions.
-# Does not start or stop Fusion. A hidden scheduled task runs this at logon and
-# every 60 minutes after install.ps1. Exit 0 when git or the AddIns folder is missing.
+# Manual only: run it by hand or from the Update Fusion add-ins shortcut (-Pause keeps
+# the window open). No scheduled task runs it. Does not start or stop Fusion.
+# Exit 0 when git or the AddIns folder is missing.
+param([switch]$Pause)
 $ErrorActionPreference = 'Stop'
+$code = 1
 try {
     . (Join-Path $PSScriptRoot 'fusion-addins-lib.ps1')
-    exit (Invoke-FusionAddinUpdate)
+    $code = [int](@(Invoke-FusionAddinUpdate) | Select-Object -Last 1)
 } catch {
     $msg = $_.Exception.Message
     try {
@@ -18,5 +21,11 @@ try {
         }
     } catch { }
     Write-Host "error $msg"
-    exit 1
+    $code = 1
 }
+if ($Pause) {
+    Write-Host ''
+    Write-Host 'Press any key to close...'
+    try { [void]$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') } catch { [void](Read-Host) }
+}
+exit $code

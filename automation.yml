@@ -160,8 +160,8 @@ automations:
     enabled: true
   - id: fusion-addins
     script: workstation/fusion-addins/update-fusion-addins.ps1
-    helpers: [workstation/fusion-addins/fusion-addins-lib.ps1, workstation/fusion-addins/tests/test-fusion-addins.ps1, workstation/fusion-addins/README.md, install.ps1, uninstall.ps1, workstation/health/workstation-status.ps1]
-    trigger: manual
+    helpers: [workstation/fusion-addins/fusion-addins-lib.ps1, workstation/fusion-addins/tests/test-fusion-addins.ps1, workstation/fusion-addins/README.md, install.ps1, uninstall.ps1, preflight.ps1, toolkit.psd1, workstation/health/workstation-status.ps1]
+    trigger: manual (Update Fusion add-ins shortcut or by hand; no scheduled task since 2026-11-20; install.ps1 and uninstall.ps1 remove the old task Workstation-UpdateFusionAddins)
     reads: [AddIns directory junctions and the git clones those junctions point at]
     writes: [LOCALAPPDATA Workstation logs fusion-addins-update.log and fusion-addins-last.json (outside the repo)]
     committed: no

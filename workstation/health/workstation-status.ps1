@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 # Health check (read-only): memory, hooks, skills, app locks, the phone remote,
-# the manual Cursor worker, and the Fusion add-in update task. A worker that is
-# not running is normal. A missing Fusion add-in task is normal until install.ps1.
+# the manual Cursor worker, and the manual Fusion add-in updater. A worker that is
+# not running is normal. A Fusion add-in scheduled task is a WARN (manual only).
 # -NoPause never prompts. -Locks runs only the app-lock check.
 # Exit 1 if any app-lock item fails.
 param([switch]$NoPause, [switch]$Locks)

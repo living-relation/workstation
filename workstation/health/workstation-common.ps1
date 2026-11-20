@@ -173,7 +173,7 @@ function Show-FusionAddins {
     Write-Host ''
     Write-Host 'Fusion add-ins' -ForegroundColor Cyan
     if (-not (Get-Command Get-FusionAddinHealthLines -ErrorAction SilentlyContinue)) {
-        Write-Ok 'Fusion add-in update task is not installed'
+        Write-Ok 'Fusion add-in updater is manual only (Update Fusion add-ins shortcut); no scheduled task'
         return
     }
     foreach ($line in @(Get-FusionAddinHealthLines)) {

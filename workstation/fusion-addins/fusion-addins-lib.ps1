@@ -426,14 +426,10 @@ function Get-FusionAddinHealthLines {
     $lines = New-Object System.Collections.ArrayList
     $task = Get-FusionAddinTaskStatus
     if ($task.Present) {
-        $code = $task.LastResult
-        $text = 'Fusion add-in update task is installed; last result ' + $(if ($null -eq $code) { 'unknown' } else { $code })
-        if ($task.LastRun) { $text += ' (' + $task.LastRun + ')' }
-        $level = 'OK'
-        if ($null -ne $code -and $code -ne 0 -and $code -ne 267011) { $level = 'WARN' }
-        [void]$lines.Add([pscustomobject]@{ Level = $level; Text = $text })
+        $text = 'Fusion add-in updater starts on its own: scheduled task ' + (Get-FusionAddinTaskName) + '. The updater is manual only; install.ps1 or uninstall.ps1 removes the task.'
+        [void]$lines.Add([pscustomobject]@{ Level = 'WARN'; Text = $text })
     } else {
-        [void]$lines.Add([pscustomobject]@{ Level = 'OK'; Text = 'Fusion add-in update task is not installed' })
+        [void]$lines.Add([pscustomobject]@{ Level = 'OK'; Text = 'Fusion add-in updater is manual only (Update Fusion add-ins shortcut); no scheduled task' })
     }
     $last = Read-FusionLast
     $warned = $false
@@ -465,47 +461,6 @@ function Get-FusionAddinHealthLines {
     $out = @()
     foreach ($line in $lines) { $out += $line }
     return $out
-}
-
-function Register-FusionAddinTask {
-    param([Parameter(Mandatory = $true)][string]$ScriptPath, [switch]$WhatIf)
-    $name = Get-FusionAddinTaskName
-    if ($WhatIf) {
-        return [pscustomobject]@{ Ok = $true; Changed = $false; Unavailable = $false; Message = "WOULD register per-user task $name (at logon and every 60 minutes, hidden, no admin) running $ScriptPath" }
-    }
-    if (-not (Get-Command Register-ScheduledTask -ErrorAction SilentlyContinue)) {
-        return [pscustomobject]@{ Ok = $false; Changed = $false; Unavailable = $true; Message = "scheduled tasks are not available in this session; task $name was not registered" }
-    }
-    if (-not (Test-Path -LiteralPath $ScriptPath -PathType Leaf)) {
-        return [pscustomobject]@{ Ok = $false; Changed = $false; Unavailable = $false; Message = "update script not found: $ScriptPath" }
-    }
-    $ps = $null
-    if ($env:SystemRoot) { $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe' }
-    if (-not $ps -or -not (Test-Path -LiteralPath $ps)) {
-        $self = Get-Process -Id $PID -ErrorAction SilentlyContinue
-        if ($self -and $self.Path) { $ps = $self.Path }
-    }
-    $arg = '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $ScriptPath + '"'
-    $user = $env:USERNAME
-    try {
-        $id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-        if ($id -and $id.Name) { $user = $id.Name }
-    } catch { }
-    $existing = $null
-    try { $existing = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue } catch { $existing = $null }
-    if ($existing) {
-        $act = (@($existing.Actions) | ForEach-Object { ("$($_.Execute) $($_.Arguments)").Trim() }) -join ' '
-        if ($act -match [regex]::Escape($ScriptPath) -and $act -match 'WindowStyle Hidden') {
-            return [pscustomobject]@{ Ok = $true; Changed = $false; Unavailable = $false; Message = "per-user task $name already runs this clone" }
-        }
-    }
-    $action = New-ScheduledTaskAction -Execute $ps -Argument $arg
-    $logon = New-ScheduledTaskTrigger -AtLogOn -User $user
-    $hourly = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Minutes 60) -RepetitionDuration (New-TimeSpan -Days 9999)
-    $settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15)
-    $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
-    Register-ScheduledTask -TaskName $name -Action $action -Trigger @($logon, $hourly) -Settings $settings -Principal $principal -Force | Out-Null
-    return [pscustomobject]@{ Ok = $true; Changed = $true; Unavailable = $false; Message = "registered per-user task $name (at logon and every 60 minutes, hidden, no admin)" }
 }
 
 function Unregister-FusionAddinTask {
