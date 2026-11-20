@@ -2,7 +2,7 @@
 
 ## Pre-Implementation Checklist
 
-- [ ] Read CLAUDE.md
+- [ ] Read AGENTS.md
 - [ ] Fast-forwarded local `main` (a stale checkout makes merged work look absent)
 - [ ] Read relevant project docs
 - [ ] Assessed complexity (simple/medium/complex) and ran the complexity gate (band 1/2/3)

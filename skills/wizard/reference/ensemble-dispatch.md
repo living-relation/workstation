@@ -150,7 +150,7 @@ thread can perform. Any design that assumes agent-to-agent messaging is wrong fo
 the mediation is structural, not stylistic. Two corollaries:
 
 - **Subagents do not inherit SKILL-level conventions.** A worker sees its brief plus the
-  auto-loaded `CLAUDE.md` and path-scoped rules — never this file. Any behavior you need MUST be
+  auto-loaded `AGENTS.md` and path-scoped rules — never this file. Any behavior you need MUST be
   in the brief.
 - **A roster agent merged mid-session is not dispatchable until a new session.** Claude Code
   snapshots `.claude/agents/` at session start; a mid-session addition raises

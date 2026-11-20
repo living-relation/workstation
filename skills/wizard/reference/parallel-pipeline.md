@@ -192,7 +192,7 @@ memory and inline tables do not.
 
 `isolation: "worktree"` gives each new-feature worker its own worktree on a fresh branch off
 `origin/main`, so edits never collide with the orchestrator or sibling workers. A worker sees only
-its brief plus `CLAUDE.md`, so brief it like a colleague who walked in cold:
+its brief plus `AGENTS.md`, so brief it like a colleague who walked in cold:
 
 - **First action:** the per-worktree setup step that gives the worktree its OWN dependency
   directory, runtime dirs, built assets and an **isolated test database** — a symlinked dependency

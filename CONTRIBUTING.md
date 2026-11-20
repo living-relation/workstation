@@ -35,9 +35,13 @@ Owner settings this Action needs (GitHub repo, not in git):
 - A ruleset on `main` that blocks direct pushes (this Action still refuses to push
   if a PR head is main).
 
-**Follow each repo's own rules:** read `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, any decisions
-log, hooks and CI gates first. Never bypass a hook or gate (no `--no-verify`, no direct pushes of
-generated or bot-owned files) without the owner's explicit yes.
+**Follow each repo's own rules:** read `CONTRIBUTING.md`, the hooks, and the CI gates first. Those
+still govern. Never bypass a hook or gate (no `--no-verify`, no direct pushes of generated or
+bot-owned files) without the owner's explicit yes. The workstation-core template is the target:
+`AGENTS.md` is the router, state-init profiles name the role files, and live state is the store
+STATE. When session-start, state-init, or repo-cleanup migrates a repo, an older agent doc
+(`AGENTS.md`, `CLAUDE.md`, a decision log, or a state, plan, or handoff file) that conflicts with
+that layout is migrated into it. That conflict is not a blocker and not a reason to stop.
 
 **Upstream tools:** an entry in `workstation.lock.yaml` with version and sha256. Small upstream
 edits are files in `patches/`, never forks.

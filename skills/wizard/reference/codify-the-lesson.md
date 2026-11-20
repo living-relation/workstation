@@ -5,7 +5,7 @@
 > lesson goes, the two rules that make it stick, the bar, and the relationship to a nightly
 > retrospective.
 
-**Improving the skill is part of the flow, not a separate chore.** The SKILL, `CLAUDE.md`, the
+**Improving the skill is part of the flow, not a separate chore.** The SKILL, `AGENTS.md`, the
 `reference/` set and the agent definitions are only as good as the last lesson written into them
 — a codification that stops accreting ages into exactly the stale guidance the process exists to
 catch.
@@ -46,14 +46,14 @@ Reuse this split; do not invent a parallel taxonomy.
 
 | Lesson shape | Home |
 |---|---|
-| An always-on rule every session must carry | `CLAUDE.md` — kept **dense**: a summary plus a pointer, never the full method ([context-economics.md](context-economics.md)) |
+| An always-on rule every session must carry | `AGENTS.md` — kept **dense**: a summary plus a pointer, never the full method ([context-economics.md](context-economics.md)) |
 | A method or procedure | the matching `reference/*.md` |
 | An ordered step in the flow | `SKILL.md` itself |
 | A briefing instruction for builders | the builder-brief contract in [phased-decomposition.md](phased-decomposition.md) — the only text a builder reads |
 | A lens or audit question | the lens template ([domain-user-lens.template.md](domain-user-lens.template.md)) or your architecture-review prompt |
 | A boundary or grant on a dispatched agent | that agent's definition under `.claude/agents/` — its `description:` is what the orchestrator reads to pick it |
 
-The routing is not cosmetic. A method text placed in `CLAUDE.md` is re-read on every API call of
+The routing is not cosmetic. A method text placed in `AGENTS.md` is re-read on every API call of
 every session; a brief instruction placed in a reference file is never seen by the builder it was
 meant for. **Where a lesson lives decides whether it has teeth.**
 
@@ -69,7 +69,7 @@ meant for. **Where a lesson lives decides whether it has teeth.**
    — which is most of its value. The edit is small and the context is free right now; neither
    stays true tomorrow.
 
-Two authoring constraints travel with rule 1. **A `CLAUDE.md` edit is a summary+pointer edit** —
+Two authoring constraints travel with rule 1. **An `AGENTS.md` edit is a summary+pointer edit** —
 state what the rule is, why (one-line precedent), and where the method lives; re-inlining method
 text into an always-resident file is the regression its budget exists to prevent. And **an
 escalated rule binds only in a checkout that has it** — when a lesson is promoted from local
@@ -101,7 +101,7 @@ An empty "lessons codified" line on a run that hit a trigger is the tell.
 
 A **nightly retrospective skill** — one that mines recent merged PRs and commits for patterns,
 writes lessons to memory by default, and escalates to a `chore:` PR against the skill or
-`CLAUDE.md` only when a stricter bar holds (broad applicability, proven across three or more
+`AGENTS.md` only when a stricter bar holds (broad applicability, proven across three or more
 distinct sessions, read-on-load necessity) — is a useful counterpart, not a replacement.
 
 This section is the **in-session** loop for a lesson learned right now, mid-flight. The nightly
@@ -115,7 +115,7 @@ session start.
 ## Related
 
 - [context-economics.md](context-economics.md) — the summary+pointer budget that constrains the
-  `CLAUDE.md` row of the routing table.
+  `AGENTS.md` row of the routing table.
 - [phased-decomposition.md](phased-decomposition.md) — the builder-brief contract, the home for
   trigger 5.
 - [adjacency-check.md](adjacency-check.md) — the worked case of trigger 4 becoming an ordered step

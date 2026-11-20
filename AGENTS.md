@@ -2,7 +2,7 @@
 
 ## Read first, before starting work or asking
 Before starting work or asking the maintainer anything, read in order: (1) this repo's agent guide
-(`AGENTS.md` / `CLAUDE.md`), (2) its binding rules / decisions file if it has one, (3) live state,
+(`AGENTS.md`), (2) its binding rules / decisions file if it has one, (3) live state,
 by the tier rule: the project's folder in the shared memory store,
 `<Projects>\_claude\Claude Projects\Working Memory\memory\<project>\` (WSL: that same folder under the
 Windows Projects root), holds `STATE.md`, this branch's `STATE-<slug>.md`, `BACKLOG.md` and `archives\`;

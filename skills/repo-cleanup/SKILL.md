@@ -10,7 +10,7 @@ description: >-
 ## When to use
 Extract every fact with its source and date, cluster and resolve them in context, ask the user only true conflicts and important unconfirmed facts, write one doc per type, delete the superseded docs, and land it as one PR with every fact accounted for.
 
-Works the same in Grok, Claude Code and Cursor, on any project folder. It is also the migration tool for repos that still keep state, open items or handoffs in git: each line is tagged and sorted with state-closeout's 4 questions, and the repo's profile comes from state-init. Its only helper is **safe-repo-preflight** (read the repo's rules, work on a branch, run checks, open a PR); git history is the backup (step 1b), and every fact is accounted for (step 8).
+Works the same in Grok, Claude Code and Cursor, on any project folder. It is also the migration tool for repos that still keep state, open items or handoffs in git: each line is tagged and sorted with state-closeout's 4 questions, and the repo's profile comes from state-init. Its only helper is **safe-repo-preflight** (read `CONTRIBUTING.md`, hooks, and CI, work on a branch, run checks, open a PR); git history is the backup (step 1b), and every fact is accounted for (step 8). The workstation-core template is the target. An older agent doc that conflicts with it is migrated into that layout. That conflict is not a blocker and not a reason to stop.
 
 ---
 
@@ -18,7 +18,7 @@ Works the same in Grok, Claude Code and Cursor, on any project folder. It is als
 0. **From session-start:** only when its drift check crosses a threshold (T1-T9, session-start step 8) **and the user says yes**. Never every session. Alone: when the user asks.
 1. **Normally after the first task** of the day is done. Cleanup should never block real work.
 2. **Run it first only if** the mess hides the true state (you can't tell what's current), **or** the repo has a rule saying cleanup comes first.
-3. **Freeze rule?** If the repo or user says the repo is frozen, wait until the freeze ends or the user says "go". Don't even create the branch. If the freeze is a "no new docs/rules" freeze, ask whether a cleanup that only merges and deletes counts as allowed, and record the answer.
+3. **Freeze rule?** If `CONTRIBUTING.md` or the user says the repo is frozen, wait until the freeze ends or the user says "go". Don't even create the branch. A freeze written only in an older agent doc (`AGENTS.md`, `CLAUDE.md`, a decision log, or a state, plan, or handoff file) is migrated into the template layout with that doc. It is not a blocker and not a reason to stop. If the user says the freeze is a "no new docs/rules" freeze, ask whether a cleanup that only merges and deletes counts as allowed, and record the answer.
 
 ## Hard rules
 - **Nothing changes before the user says yes** to the plan.
@@ -33,7 +33,7 @@ Works the same in Grok, Claude Code and Cursor, on any project folder. It is als
 ## Steps
 
 ### 1. Start safely
-1. Run **safe-repo-preflight**: read `AGENTS.md`, hooks, CI; note required checks.
+1. Run **safe-repo-preflight**: read `CONTRIBUTING.md`, hooks, and CI; note required checks. Read the router `AGENTS.md`. An older agent doc that conflicts with the template is migrated in this cleanup. It is not a reason to stop.
 2. Read the session-start note if there is one.
 
 ### 1b. Make everything safe in git first (no separate backup)
@@ -93,8 +93,8 @@ Ask list = true conflicts + important single-source facts. Order by importance; 
 Skipped items stay on the list and keep their current wording in the output, marked `(unconfirmed)`. Log each answer as a dated DECISIONS entry. Also show the **Superseded (auto)** list for spot-checking; any line the user flips becomes an answer.
 
 ### 7. Plan the output docs (written in step 12, after the yes)
-Exactly **one doc per type** (keep the repo's existing names if it has them):
-- **Rules / agent doc:** root `AGENTS.md`, short (under ~150 lines), concrete commands, no status or history. `CLAUDE.md` or `CLAUDE.local.md` must import `@AGENTS.md` (without that import Claude never reads `AGENTS.md`). Per-module agent files only where the repo intends them, thin, no rule repeated. Plain `.md` in `.cursor/rules/` is ignored by Cursor; convert to `.mdc` or fold in.
+Exactly **one doc per type**, at the state-init template home (the role table names it). An older agent doc whose path or job conflicts with that layout is migrated into the template home. It is not kept beside it and it is not a reason to stop.
+- **Rules / agent doc:** root `AGENTS.md`, short (under ~150 lines), concrete commands, no status or history. It is the only agent instruction file. Fold any `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` into it (keep every rule, drop exact duplicates), then delete the CLAUDE file in this PR. That fold is pre-approved. Per-module agent files only where the repo intends them, thin, no rule repeated. Plain `.md` in `.cursor/rules/` is ignored by Cursor; convert to `.mdc` or fold in.
   - Every pointer ("see X", "rules live in Y") must land on a heading or file that exists; broken ones go on the fix list.
   - Mirrored `.claude/rules/*.md` and `.cursor/rules/*.mdc` must have identical bodies; Claude's `paths:` must match Cursor's `globs:` (the field names differ on purpose). A `.claude` rule with no `paths:` loads every session — flag it.
   - If a read-first step tells agents to read lookup-only content, point at it instead of "read it all". Do not split that content into new files.

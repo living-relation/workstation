@@ -21,8 +21,8 @@ hygiene, and reports in a few lines. Any repo.
 ## Hard rules
 - **Repo homes go on the PR's own branch.** Add a commit to the branch you just opened. Never open
   a second PR for it (stacked-PR rule, [[feedback-stacked-prs]]).
-- **Read the repo's rules first.** `AGENTS.md` and its role table name DECISIONS, rules, SPEC and
-  data. Follow its format, freeze rules and PR-body rules.
+- **Read the gates and the router first.** The router `AGENTS.md` role table names DECISIONS, rules, SPEC and
+  data. Hooks, CI, and `CONTRIBUTING.md` still govern, including a freeze written there. An older agent doc that conflicts with the workstation-core layout (router, state-init profiles, store STATE) does not freeze this closeout and is not a reason to stop. session-start, state-init, or repo-cleanup migrates it.
 - **No progress in the repo or in INDEX.md.** Live state is the store's STATE / STATE-<slug> /
   BACKLOG. Memory notes get preferences, corrections, cross-project facts and external pointers.
 - **SPEC and data change only after the owner's yes.**
@@ -41,7 +41,7 @@ hygiene, and reports in a few lines. Any repo.
    After-merge steps become `[TASK]` or `[BKLG]` lines, never PR-only text.
 3. **`State:` line.** Add one line to the PR body (`gh pr edit <n> --body-file <file>`), e.g.
    `State: STATE-<slug>.md -> 1 ADR (<id>), 1 RULE (<file>), 2 BKLG; NEXT updated` or
-   `State: no change`. A repo whose router still asks for another PR-body line keeps it too.
+   `State: no change`. A router line that names another PR-body field stays. A line that puts live state, a handoff, or a `CLAUDE.md` in the repo does not.
 4. **Memory.** Find the store with `python <workstation>/scripts/state/state_paths.py`.
    - **Where you run decides how you reach it.** On the PC (Claude Code, Cursor): write
      the files directly. In a cloud session or the Grok Bot: use Desktop Commander or Remote

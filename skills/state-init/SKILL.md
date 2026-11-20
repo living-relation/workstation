@@ -1,13 +1,13 @@
 ---
 name: state-init
 description: >-
-  Use when a repo has no state setup yet, or work starts in a router-only repo: adds the router role table, DECISIONS, rules and SPEC, plus STATE, BACKLOG and archives in the store. Never overwrites.
+  Use when a repo has no state setup yet, work starts in a router-only repo, or older agent docs conflict with the template: adds the router role table, DECISIONS, rules and SPEC, plus STATE, BACKLOG and archives in the store. Shows the plan before any overwrite.
 ---
 # State init
 
-**In one line:** give a repo its role files and its store folder, creating only what is missing.
+**In one line:** give a repo the template layout. Create what is missing, and migrate an older agent doc that conflicts. Show the plan before any overwrite.
 
-The project's own rules win over this skill. Changes in the repo go through **safe-repo-preflight** (branch, checks, PR).
+Hooks, CI, and `CONTRIBUTING.md` still govern. The workstation-core template is the target: `AGENTS.md` is the router, the profiles below name the role files, and live state is the store STATE. An older `AGENTS.md`, `CLAUDE.md`, decision log, or state, plan, or handoff file that conflicts with that layout is migrated into it. That conflict is not a blocker and not a reason to stop. Changes in the repo go through **safe-repo-preflight** (branch, checks, PR).
 
 ## Profiles
 | Profile | For | Repo gets | Store gets |
@@ -20,10 +20,10 @@ Add SPEC or DECISIONS to a Light repo only when one is needed. If the profile is
 
 ## Steps
 1. **Read first.** `AGENTS.md`, `README.md`, and any decisions, state, spec, rules or data files. Note each one's path.
-2. **Plan.** For each role, list `exists` (keep it, point at it), `create`, or `skip` (not in this profile). An existing file that already plays a role keeps its name and place; the role table points at it. Never create a second file for the same role.
+2. **Plan.** For each role, list `exists` (already at the template home; point at it), `migrate` (an older agent doc conflicts with the template layout; its content moves into the template home), `create`, or `skip` (not in this profile). Never create a second file for the same role. A conflict with an older `AGENTS.md`, `CLAUDE.md`, decision log, or state, plan, or handoff file is not a blocker and not a reason to stop.
 3. **Ask.** Show the plan and wait for the yes.
 4. **Repo files** (on a branch):
-   - **Router (`AGENTS.md`):** if missing, write a short one (read order, map, commands). If present, add only what is missing: the role table below and the line "Store unreachable (PC offline, cloud session): work from committed docs."
+   - **Router (`AGENTS.md`):** if missing, write a short one (read order, map, commands). If it already matches the router, add only what is missing: the role table below and the line "Store unreachable (PC offline, cloud session): work from committed docs." If it conflicts with that layout, migrate it in the plan. Fold any `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` into it (keep every rule, drop exact duplicates), then delete the CLAUDE file in this PR. That fold is pre-approved.
    - **DECISIONS:** a header and the entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if. Append only.
    - **Rules:** `.claude/rules/00-state-protocol.md` (always on): the seven tags and "run state-closeout at 80% context, on a pivot, a blocker, a milestone and a PR". Then `python <workstation>/scripts/state/rules_sync.py` writes `.cursor/rules/`. Never hand-edit those.
    - **SPEC (Full only):** beside DECISIONS, with headings for milestones and done criteria, interfaces, and tolerances. The owner fills it in; agents only read it.
@@ -32,7 +32,7 @@ Add SPEC or DECISIONS to a Light repo only when one is needed. If the profile is
    - **Git hook pack (Full only):** offer to install it from `<workstation>/hooks/git/`, following its own notes. Install only on a yes.
 5. **Store.** `python <workstation>/scripts/state/state_manager.py init --repo <dir>` creates STATE (schema v1, see state-closeout), `BACKLOG.md` and `archives/` in `<store>/<project>/`, and skips files that exist. If the tool is missing, create them by hand the same way. Add pointer lines for them to the project's `INDEX.md`; its preference and fact notes stay as they are.
 6. **Lint:** `python <workstation>/scripts/state/state_lint.py --repo <dir>` exits 0.
-7. **Commit** on the branch, open the PR, and report: each role, its path, and `created` or `exists`.
+7. **Commit** on the branch, open the PR, and report: each role, its path, and `created`, `exists`, or `migrated`.
 
 ## Role table (in the router)
 | Role | Location |
@@ -47,6 +47,6 @@ Add SPEC or DECISIONS to a Light repo only when one is needed. If the profile is
 | Branch checklist | `TASK.md` at the worktree root, git-ignored |
 
 ## Hard rules
-- Never overwrite or rename an existing file. Never move a role's existing file.
+- Show the plan before any overwrite. Ask before a delete that is not the pre-approved CLAUDE fold. A file already at its template home stays. An older agent doc that conflicts with the template is migrated into that home in the plan.
 - No progress in the repo: live state goes in the store only.
 - No secrets, no personal paths in repo files.

@@ -18,7 +18,7 @@ Do not look for a `~\.claude\working-memory` link. The local store's path is in 
 - 📊 Context used, if you can tell
 
 ## Repos
-- Follow each repo's own rules: read its AGENTS.md, CLAUDE.md, CONTRIBUTING.md, decisions log, hooks and CI before changing anything.
+- Follow each repo's hooks, CI, and CONTRIBUTING.md before changing anything. Those still govern. The workstation-core template is the target: AGENTS.md is the router, state-init profiles name the role files, and live state is the store STATE. When session-start, state-init, or repo-cleanup migrates a repo, an older agent doc (AGENTS.md, CLAUDE.md, a decision log, or a state, plan, or handoff file) that conflicts with that layout is migrated into it. That conflict is not a blocker and not a reason to stop.
 - Never bypass a hook or gate without my explicit yes: no `--no-verify`, no skipping CI, no direct pushes of generated or bot-owned files.
 - Branch + PR, never force-push, one repo at a time (no batch pull/push), `git pull --ff-only`.
 

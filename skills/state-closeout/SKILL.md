@@ -7,7 +7,7 @@ description: >-
 
 **In one line:** empty the live notes into their permanent homes, then leave a STATE file of 30 lines or less.
 
-Two modes: `closeout` (the default) and `handoff`. The project's own rules win over this skill.
+Two modes: `closeout` (the default) and `handoff`. Hooks, CI, and `CONTRIBUTING.md` still govern. The workstation-core template is the target: `AGENTS.md` is the router, state-init profiles name the role files, and live state is the store STATE. An older agent doc that conflicts with that layout does not win over this skill and is not a reason to stop. session-start, state-init, or repo-cleanup migrates it.
 
 ## When to use
 - **Context near 80%** (the one shared threshold). Do not `/compact` again and again. Close out, print the handoff block, and tell the user to start a new chat.
@@ -66,7 +66,7 @@ If nothing fits, ask the user. Do not guess.
 4. **Check nothing was lost.** Every line that is not `[DONE]` now lives in exactly one home. For a big move, run `python <workstation>/scripts/state/move_integrity.py --before <copy> --after <files>`.
 5. **Rewrite STATE** (overwrite, never append) to the schema below. Add `(carried 1)` to a `[NEXT]` line kept from the last run.
 6. **Lint:** `python <workstation>/scripts/state/state_lint.py <file>`. Exit 2: fix it and run it again. Exit 0 with a note that the store is unreachable: see "Store unreachable".
-7. **Commit the repo homes** (DECISIONS, rules, SPEC, data) on the branch, following the repo's rules. Store files are not in git.
+7. **Commit the repo homes** (DECISIONS, rules, SPEC, data) on the branch, following `CONTRIBUTING.md`, the hooks, and CI. Store files are not in git.
 8. **Report** in a few lines: what moved where (counts per home), the STATE line count, and the lint result.
 
 ## Mode `handoff`

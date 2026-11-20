@@ -433,7 +433,7 @@ foreach ($pat in @("$ProjectsRoot\.claude\settings*.json", "$ProjectsRoot\*\.cla
   $projSettings += @(Get-ChildItem -Path $pat -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '\\(node_modules|_scratch|_archive)\\' -and -not (Test-Under $_.FullName $PkgRoot) })
 }
 foreach ($f in @($projSettings | Sort-Object FullName -Unique)) { Test-ClaudeSettings $f.FullName $false }
-# Projects root guide: AGENTS.md only. A root CLAUDE.md is merged into it by hand (REORGANIZE.md step 5).
+# Projects root guide: AGENTS.md only. A root CLAUDE.md is folded into it (REORGANIZE.md step 5). That fold is not a blocker.
 $rootCm = Join-Path $ProjectsRoot 'CLAUDE.md'; $rootAm = Join-Path $ProjectsRoot 'AGENTS.md'
 if (Test-Path -LiteralPath $rootCm) { Add-Finding 'WARN' 'rules' $rootCm ("root CLAUDE.md: merge it into AGENTS.md and delete it (REORGANIZE.md step 5)." + $(if (Test-Path -LiteralPath $rootAm) { ' AGENTS.md is there too.' } else { '' })) }
 elseif (Test-Path -LiteralPath $rootAm) { Add-Finding 'OK' 'rules' $rootAm 'root guide is AGENTS.md (no root CLAUDE.md)' }

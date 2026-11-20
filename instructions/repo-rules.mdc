@@ -1,5 +1,5 @@
 ---
-description: Follow each repo's own rules and hooks
+description: Follow hooks, CI, and CONTRIBUTING; the workstation-core template is the agent-doc target
 alwaysApply: true
 ---
 Before starting work or asking the user anything, read in order: the repo's agent guide, its binding
@@ -11,10 +11,10 @@ Tiers: the repo holds the router AGENTS.md, SPEC, DECISIONS, rules and data; the
 live state (STATE, STATE-<slug>, BACKLOG, archives\) and notes; TASK.md is git-ignored per worktree.
 At 80% context, run state-closeout (closeout mode); on-demand handoff: state-closeout handoff.
 Store unreachable (PC offline, cloud session): work from committed docs only.
-Before changing anything in a repo, read and follow its own AGENTS.md, CLAUDE.md, CONTRIBUTING.md,
-decisions log, hooks (.pre-commit-config.yaml, core.hooksPath, .git/hooks) and CI workflows.
+Before changing anything in a repo, read and follow its hooks (.pre-commit-config.yaml, core.hooksPath, .git/hooks), its CI workflows, and CONTRIBUTING.md. Those still govern.
 Never bypass a hook or gate without the user's explicit yes: no --no-verify, no skipping CI, no
 direct pushes of generated or bot-owned files. Branch + PR, never force-push, one repo at a time.
+The workstation-core template is the target: AGENTS.md is the router, state-init profiles name the role files, and live state is the store STATE. When session-start, state-init, or repo-cleanup migrates a repo, an older agent doc (AGENTS.md, CLAUDE.md, a decision log, or a state, plan, or handoff file) that conflicts with that layout is migrated into it. That conflict is not a blocker and not a reason to stop.
 
 Before driving Autodesk Fusion, hold the per-PC Fusion lock: see section 5 "Fusion lock" in the workstation repo agents/projects-AGENTS.md. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand.
 

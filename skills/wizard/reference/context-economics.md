@@ -46,7 +46,7 @@ the first three produced.
 
 ## The summary+pointer budget for always-resident files
 
-`CLAUDE.md`, every `SKILL.md`, and every `.claude/agents/*.md` definition is loaded on every
+`AGENTS.md`, every `SKILL.md`, and every `.claude/agents/*.md` definition is loaded on every
 session or every dispatch that uses it. Its size is not an authoring cost; it is a **recurring,
 multiplicative** cost paid by every future turn. Real precedent: roughly 60% of one project's
 `CLAUDE.md` bytes sat on lines carrying an inline issue or PR reference — the citation-and-
@@ -91,7 +91,7 @@ Rules that apply to a *place* in the codebase belong in `.claude/rules/<name>.md
 glob: they load once a matching file is read — in the session and in dispatched subagents alike —
 so a session that never touches that path stops paying for them. The limit worth knowing: loading
 is **reactive**, present before you act on the file but not at session start, so a rule that must
-apply unconditionally stays in `CLAUDE.md`.
+apply unconditionally stays in `AGENTS.md`.
 
 **Do not convert path-scoped rules to `@` imports.** `@` is eager and restores every byte the
 move removed; it is not a lazier spelling of the same thing.
