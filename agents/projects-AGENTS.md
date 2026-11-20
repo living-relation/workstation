@@ -47,7 +47,7 @@ blocker or a reason to stop.
 - Generic content only in shared repos: project-specific notes belong in that project.
 
 ## 5. Fusion
-Fusion work uses Autodesk's official Fusion MCP servers (exact links and config line coming later).
+Fusion work uses Autodesk's official, Autodesk-hosted MCP servers (nothing to install): Fusion Compute MCP `https://developer.api.autodesk.com/da/v3/mcp/fusion` (preferred, headless cloud Fusion, so local Fusion isn't interrupted); Fusion Data MCP `https://developer.api.autodesk.com/fusion/mcp`; Fusion Desktop MCP is built into Fusion (Preferences > General > API, local `http://127.0.0.1:27182/mcp`). Docs: https://help.autodesk.com/view/ADSKMCP/ENU/.
 
 ## 5b. harness.design lock (one agent drives the harness.design desktop app at a time)
 One lock per PC: `%LOCALAPPDATA%\Workstation\harness-design.lock` (outside every repo); log `harness-design-lock.log` beside it.

@@ -17,8 +17,8 @@ $users = Join-Path $root 'users'
 $projects = Join-Path $root 'Projects'
 $local = Join-Path $root 'local'
 New-Item -ItemType Directory -Path $users, $projects, $local | Out-Null
-$rule = "Acquire before use, check in at least every 10 min, and release when done. Fusion section 5. harness.design section 5b."
-$bad = "Acquire before use, check in at least every 10 min, and release when done. Fusion section 5 only."
+$rule = "Acquire before use, check in at least every 10 min, and release when done. harness.design section 5b."
+$bad = "Acquire before use, check in at least every 10 min, and release when done."
 function New-Profile([string]$Name, [string]$ClaudeText, [switch]$Cursor, [switch]$Desktop) {
     $p = Join-Path $users $Name
     New-Item -ItemType Directory -Path (Join-Path $p '.claude') -Force | Out-Null

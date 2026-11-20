@@ -1,6 +1,6 @@
 # harness.design lock: one lock per PC so only one agent drives the harness.design desktop app.
 # -Name defaults to fusion. That name does not take a lock.
-# Fusion work uses Autodesk's official Fusion MCP servers (exact links and config line coming later).
+# Fusion work uses Autodesk's official, Autodesk-hosted MCP servers (nothing to install): Fusion Compute MCP `https://developer.api.autodesk.com/da/v3/mcp/fusion` (preferred, headless cloud Fusion, so local Fusion isn't interrupted); Fusion Data MCP `https://developer.api.autodesk.com/fusion/mcp`; Fusion Desktop MCP is built into Fusion (Preferences > General > API, local `http://127.0.0.1:27182/mcp`). Docs: https://help.autodesk.com/view/ADSKMCP/ENU/.
 # harness.design lock file: %LOCALAPPDATA%\<StateFolder>\harness-design.lock. Log: harness-design-lock.log beside it.
 # Rule: agents/projects-AGENTS.md section 5b.
 # Windows PowerShell 5.1, ASCII only.
@@ -31,7 +31,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 if ($Name -eq 'fusion') {
-    Write-Host "Fusion work uses Autodesk's official Fusion MCP servers (exact links and config line coming later)."
+    Write-Host 'Fusion work uses Autodesk''s official, Autodesk-hosted MCP servers (nothing to install): Fusion Compute MCP `https://developer.api.autodesk.com/da/v3/mcp/fusion` (preferred, headless cloud Fusion, so local Fusion isn''t interrupted); Fusion Data MCP `https://developer.api.autodesk.com/fusion/mcp`; Fusion Desktop MCP is built into Fusion (Preferences > General > API, local `http://127.0.0.1:27182/mcp`). Docs: https://help.autodesk.com/view/ADSKMCP/ENU/.'
     exit 0
 }
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'paths.ps1')

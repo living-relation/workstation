@@ -39,7 +39,6 @@ foreach ($p in $plans) {
     Check ("plan " + $p.Name) ($got.Action + '/' + $got.Reason) ($p.Action + '/' + $p.Reason)
 }
 Check 'name SRBom' (ConvertTo-AddInDisplayName 'SRBom') 'SR BOM'
-Check 'name AutodeskFusionMCP' (ConvertTo-AddInDisplayName 'AutodeskFusionMCP') 'Autodesk Fusion MCP'
 Check 'name SRDrawingPDF' (ConvertTo-AddInDisplayName 'SRDrawingPDF') 'SR Drawing PDF'
 Check 'name SRExport' (ConvertTo-AddInDisplayName 'SRExport') 'SR Export'
 Check 'name SRFastener' (ConvertTo-AddInDisplayName 'SRFastener') 'SR Fastener'
