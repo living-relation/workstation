@@ -12,7 +12,7 @@
   From the manifest:
   - memory sections (between <!-- shared-memory:v1 --> markers) install created or appended; a file install created
     that holds nothing else is removed. A marked section that was already there stays, markers included,
-  - the Fusion / harness.design lock block (<!-- app-locks:v1 -->) only when the manifest says install added it,
+  - the app lock block (<!-- app-locks:v1 -->) only when the manifest says install added it,
   - in ~\.claude\settings.json: the SessionStart guard hook install added; autoMemoryDirectory put back to the value
     it had before install (or removed if there was none; left alone if it changed since); the 80% handoff hook
     entries (a re-pointed entry gets its old command back); the statusLine while it is still the one install set;

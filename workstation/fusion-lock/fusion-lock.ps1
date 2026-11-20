@@ -1,17 +1,17 @@
-# One lock per PC so only one agent drives Autodesk Fusion, or the harness.design desktop app.
-# -Name defaults to fusion. Omitting it keeps Fusion behavior: same files, output and exit codes.
-# Fusion lock file: %LOCALAPPDATA%\<StateFolder>\fusion.lock. Log: fusion-lock.log beside it.
-# harness.design lock file: harness-design.lock. Log: harness-design-lock.log beside it.
-# Rules: agents/projects-AGENTS.md section 5 (Fusion) and section 5b (harness.design).
+# harness.design lock: one lock per PC so only one agent drives the harness.design desktop app.
+# -Name defaults to fusion. That name does not take a lock.
+# Fusion work uses Autodesk's official Fusion MCP servers (exact links and config line coming later).
+# harness.design lock file: %LOCALAPPDATA%\<StateFolder>\harness-design.lock. Log: harness-design-lock.log beside it.
+# Rule: agents/projects-AGENTS.md section 5b.
 # Windows PowerShell 5.1, ASCII only.
 #
-#   fusion-lock.ps1 [-Name fusion|harness-design] status
-#   fusion-lock.ps1 [-Name fusion|harness-design] acquire -Holder <name> -Kind claude-code|cursor|remote [-Repo <repo path>] [-Files a,b] [-StartPinger] [-ParentPid N]
+#   fusion-lock.ps1 -Name harness-design status
+#   fusion-lock.ps1 -Name harness-design acquire -Holder <name> -Kind claude-code|cursor|remote [-Repo <repo path>] [-Files a,b] [-StartPinger] [-ParentPid N]
 # -Repo is recorded and shown by status. It does not decide who is blocked. One lock per PC still blocks every other session.
-#   fusion-lock.ps1 [-Name fusion|harness-design] checkin -Holder <name> [-Files a,b]
-#   fusion-lock.ps1 [-Name fusion|harness-design] release -Holder <name>
-#   fusion-lock.ps1 [-Name fusion|harness-design] check   [-StaleMinutes 15]     # stale check; never clears on time alone
-#   fusion-lock.ps1 [-Name fusion|harness-design] pinger  -Holder <name> -ParentPid N [-IntervalSec 300]
+#   fusion-lock.ps1 -Name harness-design checkin -Holder <name> [-Files a,b]
+#   fusion-lock.ps1 -Name harness-design release -Holder <name>
+#   fusion-lock.ps1 -Name harness-design check   [-StaleMinutes 15]     # stale check; never clears on time alone
+#   fusion-lock.ps1 -Name harness-design pinger  -Holder <name> -ParentPid N [-IntervalSec 300]
 #
 # Exit codes: 0 ok / free, 1 held by someone (status/check), 2 refused (held by another holder),
 #             3 stale and needs the owner (check), 4 bad usage.
@@ -27,26 +27,21 @@ param(
     [int]$ParentPid = 0,
     [int]$IntervalSec = 300,
     [int]$StaleMinutes = 15,
-    [string]$FusionUrl = $(if ($env:WORKSTATION_FUSION_MCP_URL) { $env:WORKSTATION_FUSION_MCP_URL } else { 'http://127.0.0.1:8765/mcp' }),
     [switch]$Json
 )
 $ErrorActionPreference = 'Stop'
+if ($Name -eq 'fusion') {
+    Write-Host "Fusion work uses Autodesk's official Fusion MCP servers (exact links and config line coming later)."
+    exit 0
+}
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'paths.ps1')
 $LockDir = $WsStateDir
-# Default (-Name fusion) keeps the original file names and mutex. harness-design is a second lock.
-if ($Name -eq 'harness-design') {
-    $LockPath  = Join-Path $LockDir 'harness-design.lock'
-    $LogPath   = Join-Path $LockDir 'harness-design-lock.log'
-    $MutexName = 'Local\WorkstationHarnessDesignLock'
-} else {
-    $LockPath  = Join-Path $LockDir 'fusion.lock'
-    $LogPath   = Join-Path $LockDir 'fusion-lock.log'
-    $MutexName = 'Local\WorkstationFusionLock'
-}
+$LockPath  = Join-Path $LockDir 'harness-design.lock'
+$LogPath   = Join-Path $LockDir 'harness-design-lock.log'
+$MutexName = 'Local\WorkstationHarnessDesignLock'
 $Self = $MyInvocation.MyCommand.Path
 # harness document ids are often passed as one comma-separated string ("rBjB, QjYZ").
-# Fusion paths are not split (a path may contain a comma). Default -Name fusion is unchanged.
-if ($Name -eq 'harness-design' -and $Files) {
+if ($Files) {
     $split = New-Object System.Collections.Generic.List[string]
     foreach ($f in @($Files)) {
         foreach ($part in ([string]$f -split ',')) {
@@ -90,9 +85,7 @@ function Test-Pinger([int]$P) {
     if (-not (Get-Command Get-CimInstance -ErrorAction SilentlyContinue)) { return $false }
     $c = Get-CimInstance Win32_Process -Filter "ProcessId=$P" -ErrorAction SilentlyContinue
     if (-not ($c -and $c.CommandLine -like '*fusion-lock.ps1*pinger*')) { return $false }
-    # A harness.design pinger is the same script with -Name harness-design. Fusion pinges never pass -Name.
-    if ($Name -eq 'harness-design') { return ($c.CommandLine -like '*-Name harness-design*') }
-    return ($c.CommandLine -notlike '*-Name harness-design*')
+    return ($c.CommandLine -like '*-Name harness-design*')
 }
 # Session process to tie the pinger to: first ancestor named claude / Cursor / Code (else the caller must pass -ParentPid).
 function Find-SessionPid {
@@ -109,40 +102,7 @@ function Out-Result($Obj, [int]$Code) {
     if ($Json) { $Obj | ConvertTo-Json -Depth 5 } else { $Obj.GetEnumerator() | ForEach-Object { '{0}: {1}' -f $_.Key, (($_.Value | ForEach-Object { "$_" }) -join ', ') } }
     exit $Code
 }
-# Open Fusion documents via the AutodeskFusionMCP add-in (read-only). Returns $null if Fusion/add-in can't be reached.
-# Test seam: WORKSTATION_FUSION_FAKE_DOCS = JSON list of {name, modified}; 'none' = Fusion not running, 'unreachable' = add-in down.
-function Get-FusionDocs {
-    if ($env:WORKSTATION_FUSION_FAKE_DOCS) {
-        if ($env:WORKSTATION_FUSION_FAKE_DOCS -eq 'none') { return @() }
-        if ($env:WORKSTATION_FUSION_FAKE_DOCS -eq 'unreachable') { return $null }
-        return @($env:WORKSTATION_FUSION_FAKE_DOCS | ConvertFrom-Json)
-    }
-    if (-not (Get-Process -Name 'Fusion360' -ErrorAction SilentlyContinue)) { return @() }   # not running: nothing unsaved
-    $code = "import adsk.core, json`napp = adsk.core.Application.get()`nprint(json.dumps([{'name': d.name, 'modified': bool(d.isModified)} for d in app.documents]))"
-    $body = @{ jsonrpc = '2.0'; id = 1; method = 'tools/call'; params = @{ name = 'execute_python'; arguments = @{ code = $code; persistent = $false } } } | ConvertTo-Json -Depth 6
-    try {
-        $r = Invoke-WebRequest -UseBasicParsing -Uri $FusionUrl -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json, text/event-stream' } -TimeoutSec 30
-        $line = ($r.Content -split "`n" | Where-Object { $_ -like 'data:*' } | Select-Object -First 1)
-        if (-not $line) { $line = $r.Content } else { $line = $line.Substring(5) }
-        $res = $line | ConvertFrom-Json
-        if ($res.result.isError) { return $null }
-        $inner = $res.result.content[0].text | ConvertFrom-Json
-        if (-not $inner.success) { return $null }
-        return @($inner.stdout.Trim() | ConvertFrom-Json)
-    } catch { return $null }
-}
 function Need-Holder { if (-not $Holder) { Write-Host 'ERROR: -Holder <name> is required.'; exit 4 } }
-# File name without extension, accepting both slash styles. On Windows this matches
-# [IO.Path]::GetFileNameWithoutExtension for a normal path such as C:\x\Bracket.f3d.
-function Get-FileBase([string]$Path) {
-    if (-not $Path) { return '' }
-    $leaf = [string]$Path
-    $i = [Math]::Max($leaf.LastIndexOf('\'), $leaf.LastIndexOf('/'))
-    if ($i -ge 0) { $leaf = $leaf.Substring($i + 1) }
-    $dot = $leaf.LastIndexOf('.')
-    if ($dot -gt 0) { return $leaf.Substring(0, $dot) }
-    return $leaf
-}
 # A visible harness.design window title counts as an open editor unless it is only the app name.
 # Windows title text is not published (macOS lists windows by harness name). Anything else is treated as a document.
 function Test-HarnessDocTitle([string]$Title) {
@@ -250,18 +210,15 @@ switch ($Command) {
                 $pp = $(if ($ParentPid -gt 0) { $ParentPid } else { Find-SessionPid })
                 if ($pp -le 0) { Write-Host 'WARN: no session process found; pass -ParentPid <pid>. No pinger started.' }
                 else {
-                    # Fusion (the default) keeps this argument string unchanged on Windows. harness-design adds -Name.
                     $onWindows = ($env:OS -eq 'Windows_NT')
                     $win = $(if ($onWindows) { '-WindowStyle Hidden ' } else { '' })
-                    if ($Name -eq 'fusion') { $a = "-NoProfile -ExecutionPolicy Bypass ${win}-File `"$Self`" pinger -Holder `"$Holder`" -ParentPid $pp -IntervalSec $IntervalSec" }
-                    else { $a = "-NoProfile -ExecutionPolicy Bypass ${win}-File `"$Self`" pinger -Name $Name -Holder `"$Holder`" -ParentPid $pp -IntervalSec $IntervalSec" }
+                    $a = "-NoProfile -ExecutionPolicy Bypass ${win}-File `"$Self`" pinger -Name $Name -Holder `"$Holder`" -ParentPid $pp -IntervalSec $IntervalSec"
                     $hostExe = 'powershell.exe'
                     if (-not $onWindows) { $hostExe = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName }
                     if ($onWindows) { $p = Start-Process -FilePath $hostExe -ArgumentList $a -WindowStyle Hidden -PassThru }
                     else {
                         # Detach so this PowerShell can exit without waiting for the pinger.
-                        $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $Self, 'pinger', '-Holder', $Holder, '-ParentPid', "$pp", '-IntervalSec', "$IntervalSec")
-                        if ($Name -ne 'fusion') { $argList += @('-Name', $Name) }
+                        $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $Self, 'pinger', '-Name', $Name, '-Holder', $Holder, '-ParentPid', "$pp", '-IntervalSec', "$IntervalSec")
                         $q = ($argList | ForEach-Object { "'" + ($_ -replace "'", "'\''") + "'" }) -join ' '
                         $sh = "setsid -- $hostExe $q < /dev/null > /dev/null 2>&1 & echo `$!"
                         $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -280,7 +237,6 @@ switch ($Command) {
                 }
             }
         }
-        if ($Name -eq 'fusion') { & $Self status -Json:$Json; exit 0 }
         & $Self status -Name $Name -Json:$Json; exit 0
     }
     'checkin' {
@@ -329,21 +285,8 @@ switch ($Command) {
         $age = Get-AgeMinutes $L
         if ($age -lt $StaleMinutes) { Out-Result ([ordered]@{ state = 'held'; holder = $L.holder; minutes_since_checkin = $age }) 1 }
         # Stale by time. Time alone never clears it.
-        $why = $null
-        if ($Name -eq 'harness-design') {
-            # Cloud autosave: unsaved work is not visible. Clear only when no editor window is open.
-            $why = Get-HarnessStaleReason
-        } else {
-            # Fusion: look at open documents. This branch is the original check.
-            $docs = Get-FusionDocs
-            if ($null -eq $docs) { $why = 'Fusion add-in not reachable, cannot confirm nothing is open' }
-            else {
-                $dirty = @($docs | Where-Object { $_.modified })
-                $open = @($docs | Where-Object { $n = $_.name; @($L.files) | Where-Object { $_ -and ($n -like "*$(Get-FileBase $_)*") } })
-                if ($dirty.Count) { $why = "unsaved Fusion document(s): $(($dirty | ForEach-Object { $_.name }) -join '; ')" }
-                elseif ($open.Count) { $why = "holder's file(s) still open: $(($open | ForEach-Object { $_.name }) -join '; ')" }
-            }
-        }
+        # Cloud autosave: unsaved work is not visible. Clear only when no editor window is open.
+        $why = Get-HarnessStaleReason
         if ($why) {
             Write-Log "STALE-FLAG $($L.holder) age=${age}m: $why"
             Out-Result ([ordered]@{ state = 'stale-needs-owner'; holder = $L.holder; minutes_since_checkin = $age; reason = $why; next = 'ask the owner before clearing' }) 3
@@ -351,8 +294,7 @@ switch ($Command) {
         $cleared = Invoke-Locked { $C = Read-Lock; if ($C -and $C -ne 'corrupt' -and $C.holder -eq $L.holder -and $C.last_checkin -eq $L.last_checkin) { Remove-Item -LiteralPath $LockPath -Force; return $true }; return $false }
         if ($cleared) {
             if (Test-Pinger ([int]$L.pinger_pid)) { Stop-Process -Id ([int]$L.pinger_pid) -Force -ErrorAction SilentlyContinue }
-            if ($Name -eq 'harness-design') { Write-Log "CLEAR $($L.holder) age=${age}m (no harness.design editor open)" }
-            else { Write-Log "CLEAR $($L.holder) age=${age}m (no holder files open, nothing unsaved)" }
+            Write-Log "CLEAR $($L.holder) age=${age}m (no harness.design editor open)"
             Out-Result ([ordered]@{ state = 'cleared'; holder = $L.holder; minutes_since_checkin = $age }) 0
         }
         Out-Result ([ordered]@{ state = 'held'; holder = $L.holder; note = 'lock changed during check' }) 1

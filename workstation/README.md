@@ -5,7 +5,7 @@
 - `cursor-worker/` - manual Start and Stop for a Cursor self-hosted worker. Start lists folders in the detected `<Projects>\active` and starts the one you pick. Run it again for another folder. Stop lists workers this tool started. No sign-in item, no scheduled task, no hourly check.
 - `kill-orphans.ps1` - lists leftover processes and asks before stopping each one.
 - `check-upstream.ps1` - manual. Merges upstream into a skill that has `metadata.upstream` and opens a PR. No schedule.
-- `fusion-lock/` - one Fusion lock and one harness.design lock per PC. `-Repo` is recorded and shown. It does not change who is blocked.
+- `fusion-lock/` - one harness.design lock per PC. `-Repo` is recorded and shown. It does not change who is blocked. Fusion work uses Autodesk's official Fusion MCP servers (exact links and config line coming later).
 - `fusion-addins/` - fast-forward Fusion add-in clones found from AddIns junctions. Manual only: the Update Fusion add-ins shortcut, no scheduled task. It does not start Fusion. See `fusion-addins/README.md`.
 - `repo-status.ps1`, `repo-branch.ps1` - read-only status of project repos.
 - `paths.ps1` - shared paths. The Projects root comes from `%LOCALAPPDATA%\Workstation\workstation.json`, which install.ps1 writes.

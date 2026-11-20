@@ -207,14 +207,13 @@ function Join-ProfilePath([string]$Profile, [string[]]$Parts) {
 }
 function Test-LockRuleComplete([string]$Text) {
     if (-not $Text) { return $false }
-    return ($Text -match '(?i)\bacquire\b' -and $Text -match '(?i)(check-?in|check in)\b' -and $Text -match '(?i)\brelease\b' -and $Text -match '(?i)\bfusion\b' -and $Text -match '(?i)harness\.design')
+    return ($Text -match '(?i)\bacquire\b' -and $Text -match '(?i)(check-?in|check in)\b' -and $Text -match '(?i)\brelease\b' -and $Text -match '(?i)harness\.design')
 }
 function Get-LockRuleGaps([string]$Text) {
     $gaps = New-Object System.Collections.Generic.List[string]
     if ($Text -notmatch '(?i)\bacquire\b') { [void]$gaps.Add('acquire') }
     if ($Text -notmatch '(?i)(check-?in|check in)\b') { [void]$gaps.Add('check-in') }
     if ($Text -notmatch '(?i)\brelease\b') { [void]$gaps.Add('release') }
-    if ($Text -notmatch '(?i)\bfusion\b') { [void]$gaps.Add('Fusion') }
     if ($Text -notmatch '(?i)harness\.design') { [void]$gaps.Add('harness.design') }
     return @($gaps)
 }
@@ -303,10 +302,10 @@ function Show-AppLocks {
     function Add-RuleFile([string]$Label, [string]$Path) {
         if (-not (Test-Path -LiteralPath $Path)) { Add-Item 'FAIL' "$Label missing: $Path"; return }
         try { $text = [IO.File]::ReadAllText($Path) } catch { Add-Item 'FAIL' "$Label unreadable: $Path ($($_.Exception.Message))"; return }
-        if (Test-LockRuleComplete $text) { Add-Item 'PASS' "$Label has acquire, check-in, and release for Fusion and harness.design: $Path" }
+        if (Test-LockRuleComplete $text) { Add-Item 'PASS' "$Label has acquire, check-in, and release for harness.design: $Path" }
         else { Add-Item 'FAIL' "$Label missing [$($(Get-LockRuleGaps $text) -join ', ')]: $Path" }
     }
-    Write-Host 'App locks (read-only): Fusion and harness.design' -ForegroundColor Cyan
+    Write-Host 'App locks (read-only): harness.design' -ForegroundColor Cyan
     $selfScript = Join-Path $BridgeRoot 'fusion-lock\fusion-lock.ps1'
     if ($env:WORKSTATION_LOCKCHECK_SCRIPT) { $selfScript = $env:WORKSTATION_LOCKCHECK_SCRIPT }
     $scripts = New-Object System.Collections.Generic.List[string]
@@ -353,8 +352,8 @@ function Show-AppLocks {
                     try { $t = [IO.File]::ReadAllText($rf.FullName) } catch { continue }
                     if (Test-LockRuleComplete $t) { $hit = $rf.FullName; break }
                 }
-                if ($hit) { Add-Item 'PASS' "$leaf Cursor rules have acquire, check-in, and release for Fusion and harness.design: $hit" }
-                else { Add-Item 'FAIL' "$leaf Cursor rules: none of the $($ruleFiles.Count) file(s) under .cursor have acquire, check-in, and release for Fusion and harness.design" }
+                if ($hit) { Add-Item 'PASS' "$leaf Cursor rules have acquire, check-in, and release for harness.design: $hit" }
+                else { Add-Item 'FAIL' "$leaf Cursor rules: none of the $($ruleFiles.Count) file(s) under .cursor have acquire, check-in, and release for harness.design" }
             }
             Add-Item 'SKIP' "$leaf Cursor account User Rules are not a file on disk (they follow the Cursor account). Checked .cursor rules files."
         }
@@ -396,9 +395,8 @@ function Show-AppLocks {
     foreach ($scriptPath in @($scripts)) {
         if (-not (Test-Path -LiteralPath $scriptPath)) { Add-Item 'FAIL' "lock script missing: $scriptPath"; continue }
         if (-not $shell) { Add-Item 'FAIL' 'powershell not found to run the lock script'; continue }
-        foreach ($pair in @(@('fusion', 'Fusion'), @('harness-design', 'harness.design'))) {
-            $arg = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath, 'status')
-            if ($pair[0] -ne 'fusion') { $arg += @('-Name', $pair[0]) }
+        foreach ($pair in @(@('harness-design', 'harness.design'))) {
+            $arg = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath, 'status', '-Name', $pair[0])
             $out = & $shell @arg 2>&1
             $code = $LASTEXITCODE
             $text = (($out | ForEach-Object { "$_" }) -join ' ')
