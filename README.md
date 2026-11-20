@@ -113,9 +113,6 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
 
   **This repo is the source of truth for Dan's skills** (all 16 are his). `wizard` is his copy of
   [claude-wizard](https://github.com/vlad-ko/claude-wizard) `skill/` at base `43756e1` (`skills/wizard/UPSTREAM.md`).
-  `workstation\skills-drift.ps1` is optional: it lists older uploaded copies under `~\.claude\skills\synced\` that differ
-  from the repo. It does not install or link anything.
-
   `workstation\check-upstream.ps1` is manual. For a skill with `metadata.upstream` it fetches upstream, shows
   `base..HEAD`, three-way merges into Dan's copy, bumps `upstream-base`, and opens a PR. No schedule and no
   sign-in item. The same check can be started by hand from Actions: workflow **check-upstream**
