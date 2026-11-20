@@ -104,15 +104,26 @@ class InstallPluginsDocs(unittest.TestCase):
         self.assertNotIn("Find the `workstation-core` plugin in the plugin list", readme)
         self.assertIn("Fully quit and reopen Cursor.", install)
         self.assertIn("Fully quit and reopen Cursor.", readme)
-        cd = "cd <Projects>\\active\\workstation"
-        clone = (
-            "git clone https://github.com/living-relation/workstation "
-            "<Projects>\\active\\workstation"
+        self.assertIn("Skip this if you don't use Claude", install)
+        self.assertIn("Skip this if you don't use Claude", readme)
+        self.assertIn("Skip this if you don't use Cursor", install)
+        self.assertIn("Skip this if you don't use Cursor", readme)
+        self.assertNotIn("claude.ai", CURSOR)
+        self.assertNotIn("Start-Process", CURSOR)
+        agent = (
+            "Install the workstation-core Cursor plugin from "
+            "https://github.com/living-relation/workstation: if it is not cloned yet, "
+            "clone it into my projects folder; then copy the repo (without .git and .venv) "
+            "to ~/.cursor/plugins/local/workstation-core, replacing any old copy. "
+            "Tell me when done so I can fully quit and reopen Cursor."
         )
-        for line in (cd, clone, CURSOR, OPEN, INSTALLER, WHATIF):
+        cd = "cd <projects-folder>"
+        clone = "git clone https://github.com/living-relation/workstation"
+        cd_repo = "cd <projects-folder>\\workstation"
+        for line in (agent, cd, clone, cd_repo, CURSOR, OPEN, INSTALLER, WHATIF):
             self.assertIn(line, install)
             self.assertIn([line], _fence_lines(install))
-        for line in (cd, clone, CURSOR):
+        for line in (agent, cd, clone, cd_repo, CURSOR):
             self.assertIn([line], _fence_lines(readme))
         for blob in (install, readme, prompt):
             low = blob.lower()

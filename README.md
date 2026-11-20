@@ -37,6 +37,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -ProjectsRoot <P
 
 **Claude**
 
+Skip this if you don't use Claude.
+
 1. Open https://claude.ai/customize/plugins and sign in.
 2. Click Add, then Add marketplace, then Add from a repository.
 3. Paste https://github.com/living-relation/workstation, turn Sync automatically on, and confirm.
@@ -48,25 +50,43 @@ Updates arrive automatically after merges to main.
 
 **Cursor**
 
-1. Open a normal (not admin) Windows PowerShell 5.1 window.
-2. cd to the repo clone (`cd <Projects>\active\workstation`). If no clone exists, clone first with the full URL https://github.com/living-relation/workstation.
+Skip this if you don't use Cursor.
 
-```powershell
-cd <Projects>\active\workstation
+Paste this into a Cursor agent chat opened in any folder:
+
+```text
+Install the workstation-core Cursor plugin from https://github.com/living-relation/workstation: if it is not cloned yet, clone it into my projects folder; then copy the repo (without .git and .venv) to ~/.cursor/plugins/local/workstation-core, replacing any old copy. Tell me when done so I can fully quit and reopen Cursor.
 ```
 
+Manual fallback. `<projects-folder>` is the folder where you keep clones, for example `C:\Users\<you>\projects`.
+
+**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin.
+
+1. `cd <projects-folder>`
+
 ```powershell
-git clone https://github.com/living-relation/workstation <Projects>\active\workstation
+cd <projects-folder>
 ```
 
-3. Run the existing one copy command into ~/.cursor/plugins/local/workstation-core.
+2. Clone if needed: `git clone https://github.com/living-relation/workstation`
+
+```powershell
+git clone https://github.com/living-relation/workstation
+```
+
+3. `cd <projects-folder>\workstation`
+
+```powershell
+cd <projects-folder>\workstation
+```
+
+4. Copy into ~/.cursor/plugins/local/workstation-core. This does not open claude.ai.
 
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" | Out-Null; Get-ChildItem -Force -LiteralPath . | Where-Object { $_.Name -ne '.git' -and $_.Name -ne '.venv' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" $_.Name) -Recurse -Force }
 ```
 
-4. Fully quit and reopen Cursor.
-5. Check that the plugin's skills show up.
+5. Fully quit and reopen Cursor.
 
 The Workstation toolkit (`workstation\`: Health check, app locks, the manual Cursor worker, and the manual Desktop Commander shortcuts) runs
 straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`.
