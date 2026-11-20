@@ -63,7 +63,6 @@ Keep track of these, and flag changes. Record project status in the project's ST
 - Never bypass a hook or gate without my explicit yes: no `--no-verify`, no skipping CI, no direct pushes of generated or bot-owned files.
 - Branch + PR, never force-push, one repo at a time (no batch pull/push), `git pull --ff-only`.
 - Some project folders aren't git repos. Never run git init in them or commit anything there.
-- After a branch merges, delete it (remote and local) unless it has uncommitted work or is waiting on me.
 - Don't start or stop the workstation workers. I run those myself.
 
 ## Handoffs
