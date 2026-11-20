@@ -78,17 +78,52 @@ class InstallPluginsDocs(unittest.TestCase):
             "## 4. Manual steps",
         ):
             self.assertIn(heading, install)
-        self.assertIn("Turn Sync automatically on", install)
+        self.assertIn("turn Sync automatically on", install)
+        self.assertIn("turn Sync automatically on", readme)
         self.assertNotIn("Sync automatically off", install)
         self.assertNotIn("Leave it off", install)
         self.assertNotIn("leave marketplace auto-update off", install.lower())
+        self.assertNotIn("Check for updates in the catalog forces it sooner", install)
+        self.assertNotIn("Check for updates in the catalog forces it sooner", readme)
         self.assertIn("does not copy skills", install.lower())
         self.assertIn(PASTE, install)
         self.assertIn("workstation-plugins", install)
-        for line in (OPEN, CURSOR, INSTALLER, WHATIF):
+        self.assertIn("https://claude.ai/customize/plugins", install)
+        self.assertIn("https://claude.ai/customize/plugins", readme)
+        self.assertIn("https://github.com/living-relation/workstation", install)
+        self.assertIn("https://github.com/living-relation/workstation", readme)
+        self.assertIn("Fully quit Claude desktop", install)
+        self.assertIn("Fully quit Claude desktop", readme)
+        add_on_page = (
+            "Click Add (top right) on that page to install it. "
+            "Adding the repo alone does not install it."
+        )
+        self.assertIn(add_on_page, install)
+        self.assertIn(add_on_page, readme)
+        self.assertNotIn("Find the `workstation-core` plugin in the plugin list", install)
+        self.assertNotIn("Find the `workstation-core` plugin in the plugin list", readme)
+        self.assertIn("Fully quit and reopen Cursor.", install)
+        self.assertIn("Fully quit and reopen Cursor.", readme)
+        self.assertIn("Skip this if you don't use Claude", install)
+        self.assertIn("Skip this if you don't use Claude", readme)
+        self.assertIn("Skip this if you don't use Cursor", install)
+        self.assertIn("Skip this if you don't use Cursor", readme)
+        self.assertNotIn("claude.ai", CURSOR)
+        self.assertNotIn("Start-Process", CURSOR)
+        agent = (
+            "Install the workstation-core Cursor plugin from "
+            "https://github.com/living-relation/workstation: if it is not cloned yet, "
+            "clone it into my projects folder; then copy the repo (without .git and .venv) "
+            "to ~/.cursor/plugins/local/workstation-core, replacing any old copy. "
+            "Tell me when done so I can fully quit and reopen Cursor."
+        )
+        cd = "cd <projects-folder>"
+        clone = "git clone https://github.com/living-relation/workstation"
+        cd_repo = "cd <projects-folder>\\workstation"
+        for line in (agent, cd, clone, cd_repo, CURSOR, OPEN, INSTALLER, WHATIF):
             self.assertIn(line, install)
             self.assertIn([line], _fence_lines(install))
-        for line in (OPEN, CURSOR):
+        for line in (agent, cd, clone, cd_repo, CURSOR):
             self.assertIn([line], _fence_lines(readme))
         for blob in (install, readme, prompt):
             low = blob.lower()
