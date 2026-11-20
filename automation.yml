@@ -188,16 +188,6 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/check-upstream.ps1 -WhatIf
-  - id: skills-drift
-    script: workstation/skills-drift.ps1
-    helpers: [workstation/tests/test-skills-drift.ps1]
-    trigger: manual
-    reads: [skills/**, the claude.ai synced skill folders under the user profile]
-    writes: []
-    committed: no
-    auto_commit: false
-    enabled: true
-    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/skills-drift.ps1 -NoPause
   - id: pack-skill-zips
     script: .github/workflows/pack-skill-zips.yml
     helpers: [scripts/pack-skill-zips.py, scripts/pack-skill-zips.sh, scripts/pack-skill-zips.ps1, scripts/pack-skill-zips-commit.sh, scripts/guard-staged.sh, scripts/fetch-gitleaks.sh, scripts/run-gitleaks.sh]
