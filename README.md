@@ -23,6 +23,8 @@ from the repos listed in the pin file.
 | coordinator-kit | One chat coordinates a repo's agent work |
 | safe-repo-preflight | Before a change, commit or push |
 | pr-closeout | After a PR opens |
+| debug-root-cause | A bug or a failing test, before a fix |
+| review-feedback | Pull-request review comments, including GitHub Copilot's |
 
 Note: ask for skills by name in plain words. Whether Claude lists them under / with a workstation-core: prefix is unverified. Progress goes only in the store's STATE file (`STATE.md` on main, `STATE-<slug>.md` on a branch), never in the repo and never in memory. Until this repo's state moves to the store, its root `STATE.md` is that file.
 
@@ -145,7 +147,7 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   `source: harness-design-app`, are never zipped, and `link-skills.ps1` never moves or removes their folders.
   Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching generated `skills/<name>.zip` (CI builds it; nobody uploads it).
 
-  **This repo is the source of truth for Dan's skills** (all 16 are his). `wizard` is his copy of
+  **This repo is the source of truth for Dan's skills** (all 18 are his). `wizard` is his copy of
   [claude-wizard](https://github.com/vlad-ko/claude-wizard) `skill/` at base `43756e1` (`skills/wizard/UPSTREAM.md`).
   `workstation\check-upstream.ps1` is manual. For a skill with `metadata.upstream` it fetches upstream, shows
   `base..HEAD`, three-way merges into Dan's copy, bumps `upstream-base`, and opens a PR. No schedule and no

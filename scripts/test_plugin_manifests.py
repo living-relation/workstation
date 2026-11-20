@@ -185,8 +185,15 @@ def test_coordinator_kit_is_picked_up_with_the_other_skills():
         if p.is_dir() and (p / "SKILL.md").is_file()
     )
     assert "coordinator-kit" in folders
+    assert "debug-root-cause" in folders
+    assert "review-feedback" in folders
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert f"all {len(folders)} are his" in readme
+    assert "| debug-root-cause |" in readme
+    assert "| review-feedback |" in readme
+    contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    assert "debug-root-cause" in contributing
+    assert "review-feedback" in contributing
     cursor = json.loads((ROOT / ".cursor-plugin" / "plugin.json").read_text(encoding="utf-8"))
     assert cursor["skills"] == "./skills/"
     excluded = set()
