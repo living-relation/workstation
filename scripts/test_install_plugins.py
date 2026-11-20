@@ -94,6 +94,14 @@ class InstallPluginsDocs(unittest.TestCase):
         self.assertIn("https://github.com/living-relation/workstation", readme)
         self.assertIn("Fully quit Claude desktop", install)
         self.assertIn("Fully quit Claude desktop", readme)
+        add_on_page = (
+            "Click Add (top right) on that page to install it. "
+            "Adding the repo alone does not install it."
+        )
+        self.assertIn(add_on_page, install)
+        self.assertIn(add_on_page, readme)
+        self.assertNotIn("Find the `workstation-core` plugin in the plugin list", install)
+        self.assertNotIn("Find the `workstation-core` plugin in the plugin list", readme)
         self.assertIn("Fully quit and reopen Cursor.", install)
         self.assertIn("Fully quit and reopen Cursor.", readme)
         cd = "cd <Projects>\\active\\workstation"

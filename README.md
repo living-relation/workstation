@@ -37,11 +37,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -ProjectsRoot <P
 
 **Claude**
 
-1. Open claude.ai Plugins: https://claude.ai/customize/plugins (signed in to the account you want the skills on).
+1. Open https://claude.ai/customize/plugins and sign in.
 2. Click Add, then Add marketplace, then Add from a repository.
-3. Paste `https://github.com/living-relation/workstation`, turn Sync automatically on, and confirm.
-4. Find the `workstation-core` plugin in the plugin list and turn it on.
-5. Fully quit Claude desktop (from the tray icon, not just closing the window), then reopen it.
+3. Paste https://github.com/living-relation/workstation, turn Sync automatically on, and confirm.
+4. Wait for it to load; it opens the workstation-core summary page.
+5. Click Add (top right) on that page to install it. Adding the repo alone does not install it.
+6. Fully quit Claude desktop from the tray icon and reopen it.
 
 Updates arrive automatically after merges to main.
 
