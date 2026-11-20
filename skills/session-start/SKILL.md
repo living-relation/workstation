@@ -25,7 +25,7 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 - **Files beat chat memory.** If Claude/Cursor memory disagrees with the repo or the STATE file, trust the files and flag the stale memory.
 - **A resumed chat is a new session.** Reopening an old chat (any age) means running this skill fresh. Treat everything from the earlier chat — its summary, its notes, what it "already knows" — as stale until re-read from the files this session.
 - **No memory-only claims.** Every fact in the note and report names the file it came from, opened this session. If you can't open it, write "not verified: <claim>" instead of stating it.
-- **Report conflicts, never resolve them.** Contradictions go in the note as open questions for the user.
+- **Report factual contradictions, do not guess them.** Contradictions between facts go in the note as open questions for the user. A conflict between an older agent doc and the workstation-core template (`AGENTS.md` router, state-init profiles, store STATE) is not a blocker and not a reason to stop: step 8 offers state-init or repo-cleanup to migrate it.
 
 ---
 
@@ -147,7 +147,7 @@ Tell the agent these, and follow them:
 ---
 
 ## If the basics are missing
-Offer **state-init** (don't run it without a yes). Do not create a second instruction file.
+Offer **state-init** (don't run it without a yes) when the role files are missing, or when an older agent doc conflicts with the template layout. Do not create a second instruction file.
 
 ## Starting it
 The user invokes it by name ("run session-start") in Grok, Claude Code or Cursor. Never add a "run session-start first" line to `AGENTS.md` or Cursor rules: it starts only when the user calls it. Once it has installed the hook, the hook covers every PR without anyone calling a skill.

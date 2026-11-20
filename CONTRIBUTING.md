@@ -35,9 +35,12 @@ Owner settings this Action needs (GitHub repo, not in git):
 - A ruleset on `main` that blocks direct pushes (this Action still refuses to push
   if a PR head is main).
 
-**Follow each repo's own rules:** read `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, any decisions
-log, hooks and CI gates first. Never bypass a hook or gate (no `--no-verify`, no direct pushes of
-generated or bot-owned files) without the owner's explicit yes.
+**Follow each repo's own rules:** read and follow the repo's `AGENTS.md`, decisions,
+`CONTRIBUTING.md`, hooks, and CI. Their rules and decisions still bind. Never bypass a hook or
+gate (no `--no-verify`, no direct pushes of generated or bot-owned files) without the owner's
+explicit yes. If an older agent doc's layout differs from the workstation-core template, that
+layout is migrated into the template, keeping every rule. A layout difference is not a blocker
+or a reason to stop.
 
 **Upstream tools:** an entry in `workstation.lock.yaml` with version and sha256. Small upstream
 edits are files in `patches/`, never forks.

@@ -10,6 +10,7 @@ From pull request 57. Every other file under this folder matches that upstream c
 
 - **Shorter description.** Upstream's description is one long paragraph. This copy uses a short "Use when..." description.
 - **"When to use" section.** Upstream goes straight from the title into the architect paragraph. This copy puts the same ideas in a short "When to use" section first.
+- **AGENTS.md is the only agent instruction file.** Follow-lists and "put the always-on rule here" lines that named `CLAUDE.md` now name `AGENTS.md`. Measured token notes in `reference/context-economics.md` still say `CLAUDE.md` because they describe an upstream measurement.
 
 The `metadata` block (`upstream`, `upstream-path`, `upstream-base`) is how `workstation/check-upstream.ps1` finds this skill. Upstream does not have that block.
 

@@ -20,7 +20,7 @@ Works in Grok, Claude Code and Cursor. session-start runs it as its health check
   `switch`, `merge`, `rebase`, `stash pop/drop`, `clean`, `branch -d`,
   `worktree remove/prune`, or `push`.
 - **Follow `safe-repo-preflight`.** Any fix you suggest goes through that
-  skill: the repo's own rules first, a branch, a PR, no force-push, no
+  skill: the repo's AGENTS.md, decisions, CONTRIBUTING.md, hooks, and CI first, a branch, a PR, no force-push, no
   `--no-verify`.
 - **Suggest, never fix.** Each problem gets a suggested command in the report.
   The user (or a later, approved session) runs it.

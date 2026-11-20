@@ -66,7 +66,7 @@ The skill runs in one of two modes; the boundary is **who runs the PR cycle**.
 
 **The living epic dashboard.** For a complex multi-stage epic, dispatch `report-maker` to own a single status Artifact, re-dispatched at each milestone to update the SAME URL in place. A whole-epic deliverable, never a per-task obligation.
 
-**Failure recipes.** Five non-happy-path worker returns — fix-and-return, scope-creep, design-block, environment-failure, drift — each have a defined worker action and orchestrator response, plus mandatory brief-template lines. **Subagents do NOT inherit this SKILL** — a worker sees only its brief plus the auto-loaded `CLAUDE.md`, so every behavior you need lives in the BRIEF, and a superseded script or convention is REMOVED so a worker's grep cannot surface it. Full model: [`reference/threading-model.md`](reference/threading-model.md).
+**Failure recipes.** Five non-happy-path worker returns — fix-and-return, scope-creep, design-block, environment-failure, drift — each have a defined worker action and orchestrator response, plus mandatory brief-template lines. **Subagents do NOT inherit this SKILL** — a worker sees only its brief plus the auto-loaded `AGENTS.md`, so every behavior you need lives in the BRIEF, and a superseded script or convention is REMOVED so a worker's grep cannot surface it. Full model: [`reference/threading-model.md`](reference/threading-model.md).
 
 **Picking your mode:** invoked via `Agent` with a brief like "implement X, commit, return" — you are a worker; stop at commit. The thread the user talks to — you are the orchestrator.
 
@@ -76,7 +76,7 @@ The skill runs in one of two modes; the boundary is **who runs the PR cycle**.
 
 **Goal:** deeply understand before acting.
 
-1. Read `CLAUDE.md` and the project documentation the change touches.
+1. Read `AGENTS.md` and the project documentation the change touches.
 2. Create a todo list with all phases.
 3. Assess complexity — **Simple** (single file, obvious fix), **Medium** (2–3 files, clear scope), **Complex** (4+ files, architectural impact, multiple concerns).
 4. **Fast-forward your `main` first.** A stale checkout makes merged work look ABSENT; treat any "already implemented / no RED to write" report as a stale-main signal FIRST ([`reference/capacity-and-worktrees.md`](reference/capacity-and-worktrees.md)).
@@ -177,7 +177,7 @@ Run affected tests locally before EVERY commit; CI runs the full suite as the ca
 
 ## Phase 6: Documentation & Issues
 
-**6.1 Documentation.** Update the docs the change touches; update `CLAUDE.md` if a rule changed — as a **summary + pointer**, never the full method; archive obsolete docs rather than leaving them to mislead (archive vs delete is `doc-librarian`'s charter). A touched doc adopts its stale claims — check them ([`reference/adjacency-check.md`](reference/adjacency-check.md), the doc-corpus form).
+**6.1 Documentation.** Update the docs the change touches; update `AGENTS.md` if a rule changed — as a **summary + pointer**, never the full method; archive obsolete docs rather than leaving them to mislead (archive vs delete is `doc-librarian`'s charter). A touched doc adopts its stale claims — check them ([`reference/adjacency-check.md`](reference/adjacency-check.md), the doc-corpus form).
 
 **6.2 Issues.** Filing, closing, and epic structure are `issue-maintainer`'s. **Claim discipline binds whoever files:** a severity cites BOTH the entry point that constructs the bad state and the reader that consumes it; an AC names the EXISTING seam it modifies, never a new guard it adds (a second expression of a rule the system already expresses once is a fork — worse than the defect). **Check off each AC checkbox the moment its implementing PR merges**, not at close time; the checkbox state IS the live completion ledger and, on a systemic-pattern issue, the instance inventory that makes "ALL places fixed" verifiable. Before writing `Fixes #n`, read the issue title back — the host closes whatever number you wrote.
 
@@ -276,7 +276,7 @@ Method, worktree gotchas, and the clean-slate rule (every task ends with the pri
 
 ## Codify the Lesson While It Is Hot
 
-Improving this skill is part of the flow. **Triggers:** a rule existed but had no teeth and was violated anyway; two rules pulled against each other; a defect class recurred; a reviewer caught what the process should have; a subagent was corrected mid-flight. **Route** the lesson — always-on rule → `CLAUDE.md` (summary + pointer); method → a `reference/` file; ordered step → this SKILL; briefing instruction → the builder-brief contract; lens question → the lens template. **No new rule without its incident, and codify in the SAME session** — deferred, a lesson loses the paths and the reason. **The bar:** it would have changed the outcome AND is likely to recur; below that it goes to memory, not the skill. Method: [`reference/codify-the-lesson.md`](reference/codify-the-lesson.md).
+Improving this skill is part of the flow. **Triggers:** a rule existed but had no teeth and was violated anyway; two rules pulled against each other; a defect class recurred; a reviewer caught what the process should have; a subagent was corrected mid-flight. **Route** the lesson — always-on rule → `AGENTS.md` (summary + pointer); method → a `reference/` file; ordered step → this SKILL; briefing instruction → the builder-brief contract; lens question → the lens template. **No new rule without its incident, and codify in the SAME session** — deferred, a lesson loses the paths and the reason. **The bar:** it would have changed the outcome AND is likely to recur; below that it goes to memory, not the skill. Method: [`reference/codify-the-lesson.md`](reference/codify-the-lesson.md).
 
 ---
 

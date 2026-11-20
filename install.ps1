@@ -26,8 +26,8 @@
     CLAUDE file would hide it. WARN if Claude Code is older than 2.1.281. uninstall.ps1 reverts only that key.
   - Does not change Claude Code autoMode, and does not write a remote-control startup flag.
   - The Projects root guide is AGENTS.md (memory section appended there). Install does not create a root
-    CLAUDE.md and does not edit one. A leftover root CLAUDE.md is only warned: fold it into AGENTS.md by
-    hand (REORGANIZE.md step 5). It does not block the AGENTS.md section.
+    CLAUDE.md and does not edit one. A leftover root CLAUDE.md is only warned: fold it into AGENTS.md
+    (REORGANIZE.md step 5). That fold is not a blocker. Install does not edit the file.
   - Does NOT copy the toolkit anywhere: it runs from this package's toolkit folder (PackageFolder in toolkit.psd1,
     e.g. <clone>\workstation\). Writes %LOCALAPPDATA%\<StateFolder>\<ConfigFile> (projectsRoot) so the scripts find
     the Projects root; runtime files (worker logs and instance notes) also go under %LOCALAPPDATA%\<StateFolder>\,

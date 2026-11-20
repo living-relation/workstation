@@ -19,7 +19,7 @@ install.ps1 fills these placeholders at install time. Nothing here holds memory 
 |---|---|---|
 | `claude-global-memory-section.md` | `~\.claude\CLAUDE.md` | appended if the marker is missing (file created if missing) |
 | `working-memory-CLAUDE.md` | `<Projects>\_claude\Claude Projects\Working Memory\CLAUDE.md` | created if missing, else appended if the marker is missing |
-| `projects-AGENTS.md` | `<Projects>\AGENTS.md` (the one root guide; install does not create a root `CLAUDE.md`) | created if missing, else only its marked memory + bridge section is appended if the marker is missing. A leftover root `CLAUDE.md` is warned and not edited. It does not skip this file. Fold it into `AGENTS.md` by hand (REORGANIZE.md step 5) |
+| `projects-AGENTS.md` | `<Projects>\AGENTS.md` (the one root guide; install does not create a root `CLAUDE.md`) | created if missing, else only its marked memory + bridge section is appended if the marker is missing. A leftover root `CLAUDE.md` is warned and not edited by install. It does not skip this file. Fold it into `AGENTS.md` (REORGANIZE.md step 5). That fold is not a blocker and not a reason to stop. |
 | `claude-shared-memory.mdc` | `~\.cursor\rules\claude-shared-memory.mdc` | created if missing, else the body is appended if the marker is missing |
 | `app-locks.md` | `~\.claude\CLAUDE.md`, `~\.cursor\rules\claude-shared-memory.mdc`, an existing `repo-rules.mdc`, and `<Projects>\AGENTS.md` | appended when `<!-- app-locks:v1 -->` is missing and the file does not already say acquire, check in, and release for Fusion and harness.design. uninstall removes it only if install added it |
 | `MEMORY.md` | `<store>\MEMORY.md` | created only if missing |

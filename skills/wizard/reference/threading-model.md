@@ -178,10 +178,10 @@ not restate the project rule and the tool default re-asserted itself.
 ## Subagents do NOT inherit SKILL-level conventions
 
 A worker dispatched via `Agent` gets its instructions from exactly two sources: the **dispatch
-brief** and the auto-loaded **`CLAUDE.md`** (plus any `.claude/rules/` file a path it touches
+brief** and the auto-loaded **`AGENTS.md`** (plus any `.claude/rules/` file a path it touches
 loads). It does NOT load the wizard SKILL or anything under `reference/`. So any behavior you need
 a worker to follow — the test-execution recipe, an anti-pattern warning, a tool choice, the
-failure-mode lines above — MUST live in the BRIEF or in `CLAUDE.md`. A correct rule that lives only
+failure-mode lines above — MUST live in the BRIEF or in `AGENTS.md`. A correct rule that lives only
 in a SKILL reference is invisible to the agent that needs it.
 
 **And when you supersede a script or convention, REMOVE the old artifact so a grep cannot surface

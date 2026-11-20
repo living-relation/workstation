@@ -141,12 +141,12 @@ sets Project instructions to `claude-md-and-agents-md` in `%USERPROFILE%\.claude
      change in `.cursor\rules\projects-structure.mdc`, if it exists (back it up first).
    - Verify: every line of the old files is in the new `AGENTS.md` (except the reworded root-file lines),
      and the marker block is there once. Only then delete the root `CLAUDE.md`.
-2. Projects in `active\` (and repos nested inside them): change nothing yet. List every `CLAUDE.md`,
-   `.claude\CLAUDE.md` and `AGENTS.md` with:
-   - its folder;
-   - whether it is in a git repo;
-   - whether the file is tracked;
-   - whether both files exist.
-
-   Dan says yes or no per file. In a repo, the merge is a commit Dan makes himself, and nothing is pushed.
+2. Projects in `active\` (and repos nested inside them): the workstation-core template is the target.
+   `AGENTS.md` is the only agent instruction file. List every `CLAUDE.md`, `.claude\CLAUDE.md`,
+   `CLAUDE.local.md`, and `AGENTS.md` with its folder, whether it is in a git repo, and whether the
+   file is tracked. Fold each CLAUDE file into that project's `AGENTS.md` (keep every rule, drop
+   exact duplicates), then delete the CLAUDE file. That fold is pre-approved. Every rule is kept.
+   A layout difference is not a blocker or a reason to stop. The rules and decisions in those
+   files still bind. Show the merged text before writing over
+   `AGENTS.md`. In a repo, Dan makes the commit himself, and nothing is pushed.
 3. Do not create a `CLAUDE.md` or `CLAUDE.local.md` in a repo or at the Projects root. The memory pointer goes in the project's `AGENTS.md`. Leave `%USERPROFILE%\.claude\CLAUDE.md` alone.
