@@ -9,7 +9,7 @@ $local = Join-Path $root 'local'
 $projects = Join-Path $root 'Projects'
 $users = Join-Path $root 'users'
 New-Item -ItemType Directory -Path $userDir, $local, $projects, $users | Out-Null
-$rule = "Acquire before use, check in at least every 10 min, and release when done. Fusion section 5. harness.design section 5b."
+$rule = "Acquire before use, check in at least every 10 min, and release when done. harness.design section 5b."
 New-Item -ItemType Directory -Path (Join-Path $userDir '.claude\hooks') -Force | Out-Null
 $mem = Join-Path $projects '_claude\Claude Projects\Working Memory\memory'
 New-Item -ItemType Directory -Path $mem -Force | Out-Null
