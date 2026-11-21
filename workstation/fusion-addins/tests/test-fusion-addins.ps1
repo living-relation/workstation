@@ -307,7 +307,7 @@ try {
     $statusText = @($statusOut | ForEach-Object { "$_" }) -join "`n"
     Check 'status says manual only' ($statusText -match 'Fusion add-in updater is manual only') True
 
-    $registerRx = '(?<!Un)Register-ScheduledTask|(?<!Un)Register-FusionAddinTask|New-ScheduledTaskTrigger|schtasks'
+    $registerRx = '(?<!Un)Register-ScheduledTask|(?<!Un)Register-FusionAddinTask|New-ScheduledTaskTrigger|schtasks\s+/Create|schtasks\s+/Change|schtasks\s+/Run'
     Check 'lib has no register function' ([bool](Get-Command Register-FusionAddinTask -ErrorAction SilentlyContinue)) False
 
     $global:FakeExisting = $null
@@ -316,7 +316,7 @@ try {
         param($TaskName, $ErrorAction)
         return $global:FakeExisting
     }
-    function global:Unregister-ScheduledTask { param($TaskName, [switch]$Confirm) $global:Unregistered = $TaskName }
+    function global:Unregister-ScheduledTask { param($TaskName, [switch]$Confirm, $ErrorAction) $global:Unregistered = $TaskName }
     $none = Unregister-FusionAddinTask
     Check 'no task to remove is ok' $none.Ok True
     Check 'no task to remove is missing' $none.Missing True
@@ -326,9 +326,33 @@ try {
     Check 'a foreign task of that name is left alone' $foreign.Ok False
     Check 'foreign task not removed' ($null -eq $global:Unregistered) True
     $global:FakeExisting = [pscustomobject]@{ Actions = @([pscustomobject]@{ Execute = 'powershell.exe'; Arguments = ('-NoProfile -WindowStyle Hidden -File "' + $updater + '"') }) }
+    function global:Unregister-ScheduledTask {
+        param($TaskName, [switch]$Confirm, $ErrorAction)
+        $global:Unregistered = $TaskName
+        $global:FakeExisting = $null
+    }
     $removed = Unregister-FusionAddinTask
     Check 'old own task removed ok' $removed.Ok True
     Check 'old own task removed by name' $global:Unregistered 'Workstation-UpdateFusionAddins'
+    $global:Unregistered = $null
+    $global:FakeExisting = [pscustomobject]@{ Actions = @([pscustomobject]@{ Execute = 'powershell.exe'; Arguments = ('-NoProfile -WindowStyle Hidden -File "' + $updater + '"') }) }
+    function global:Unregister-ScheduledTask {
+        param($TaskName, [switch]$Confirm, $ErrorAction)
+        $global:Unregistered = $TaskName
+        throw 'Access is denied'
+    }
+    $denied = Unregister-FusionAddinTask
+    Check 'access denied is not ok' $denied.Ok False
+    Check 'access denied is not missing' $denied.Missing False
+    Check 'access denied message has error' ($denied.Message -match 'Access is denied') True
+    Check 'access denied message has admin command' ($denied.Message -match 'schtasks /Delete /TN Workstation-UpdateFusionAddins /F') True
+    $global:Unregistered = $null
+    $global:FakeExisting = [pscustomobject]@{ Actions = @([pscustomobject]@{ Execute = 'powershell.exe'; Arguments = ('-NoProfile -WindowStyle Hidden -File "' + $updater + '"') }) }
+    function global:Unregister-ScheduledTask { param($TaskName, [switch]$Confirm, $ErrorAction) $global:Unregistered = $TaskName }
+    $stillThere = Unregister-FusionAddinTask
+    Check 'still-present after remove is not ok' $stillThere.Ok False
+    Check 'still-present message has admin command' ($stillThere.Message -match 'schtasks /Delete /TN Workstation-UpdateFusionAddins /F') True
+    Check 'still-present message says still present' ($stillThere.Message -match 'still present') True
     Remove-Item Function:\global:Get-ScheduledTask, Function:\global:Unregister-ScheduledTask -ErrorAction SilentlyContinue
 
     $install = Get-Content -LiteralPath (Join-Path $repo 'install.ps1') -Raw
