@@ -481,6 +481,17 @@ function Unregister-FusionAddinTask {
     if ($act -notmatch 'update-fusion-addins\.ps1') {
         return [pscustomobject]@{ Ok = $false; Missing = $false; Message = "task $name does not run update-fusion-addins.ps1; left alone" }
     }
-    Unregister-ScheduledTask -TaskName $name -Confirm:$false
+    try {
+        Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction Stop
+    } catch {
+        $err = [string]$_.Exception.Message
+        if (-not $err) { $err = [string]$_ }
+        return [pscustomobject]@{ Ok = $false; Missing = $false; Message = "could not remove task $name ($err). In an admin terminal run: schtasks /Delete /TN $name /F" }
+    }
+    $still = $null
+    try { $still = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue } catch { $still = $null }
+    if ($still) {
+        return [pscustomobject]@{ Ok = $false; Missing = $false; Message = "task $name is still present after the remove. In an admin terminal run: schtasks /Delete /TN $name /F" }
+    }
     return [pscustomobject]@{ Ok = $true; Missing = $false; Message = "removed per-user task $name" }
 }
