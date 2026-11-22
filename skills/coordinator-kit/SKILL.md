@@ -26,7 +26,7 @@ Workers never write the root STATE, another worker's STATE-<slug>, the router, S
 | `state-closeout` skill | Graduate live notes to their homes; rewrite STATE; `handoff` mode prints a resume block | 80% context, pivot, blocker, milestone, PR |
 | `spec-drift` plugin (init, check, report) | Checklist of what the user asked, compared with what was built | init at job start, report before saying done |
 | `pr-closeout` skill | Runs state-closeout on the PR branch; `State:` line in the PR body | Before every merge |
-| `session-sweep` / `repo-cleanup` | Worktrees, branches and stale docs cleaned | After every merge |
+| `git-checker` + `repo-cleanup` | Worktrees, branches and stale docs found (git-checker, read-only) and cleaned (repo-cleanup, on a yes) | git-checker after every merge; repo-cleanup only when session-start finds drift |
 
 If a tool is missing, say which one and carry on with the rest. Do not write new scripts or hooks to replace it unless the user asks.
 
@@ -44,7 +44,7 @@ If a tool is missing, say which one and carry on with the rest. Do not write new
 3. **Dispatch.** One agent, one worktree, one PR. Give each agent the full rules in its brief, because agents do not inherit this skill. The brief names its branch and its `STATE-<slug>.md`, and says: write only that file, append discoveries to BACKLOG, run state-closeout before reporting. Run independent jobs in parallel; jobs that touch the same files run in order.
 4. **Stop rules in every brief.** Stop and report when a change needs a source-of-truth edit the user has not approved, when anything physical or irreversible would change, or when the screen or repo is not what the brief described.
 5. **Before merge.** Gates green, `pr-closeout` run, drift report clean or its gaps listed.
-6. **After merge.** Archive the worker's STATE-<slug> (`state_manager.py archive-branch`, or the git hook pack does it; neither writes the root STATE), update the root STATE (its `Branch_States` line comes from `state_manager.py branches`), remove the worktree and branch, delete what the job replaced.
+6. **After merge.** Archive the worker's STATE-<slug> (`state_manager.py archive-branch`, or the git hook pack does it; neither writes the root STATE). A squash or rebase merge on GitHub is not seen by the post-merge hook: then the coordinator runs `state_manager.py archive-branch --branch <branch>` itself. Then update the root STATE (its `Branch_States` line comes from `state_manager.py branches`), remove the worktree and branch, delete what the job replaced.
 7. **Report.** One short reply: what changed, links to every changed artefact, what is next, blockers, open questions.
 
 ## Rules that keep a new session from asking again

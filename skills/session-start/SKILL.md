@@ -10,7 +10,7 @@ description: >-
 ## When to use
 Finds the project's true current state cheaply, detects whether the last session was cut off (usage limit, crash), runs git-checker and a cheap drift check, lists the store's STATE files, reports, then asks before each follow-up (repo-cleanup, iterative-cleaning, fixes, state-closeout, PR hook install). Those follow-ups do not run on their own. Any project folder.
 
-Works the same in Grok, Claude Code and Cursor. It runs only when the user calls it ("run session-start").
+Works the same in Grok, Claude Code and Cursor. It runs when the user calls it ("run session-start"), and a coordinator also runs it at the start of every session and after every compaction (coordinator-kit). The SessionStart hook only prints the state; it does not replace this skill.
 
 **Why it exists:** a session can stop cold at a usage limit. A stopped session can't save anything, so nothing may rely on "the end of a session". The *next* session finds the leftovers and rebuilds the picture.
 
@@ -19,6 +19,7 @@ Works the same in Grok, Claude Code and Cursor. It runs only when the user calls
 ## Hard rules
 - **Steps 1-7 are read-only**, except the CLAUDE fold-and-delete below. No other edits, commits, pulls, pushes, deletes or lock releases. Anything else happens only in step 8, after the user says yes: repo changes through **safe-repo-preflight** (branch + PR, never force-push, never skip hooks, every deletion waits for the user's yes); STATE changes through **state-closeout**.
 - **`AGENTS.md` is the only agent instruction file.** If any `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` is found in the repo, fold its content into `AGENTS.md` (keep every rule, drop exact duplicates), then delete the CLAUDE file, in the same PR. That fold-and-delete is pre-approved by Dan. Do not read or write those CLAUDE files for any other reason. Do it on the task branch, with hooks. Do not do it on `main`.
+- **Read-only helper session** (not the coordinator, no branch or job of its own): run steps 1-7 only, write no STATE file, append findings to the store `BACKLOG.md` with the date and source, and report to the user. Any change goes to the coordinator.
 - **Follow-ups are not automatic.** The read-only checks run on their own. Every action step in step 8 is one clear question to the user, quoting the finding that triggered it; run it only on his yes. A no or a dismissed question is final for this session.
 - **Only this skill offers the chain.** Every other skill run alone does only its own job and may just suggest the next one.
 - **Never read or print secrets** (`.env*` values, tokens, keys).
@@ -115,6 +116,8 @@ Cleanup needed, see CLEANUP-PLAN.md      <- only if a threshold in step 8 is cro
 | T7 | After-merge / "not done here" steps from merged PRs missing from STATE, TASK.md and BACKLOG | PR bodies (and their `State:` lines) since last cleanup |
 | T8 | Project progress (where work stopped, next steps, open items) in `INDEX.md` notes or other local agent memory instead of the store's STATE files | read-only scan of the agent's local memory/notes for this project's name or path |
 | T9 | A STATE line with `(carried 2)` or more, or a STATE-<slug> for a merged or gone branch | step 1.6 |
+
+T2 is retired; the other numbers stay the same so older notes still match.
 
 No `Last_Cleanup` pointer at all = treat as drift (first run).
 

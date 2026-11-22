@@ -2,4 +2,4 @@
 description: Read and keep current the project's state and source of truth
 alwaysApply: true
 ---
-Before any other work, read in full the source-of-truth docs the agent guide names and the project's STATE.md and STATE-<slug>.md in the shared store. After each step, and before ending a turn or opening a PR, update what changed: SoT docs in the repo on the same branch, live state in the store's STATE files; if none changed, end with "State/SoT: no change."
+Before any other work, read in full the source-of-truth docs the agent guide names and the project's STATE.md and STATE-<slug>.md in the shared store. After each step, and before ending a turn or opening a PR, update what changed: SoT docs in the repo on the same branch, live state in the store's STATE files; if none changed, end with "State: no change."

@@ -75,4 +75,5 @@ above is the trigger: run it as soon as you open a PR, or when the user says "ru
 ## Not this skill's job
 Merging, deleting branches before the merge, CI babysitting (the app's Auto-fix does that), and
 new docs, scripts or gates in a frozen repo. Archiving STATE-<slug> after the merge belongs to
-the git hook pack (post-merge) or `state_manager.py archive-branch`.
+the git hook pack (post-merge) or, after a squash or rebase merge on GitHub (which the hook cannot see),
+the coordinator running `state_manager.py archive-branch` (coordinator-kit step 6).
