@@ -4,6 +4,10 @@
 # branches (never main, never if PR head is main; if main is stale it resets chore/skill-zips
 # and force-with-lease that bot branch only). Only gen-inventory writes a tracked file by hand.
 # trigger: manual | git-hook:<name> | agent-hook:<event> | called-by:<id>. "(inferred)" = read from the code, not run.
+# STALE-OUTPUT compares content: an entry whose reads/script were committed after its writes gets its run_cmd
+# re-run in a temp copy, and is flagged only if a declared output changes. slow: true (optional, default false)
+# marks an expensive generator (or one needing tools CI lacks, the network, or writing outside the repo): it is
+# never re-run and keeps the commit-date check. A run_cmd with a <placeholder> or [optional] part also falls back.
 generated_patterns: ["**/*.checks.json", "**/*_report.json", "**/*.pdf", "**/*.html", "**/*.xlsx", "skills/*.zip"]
 ignore: ["**/tests/**", "**/test_*.py"]
 handmade: []
@@ -259,6 +263,17 @@ automations:
     auto_commit: false
     enabled: true
     check_cmd: python -m pytest -q scripts/test_run_ps_launcher.py
+  - id: registry-check-test
+    script: .github/workflows/registry-check-test.yml
+    helpers: [scripts/test_registry_check.py]
+    trigger: pr-check
+    reads: [skills/git-checker/hooks/registry-check.py, .github/registry-check.py]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python3 scripts/test_registry_check.py
+    check_cmd: python3 scripts/test_registry_check.py
   - id: no-claude-md
     script: .github/workflows/no-claude-md.yml
     helpers: [scripts/check_no_claude_md.py, scripts/test_check_no_claude_md.py]
