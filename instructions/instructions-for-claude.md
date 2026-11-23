@@ -55,8 +55,7 @@ Live state lives in the shared store's project folder (STATE.md, STATE-<slug>.md
 At 80% context, tell me and run the state-closeout skill (closeout mode).
 
 ## App locks
-- Fusion work uses Autodesk's official, Autodesk-hosted MCP servers (nothing to install): Fusion Compute MCP `https://developer.api.autodesk.com/da/v3/mcp/fusion` (preferred, headless cloud Fusion, so local Fusion isn't interrupted); Fusion Data MCP `https://developer.api.autodesk.com/fusion/mcp`; Fusion Desktop MCP is built into Fusion (Preferences > General > API, local `http://127.0.0.1:27182/mcp`). Docs: https://help.autodesk.com/view/ADSKMCP/ENU/.
-- Before driving the harness.design desktop app, hold the per-PC harness.design lock: section 5b in that same file. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand. MCP cloud tools do not need the lock. An agent delete goes through the desktop app under the lock.
+- Before driving the harness.design desktop app, hold the per-PC harness.design lock: section 5b of `<Projects>\active\workstation\instructions\projects-AGENTS.md`. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand. MCP cloud tools do not need the lock. An agent delete goes through the desktop app under the lock.
 
 ## Repos
 - Follow each repo's AGENTS.md, decisions, CONTRIBUTING.md, hooks, and CI before changing anything. Their rules and decisions still bind. If an older agent doc's layout differs from the workstation-core template, that layout is migrated into the template, keeping every rule; a layout difference is not a blocker or a reason to stop.

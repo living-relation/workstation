@@ -17,11 +17,11 @@ install.ps1 fills these placeholders at install time. Nothing here holds memory 
 
 | File | Goes to | How |
 |---|---|---|
-| `claude-global-memory-section.md` | `~\.claude\CLAUDE.md` | appended if the marker is missing (file created if missing) |
+| `claude-global-memory-section.md` | Claude Code and Cowork sessions, through the plugin's SessionStart hook `hooks/rules-inject.ps1` | printed at session start unless `~\.claude\CLAUDE.md` already has the marked block (older installs appended it there). Install no longer writes it to `~\.claude\CLAUDE.md` |
 | `working-memory-CLAUDE.md` | `<Projects>\_claude\Claude Projects\Working Memory\CLAUDE.md` | created if missing, else appended if the marker is missing |
 | `projects-AGENTS.md` | `<Projects>\AGENTS.md` (the one root guide; install does not create a root `CLAUDE.md`) | created if missing, else only its marked memory + bridge section is appended if the marker is missing. A leftover root `CLAUDE.md` is warned and not edited by install. It does not skip this file. Fold it into `AGENTS.md` (REORGANIZE.md step 5). That fold is not a blocker and not a reason to stop. |
-| `claude-shared-memory.mdc` | `~\.cursor\rules\claude-shared-memory.mdc` | created if missing, else the body is appended if the marker is missing |
-| `app-locks.md` | `~\.claude\CLAUDE.md`, `~\.cursor\rules\claude-shared-memory.mdc`, an existing `repo-rules.mdc`, and `<Projects>\AGENTS.md` | appended when `<!-- app-locks:v1 -->` is missing and the file does not already say acquire, check in, and release for harness.design. uninstall removes it only if install added it |
+| `claude-shared-memory.mdc` | Cursor sessions, through the plugin's sessionStart hook `hooks/rules-inject.ps1` (body only) | printed at session start unless a `~\.cursor\rules` file already has the marked block. Install no longer creates `~\.cursor\rules\claude-shared-memory.mdc` |
+| `app-locks.md` | Claude Code, Cowork and Cursor sessions through `hooks/rules-inject.ps1`, and `<Projects>\AGENTS.md` | the hook prints it unless the user's rule file already has the block. Install appends it only to `<Projects>\AGENTS.md` when `<!-- app-locks:v1 -->` is missing and the file does not already say acquire, check in, and release for harness.design; in an older appended block it only fixes the paths. uninstall removes it only if install added it |
 | `MEMORY.md` | `<store>\MEMORY.md` | created only if missing |
 | `unassigned-INDEX.md` | `<store>\_unassigned\INDEX.md` | created only if missing |
 | `repo-agent-rule.md` | the top of each repo's `AGENTS.md` | pasted by hand during migration, not by install.ps1; adapt the guide / decisions file names per repo. Do not paste it into a `CLAUDE.md`. Existing installs are not refreshed: install only appends a marked block when the marker is missing |

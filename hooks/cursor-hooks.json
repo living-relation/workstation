@@ -4,6 +4,9 @@
     "sessionStart": [
       {
         "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/hooks/state-inject.ps1\""
+      },
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/hooks/rules-inject.ps1\""
       }
     ],
     "preToolUse": [

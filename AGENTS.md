@@ -13,9 +13,9 @@ note already answers a question, act on it and cite it - never ask the maintaine
 rules already answer. Claude desktop online Memory is a separate account-level list and is not this
 store (work-account behavior unverified).
 
-Read `agents/projects-AGENTS.md` (shared rules) and `CONTRIBUTING.md` first; follow the hooks in
+Read `instructions/projects-AGENTS.md` (shared rules) and `CONTRIBUTING.md` first; follow the hooks in
 `.githooks/`. Current status and open items live only in the root STATE named above; every
-script and hook is listed in `automation.yml`. Fusion work uses Autodesk's official, Autodesk-hosted MCP servers (nothing to install): Fusion Compute MCP `https://developer.api.autodesk.com/da/v3/mcp/fusion` (preferred, headless cloud Fusion, so local Fusion isn't interrupted); Fusion Data MCP `https://developer.api.autodesk.com/fusion/mcp`; Fusion Desktop MCP is built into Fusion (Preferences > General > API, local `http://127.0.0.1:27182/mcp`). Docs: https://help.autodesk.com/view/ADSKMCP/ENU/. Before driving the harness.design desktop app, follow section 5b: acquire before use, check in at least every 10 min, and release when done. Fusion add-in clones update from `workstation/fusion-addins/update-fusion-addins.ps1` (junctions in the AddIns folder, fast-forward only, skip a dirty tree, a non-default branch, or a branch with no upstream). That script does not restart Fusion and does not drive Fusion. It is manual only (the Update Fusion add-ins shortcut): no scheduled task. `install.ps1` and `uninstall.ps1` remove the old task `Workstation-UpdateFusionAddins` if present. See `workstation/fusion-addins/README.md`. This repo is public but still generic: no machine-specific, project-specific or
+script and hook is listed in `automation.yml`. Before driving the harness.design desktop app, follow section 5b: acquire before use, check in at least every 10 min, and release when done. This repo is public but still generic: no machine-specific, project-specific or
 personal content, no secrets, no CAD code or models.
 
 Plugin manifests may be committed: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,

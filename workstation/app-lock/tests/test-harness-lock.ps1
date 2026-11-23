@@ -1,7 +1,7 @@
 # harness.design lock. Temp LOCALAPPDATA only. Harness windows are faked. The real lock is never touched.
-# Usage: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/fusion-lock/tests/test-harness-lock.ps1
+# Usage: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/app-lock/tests/test-harness-lock.ps1
 $ErrorActionPreference = 'Stop'
-$script = Join-Path (Split-Path -Parent $PSScriptRoot) 'fusion-lock.ps1'
+$script = Join-Path (Split-Path -Parent $PSScriptRoot) 'app-lock.ps1'
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ("hl-test-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmp | Out-Null
 $realLocal = $env:LOCALAPPDATA
@@ -14,10 +14,11 @@ function Check([string]$What, $Got, $Want) { if ($Got -eq $Want) { "PASS $What" 
 $harness = Join-Path $tmp 'Workstation\harness-design.lock'
 function Age-Lock([string]$Path, [int]$Min) { $j = Get-Content $Path -Raw | ConvertFrom-Json; $j.last_checkin = (Get-Date).ToUniversalTime().AddMinutes(-$Min).ToString('o'); Set-Content $Path ($j | ConvertTo-Json) }
 try {
-    # Default -Name fusion does not take a lock and does not create the harness lock.
+    # Default -Name is harness-design. status on a free lock exits 0 and does not create the lock file.
     $plain = Run status
     Check 'default name exits 0' $plain.code 0
-    Check 'default name does not create harness lock' (Test-Path $harness) $false
+    Check 'status does not create harness lock' (Test-Path $harness) $false
+    Check 'old fusion name is refused' ((Run status -Name fusion).code -ne 0) $true
 
     # harness.design: acquire, status, check-in, release, two holders, stale clear and ask-the-owner.
     $env:WORKSTATION_HARNESS_FAKE_WINDOWS = 'none'
@@ -58,8 +59,10 @@ try {
     Check 'harness release A refused' (Run release -Name harness-design -Holder A).code 2
     Check 'harness release B' (Run release -Name harness-design -Holder B).code 0
     Check 'harness lock released' (Test-Path $harness) $false
-    Check 'default acquire does not create harness lock' (Run acquire -Holder A -Kind remote).code 0
-    Check 'harness lock still absent' (Test-Path $harness) $false
+    Check 'default acquire takes the harness lock' (Run acquire -Holder A -Kind remote).code 0
+    Check 'harness lock exists after default acquire' (Test-Path $harness) $true
+    Check 'default release' (Run release -Holder A).code 0
+    Check 'harness lock absent after default release' (Test-Path $harness) $false
     $hlog = Get-Content (Join-Path $tmp 'Workstation\harness-design-lock.log') -Raw
     foreach ($w in 'ACQUIRE A', 'STALE-FLAG A', 'CLEAR A', 'RELEASE B') { Check "harness log has $w" ($hlog -like "*$w*") $true }
 } finally {

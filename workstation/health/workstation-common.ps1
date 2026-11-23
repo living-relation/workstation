@@ -10,10 +10,6 @@ $BridgeRoot = Split-Path -Parent $HealthDir
 . (Join-Path $HealthDir 'claude-ai-plugin.ps1')
 $__cwLib = Join-Path (Join-Path $BridgeRoot 'cursor-worker') 'cursor-worker-lib.ps1'
 if (-not (Get-Command Get-CursorWorkerHealthLines -ErrorAction SilentlyContinue)) { . $__cwLib }
-$__faLib = Join-Path (Join-Path $BridgeRoot 'fusion-addins') 'fusion-addins-lib.ps1'
-if (-not (Get-Command Get-FusionAddinHealthLines -ErrorAction SilentlyContinue)) {
-    if (Test-Path -LiteralPath $__faLib) { . $__faLib }
-}
 $BridgeProjects = $WsProjectsRoot
 
 function Write-Title([string]$t) {
@@ -169,20 +165,6 @@ function Show-CursorWorker {
     }
 }
 
-function Show-FusionAddins {
-    Write-Host ''
-    Write-Host 'Fusion add-ins' -ForegroundColor Cyan
-    if (-not (Get-Command Get-FusionAddinHealthLines -ErrorAction SilentlyContinue)) {
-        Write-Ok 'Fusion add-in updater is manual only (Update Fusion add-ins shortcut); no scheduled task'
-        return
-    }
-    foreach ($line in @(Get-FusionAddinHealthLines)) {
-        if ($line.Level -eq 'WARN') { Write-Warn $line.Text }
-        elseif ($line.Level -eq 'FAIL') { Write-Bad $line.Text }
-        elseif ($line.Level -eq 'OFF') { Write-Off $line.Text }
-        else { Write-Ok $line.Text }
-    }
-}
 
 function Show-Orphans {
     $warn = @(Get-HealthOrphanWarnings)
@@ -305,8 +287,16 @@ function Show-AppLocks {
         if (Test-LockRuleComplete $text) { Add-Item 'PASS' "$Label has acquire, check-in, and release for harness.design: $Path" }
         else { Add-Item 'FAIL' "$Label missing [$($(Get-LockRuleGaps $text) -join ', ')]: $Path" }
     }
+    # The workstation-core plugin's SessionStart hook (hooks\rules-inject.ps1) loads the lock rule in Claude Code,
+    # Cowork and Cursor, so a profile passes when its plugin copy has that hook even if no rule file has the text.
+    function Find-RulesHook([string]$Dir) {
+        if (-not (Test-Path -LiteralPath $Dir)) { return $null }
+        $hit = Get-ChildItem -LiteralPath $Dir -Recurse -File -Filter 'rules-inject.ps1' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($hit) { return $hit.FullName }
+        return $null
+    }
     Write-Host 'App locks (read-only): harness.design' -ForegroundColor Cyan
-    $selfScript = Join-Path $BridgeRoot 'fusion-lock\fusion-lock.ps1'
+    $selfScript = Join-Path $BridgeRoot 'app-lock\app-lock.ps1'
     if ($env:WORKSTATION_LOCKCHECK_SCRIPT) { $selfScript = $env:WORKSTATION_LOCKCHECK_SCRIPT }
     $scripts = New-Object System.Collections.Generic.List[string]
     $seenScript = @{}
@@ -334,7 +324,15 @@ function Show-AppLocks {
         $w = Test-ProfileFolderWritable $folder $leaf
         if ($w.Ok) { Add-Item 'PASS' "$leaf lock folder writable: $($w.Why)" }
         else { Add-Item 'FAIL' "$leaf lock folder not writable ($folder): $($w.Why)" }
-        if ($hasClaude) { Add-RuleFile "$leaf Claude Code CLAUDE.md" (Join-ProfilePath $profile @('.claude', 'CLAUDE.md')) }
+        if ($hasClaude) {
+            $claudeMd = Join-ProfilePath $profile @('.claude', 'CLAUDE.md')
+            $claudeText = $null
+            if (Test-Path -LiteralPath $claudeMd) { try { $claudeText = [IO.File]::ReadAllText($claudeMd) } catch { } }
+            $claudeHook = Find-RulesHook (Join-ProfilePath $profile @('.claude', 'plugins'))
+            if ($claudeText -and (Test-LockRuleComplete $claudeText)) { Add-Item 'PASS' "$leaf Claude Code CLAUDE.md has acquire, check-in, and release for harness.design: $claudeMd" }
+            elseif ($claudeHook) { Add-Item 'PASS' "$leaf Claude Code gets the harness.design lock rule from the workstation-core SessionStart hook: $claudeHook" }
+            else { Add-Item 'FAIL' "$leaf Claude Code: no harness.design lock rule in $claudeMd and no workstation-core plugin hook (rules-inject.ps1) under .claude\plugins. Turn on workstation-core at claude.ai." }
+        }
         if ($hasCursor) {
             $rulesDir = Join-ProfilePath $profile @('.cursor', 'rules')
             $ruleFiles = @()
@@ -345,7 +343,9 @@ function Show-AppLocks {
                 $extra = Join-ProfilePath $profile @('.cursor', $extraName)
                 if (Test-Path -LiteralPath $extra) { $ruleFiles += @(Get-Item -LiteralPath $extra) }
             }
-            if (-not $ruleFiles) { Add-Item 'FAIL' "$leaf Cursor rules: .cursor exists but no .mdc/.md rule file was found" }
+            $cursorHook = Find-RulesHook (Join-ProfilePath $profile @('.cursor', 'plugins'))
+            if ($cursorHook) { Add-Item 'PASS' "$leaf Cursor gets the harness.design lock rule from the workstation-core sessionStart hook: $cursorHook" }
+            elseif (-not $ruleFiles) { Add-Item 'FAIL' "$leaf Cursor rules: .cursor exists but no .mdc/.md rule file and no workstation-core plugin hook (rules-inject.ps1) under .cursor\plugins was found" }
             else {
                 $hit = $null
                 foreach ($rf in $ruleFiles) {
@@ -386,7 +386,7 @@ function Show-AppLocks {
             $active = Join-Path $root 'active'
             if (-not (Test-Path -LiteralPath $active)) { continue }
             foreach ($d in @(Get-ChildItem -LiteralPath $active -Directory -ErrorAction SilentlyContinue)) {
-                $cand = Join-Path $d.FullName (Join-Path 'workstation' (Join-Path 'fusion-lock' 'fusion-lock.ps1'))
+                $cand = Join-Path $d.FullName (Join-Path 'workstation' (Join-Path 'app-lock' 'app-lock.ps1'))
                 if ((Test-Path -LiteralPath $cand) -and -not $seenScript.ContainsKey($cand.ToLower())) { [void]$scripts.Add($cand); $seenScript[$cand.ToLower()] = $true }
             }
         }
@@ -405,7 +405,7 @@ function Show-AppLocks {
         }
     }
     $ruleSeen = @{}
-    $shared = Join-Path (Split-Path -Parent $BridgeRoot) (Join-Path 'agents' 'projects-AGENTS.md')
+    $shared = Join-Path (Split-Path -Parent $BridgeRoot) (Join-Path 'instructions' 'projects-AGENTS.md')
     Add-RuleFile 'projects AGENTS.md (shared rules)' $shared
     $ruleSeen[$shared.ToLower()] = $true
     foreach ($root in @($roots)) {
@@ -414,11 +414,11 @@ function Show-AppLocks {
         $active = Join-Path $root 'active'
         if (-not (Test-Path -LiteralPath $active)) { continue }
         foreach ($d in @(Get-ChildItem -LiteralPath $active -Directory -ErrorAction SilentlyContinue)) {
-            $one = Join-Path $d.FullName (Join-Path 'agents' 'projects-AGENTS.md')
+            $one = Join-Path $d.FullName (Join-Path 'instructions' 'projects-AGENTS.md')
             if ((Test-Path -LiteralPath $one) -and -not $ruleSeen.ContainsKey($one.ToLower())) { Add-RuleFile 'projects AGENTS.md (shared rules)' $one; $ruleSeen[$one.ToLower()] = $true }
         }
     }
-    Add-Item 'SKIP' 'Grok Bot: this repo does not track a separate instruction file. Grok reads agents/projects-AGENTS.md (checked above).'
+    Add-Item 'SKIP' 'Grok Bot: this repo does not track a separate instruction file. Grok reads instructions/projects-AGENTS.md (checked above).'
     if ($box.n) { Write-Host "FAIL  $($box.n) item(s)" } else { Write-Host 'PASS  all checked items' }
     return [int]$box.n
 }
