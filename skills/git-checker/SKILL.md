@@ -113,7 +113,7 @@ path), compare them read-only and add one line each:
 suggest re-running the repo's install/link step), `MISSING`. Never copy or relink.
 
 ## Automation registry (optional, `automation.yml` at the repo root)
-One entry per script, workflow, hook and scheduled job. Template: `hooks/automation.example.yml`. Fields: `id`, `script`, `helpers`, `trigger` (manual | pr-check | push-main | cron:<expr> | called-by:<id>), `reads`, `writes` (exact outputs), `committed` (yes | gitignored | artifact), `auto_commit`, `enabled` (on/off switch), `bypass` (any protection bypass, e.g. a deploy key), `run_cmd`, `check_cmd`, `owner`. Top level: `generated_patterns`, `ignore`, `handmade` (hand-made docs never flagged). Built-in ignore: vendor, third_party, datasheets, manuals, reference(s), handmade folders; a PDF/HTML/XLSX is flagged only when a writer script names it or sits in its folder, or a `<stem>.checks.json` is beside it.
+One entry per script, workflow, hook and scheduled job. Template: `hooks/automation.example.yml`. Fields: `id`, `script`, `helpers`, `trigger` (manual | pr-check | push-main | cron:<expr> | called-by:<id>), `reads`, `writes` (exact outputs), `committed` (yes | gitignored | artifact), `auto_commit`, `enabled` (on/off switch), `bypass` (any protection bypass, e.g. a deploy key), `run_cmd`, `check_cmd`, `slow` (optional, default false: true = expensive generator, see STALE-OUTPUT), `owner`. Top level: `generated_patterns`, `ignore`, `handmade` (hand-made docs never flagged). Built-in ignore: vendor, third_party, datasheets, manuals, reference(s), handmade folders; a PDF/HTML/XLSX is flagged only when a writer script names it or sits in its folder, or a `<stem>.checks.json` is beside it.
 
 **Intentional auto-writers are allowed.** A bot or workflow that commits its own outputs (e.g. a dashboard updater) is never flagged when its entry lists its exact `writes`, `trigger`, `auto_commit: true` and `enabled`. Protection bypasses go in `bypass` and are shown as a NOTE, not forbidden. Pause one with `python3 hooks/registry-check.py --set <id> off` (resume: `on`), committed via a PR; the workflow's first step runs `registry-check.py --enabled <id>` and exits when `false`.
 
@@ -121,7 +121,7 @@ Run read-only: `python3 hooks/registry-check.py` (add `--diff <base> <head>` in 
 
 | Flag | Means |
 |---|---|
-| **STALE-OUTPUT** | an entry's `reads` or script was committed after its `writes` (marked "paused" if `enabled: false`) |
+| **STALE-OUTPUT** | a fresh run changes a declared output. Commit dates only pick candidates (`reads`/script committed after `writes`); each candidate's `run_cmd` is re-run in a temp copy of the tracked files (never the real tree, 300 s limit) and its outputs compared by content (CRLF ignored). Same bytes = not stale. `slow: true` entries are never re-run and keep the commit-date test, as do ones whose `run_cmd` has a `<placeholder>` or `[optional]` part, fails or times out (the line says why). Mark `slow: true` anything expensive, needing tools CI lacks, using the network, or writing outside the repo. "paused" if `enabled: false` |
 | **ORPHAN-SCRIPT** | a script/workflow/hook with no entry, or an entry whose script is gone |
 | **UNDECLARED-OUTPUT** | a tracked generated-looking file no entry writes; a `check_cmd` that wrote outside its `writes`; a workflow that commits/pushes without `auto_commit: true` |
 | **DUPLICATE-OUTPUT** | two entries write the same file, or outputs sit in revision/date-named folders (`*-revN`, `*-vN`, `*-YYYY-MM-DD`) |
@@ -134,7 +134,8 @@ BOM from a drawing script). When the user's notes or the repo's own rules list
 generator and output pairs, compare read-only with
 `git log -1 --format=%ct -- <path>` and add one line each: `FRESH` (output committed
 after its generator) or `STALE-OUTPUT` (generator changed later: suggest re-running the
-repo's own build step on a branch + PR). Never regenerate. A repo's own "drawings
+repo's own build step on a branch + PR). Label these "by commit date": an output committed in
+the same commit as, or just before, an unchanged-output input edit is a false positive. Never regenerate. A repo's own "drawings
 current" check may not cover generator scripts, so don't treat its pass as proof.
 
 ---

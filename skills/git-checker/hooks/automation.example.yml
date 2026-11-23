@@ -26,4 +26,5 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: python tools/build_drawings.py --all
+    slow: true                  # expensive: never re-run by the check, keeps the commit-date STALE test
     check_cmd: python tools/build_drawings.py --check
