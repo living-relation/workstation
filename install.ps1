@@ -14,11 +14,15 @@
   - FIRST runs preflight.ps1 (read-only). Any CONFLICT stops the install unless -AcceptConflicts is given
     (only after the user reviewed the preflight report). -WhatIf runs preflight too.
   - Never moves or deletes folders, never overwrites memory or starter files.
-  - Appends memory sections to rule files only when the marker <!-- shared-memory:v1 --> is missing.
-  - Appends the harness.design lock rules (<!-- app-locks:v1 -->) to ~\.claude\CLAUDE.md,
-    ~\.cursor\rules\claude-shared-memory.mdc, an existing repo-rules.mdc, and <Projects>\AGENTS.md
-    when that marker is missing and the file does not already say acquire, check in, and release
-    for harness.design. uninstall removes only a block this install added.
+  - The memory-store rules and the harness.design lock rule load from the workstation-core plugin's
+    SessionStart hook (hooks\rules-inject.ps1) in Claude Code, Cowork and Cursor (owner decision 2026-11-22).
+    Install no longer creates ~\.claude\CLAUDE.md or ~\.cursor\rules\claude-shared-memory.mdc and no longer
+    appends to them or to repo-rules.mdc. A block an older install appended there is kept (the hook then
+    skips that part). Install only fixes old paths inside such a block (fusion-lock -> app-lock,
+    agents\projects-AGENTS.md -> instructions\projects-AGENTS.md) and drops its old Fusion MCP line.
+  - <Projects>\AGENTS.md (read by every agent, including ones with no hooks) still gets the memory section
+    (marker <!-- shared-memory:v1 -->) and the lock block (<!-- app-locks:v1 -->) when missing.
+    uninstall removes only a block this install added.
   - Backs up ~\.claude\settings.json and ~\.claude.json (timestamped .bak next to each) before changing them.
   - Sets Claude Code's Project instructions to claude-md-and-agents-md (read CLAUDE.md AND AGENTS.md) in
     ~\.claude\settings.json > pluginConfigs (plugin cc-plugin-agents-md@builtin, or agents-md@builtin before
@@ -32,7 +36,7 @@
     e.g. <clone>\workstation\). Writes %LOCALAPPDATA%\<StateFolder>\<ConfigFile> (projectsRoot) so the scripts find
     the Projects root; runtime files (worker logs and instance notes) also go under %LOCALAPPDATA%\<StateFolder>\,
     never into the clone. Then creates manual shortcuts (Health check, Start and Stop Cursor worker,
-    Start, Stop, and status for Desktop Commander, the orphan tool, and Update Fusion add-ins) in this
+    Start, Stop, and status for Desktop Commander, and the orphan tool) in this
     package's shortcuts\ folder. Those links are gitignored.
     An empty shortcuts\rc folder left by the old per-project links is removed. A folder that still has
     files, or that is a link, is left alone. No Startup item and no Run key.
@@ -54,10 +58,7 @@
     (Anthropic official marketplace). A plugin already enabled in ~\.claude\settings.json, or already
     installed at user scope, is left as is (a dry run says OK, not WOULD install). That file is the source
     of truth for plugin names. Nothing is scheduled and nothing reinstalls in the background.
-  - The Fusion add-in updater is manual only (owner decision 2026-11-20): the Update Fusion add-ins shortcut
-    or workstation\fusion-addins\update-fusion-addins.ps1 by hand. Install registers no task. A per-user
-    task Workstation-UpdateFusionAddins left by an older install (it runs update-fusion-addins.ps1) is
-    removed, no admin, and the run says so. -WhatIf only reports it. -UserHome does not touch it.
+  - The Fusion add-in updater was removed (owner decision 2026-11-22).
     An existing Cursor sign-in entry is only reported (WARN), never added or removed.
     Desktop Commander is a manual shortcut only.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
@@ -310,6 +311,25 @@ function Add-AppLockBlock([string]$Path) {
     Backup-File $Path
     [IO.File]::AppendAllText($Path, $add, $Utf8NoBom)
     Add-ManifestJson @{ kind = 'app-locks'; path = $Path }
+  }
+}
+# Fixes old paths inside a marked app-locks block an older install wrote: fusion-lock\fusion-lock.ps1 ->
+# app-lock\app-lock.ps1, agents\projects-AGENTS.md -> instructions\projects-AGENTS.md, and drops the old
+# Fusion MCP line (that rule lives in handbuilt-cad now). Only text between the markers changes. No backup.
+function Update-AppLockPaths([string]$Path) {
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
+  $text = [IO.File]::ReadAllText($Path)
+  $start = '<!-- app-locks:v1 -->'; $end = '<!-- /app-locks:v1 -->'
+  $i = $text.IndexOf($start); if ($i -lt 0) { return }
+  $j = $text.IndexOf($end, $i); if ($j -lt 0) { return }
+  $old = $text.Substring($i, $j - $i)
+  $new = $old.Replace('\workstation\fusion-lock\fusion-lock.ps1', '\workstation\app-lock\app-lock.ps1')
+  $new = $new.Replace('\workstation\agents\projects-AGENTS.md', '\workstation\instructions\projects-AGENTS.md')
+  $new = [regex]::Replace($new, '(?m)^Fusion work uses Autodesk''s official[^\r\n]*\r?\n', '')
+  if ($new -eq $old) { Note 'OK' "app lock paths current: $Path"; return }
+  $out = $text.Substring(0, $i) + $new + $text.Substring($j)
+  Invoke-Change "update app lock paths (app-lock.ps1, instructions\projects-AGENTS.md) in: $Path" {
+    [IO.File]::WriteAllText($Path, $out, $Utf8NoBom)
   }
 }
 function Copy-PackageFile([string]$Source, [string]$Dest) {
@@ -788,9 +808,11 @@ if ($CursorHookOk) {
   }
 }
 
-# 8. Rule files: append the memory section where the marker is missing
-Add-MemoryBlock (Join-Path $DotClaude 'CLAUDE.md') 'claude-global-memory-section.md' -CreateIfMissing
-Add-MemoryBlock $CursorRule 'claude-shared-memory.mdc' -CreateIfMissing
+# 8. Rule files. Claude Code, Cowork and Cursor get the memory and lock rules from the workstation-core plugin's
+#    SessionStart hook (hooks\rules-inject.ps1), so ~\.claude\CLAUDE.md and ~\.cursor\rules\*.mdc are not
+#    created or appended any more. Blocks an older install appended there stay; only their old paths are fixed.
+$RepoRulesMdc = Join-Path $UserHome '.cursor\rules\repo-rules.mdc'
+foreach ($rf in @((Join-Path $DotClaude 'CLAUDE.md'), $CursorRule, $RepoRulesMdc)) { Update-AppLockPaths $rf }
 # Projects root guide is AGENTS.md. Do not create or edit a root CLAUDE.md.
 $RootAgentsMd = Join-Path $ProjectsRoot 'AGENTS.md'
 $RootClaudeMd = Join-Path $ProjectsRoot 'CLAUDE.md'
@@ -798,12 +820,9 @@ if (Test-Path -LiteralPath $RootClaudeMd) {
   Note 'WARN' "root CLAUDE.md still exists: $RootClaudeMd. Fold its content into AGENTS.md (keep every rule, drop exact duplicates), then delete the CLAUDE file. Install does not change that file."
 }
 Add-MemoryBlock $RootAgentsMd 'projects-AGENTS.md' -CreateIfMissing
-# Fusion + harness.design lock rules. Existing files get the block on the next install (the memory
-# marker is not rewritten). Paste texts in instructions\ are still updated by hand.
-Add-AppLockBlock (Join-Path $DotClaude 'CLAUDE.md')
-Add-AppLockBlock $CursorRule
-$RepoRulesMdc = Join-Path $UserHome '.cursor\rules\repo-rules.mdc'
-if (Test-Path -LiteralPath $RepoRulesMdc) { Add-AppLockBlock $RepoRulesMdc }
+# harness.design lock rules in the root guide (agents without hooks read it). Paste texts in instructions\
+# are still updated by hand.
+Update-AppLockPaths $RootAgentsMd
 Add-AppLockBlock $RootAgentsMd
 # Claude's instruction texts (instructions\ in the package) are pasted by hand; install never edits them.
 # Instructions for Claude are account-level (not on disk): only a reminder.
@@ -886,30 +905,6 @@ else {
   if ($scExit -eq 0) { Note 'DONE' "manual shortcuts in $scDir (they do not start at sign-in)" }
   else { Note 'WARN' "$(Split-Path $shortcutScript -Leaf) reported failures (exit $scExit). See its output above." }
 }
-# 9a. Fusion add-in clones: manual only (owner decision 2026-11-20). Install registers no task. A task of that
-#     name left by an older install (it runs update-fusion-addins.ps1) is removed, no admin. -WhatIf only reports.
-$fusionLib = Join-Path $BridgeDir 'fusion-addins\fusion-addins-lib.ps1'
-$fusionScript = Join-Path $BridgeDir 'fusion-addins\update-fusion-addins.ps1'
-$fusionManual = "Fusion add-in updater is manual only: the Update Fusion add-ins shortcut, or powershell -NoProfile -ExecutionPolicy Bypass -File `"$fusionScript`""
-if (-not (Test-Path -LiteralPath $fusionLib)) { Note 'ERROR' "missing $fusionLib" }
-elseif (-not (Test-Path -LiteralPath $fusionScript)) { Note 'ERROR' "missing $fusionScript" }
-else {
-  . $fusionLib
-  $fusionTask = Get-FusionAddinTaskName
-  if ($testMode) { Note 'SKIP' "test mode (-UserHome): not checking scheduled task $fusionTask" }
-  elseif ($WhatIf) {
-    $ft = Get-FusionAddinTaskStatus
-    if ($ft.Present) { Note 'WOULD' "remove old per-user task $fusionTask (the updater is manual only now; no admin)" }
-    else { Note 'OK' "no scheduled task $fusionTask" }
-  } else {
-    try { $ur = Unregister-FusionAddinTask }
-    catch { $ur = [pscustomobject]@{ Ok = $false; Missing = $false; Message = $_.Exception.Message } }
-    if ($ur.Missing) { Note 'OK' "no scheduled task $fusionTask" }
-    elseif ($ur.Ok) { Note 'DONE' "$($ur.Message) (the updater is manual only now)" }
-    else { Note 'WARN' $ur.Message }
-  }
-  Note 'OK' $fusionManual
-}
 # An old installed toolkit copy (LegacyFolders) is never moved or deleted; it is only reported.
 foreach ($lf in @($TK.LegacyFolders | Where-Object { $_ })) {
   $lp = Join-Path $ProjectsRoot $lf
@@ -969,7 +964,7 @@ if ($attention.Count) {
 }
 Write-Host ''
 if ($WhatIf) { Write-Host 'Dry run only. Nothing was changed. Run again without -WhatIf to apply.' -ForegroundColor Cyan }
-else { Write-Host 'Fusion add-in clones update only when you run the Update Fusion add-ins shortcut (no scheduled task). It does not start Fusion. Desktop Commander and the Cursor worker run only from their manual shortcuts. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
+else { Write-Host 'Desktop Commander and the Cursor worker run only from their manual shortcuts. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
 Invoke-StatusCheck
 if (@($Summary | Where-Object Status -eq 'ERROR').Count) { exit 1 }
 exit 0

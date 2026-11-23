@@ -158,26 +158,16 @@ automations:
     committed: no
     auto_commit: false
     enabled: true
-  - id: fusion-addins
-    script: workstation/fusion-addins/update-fusion-addins.ps1
-    helpers: [workstation/fusion-addins/fusion-addins-lib.ps1, workstation/fusion-addins/tests/test-fusion-addins.ps1, workstation/fusion-addins/README.md, install.ps1, uninstall.ps1, preflight.ps1, toolkit.psd1, workstation/health/workstation-status.ps1]
-    trigger: manual (Update Fusion add-ins shortcut or by hand; no scheduled task since 2026-11-20; install.ps1 and uninstall.ps1 remove the old task Workstation-UpdateFusionAddins)
-    reads: [AddIns directory junctions and the git clones those junctions point at]
-    writes: [LOCALAPPDATA Workstation logs fusion-addins-update.log and fusion-addins-last.json (outside the repo)]
-    committed: no
-    auto_commit: false
-    enabled: true
-    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/fusion-addins/tests/test-fusion-addins.ps1
-  - id: fusion-lock
-    script: workstation/fusion-lock/fusion-lock.ps1
-    helpers: [workstation/fusion-lock/tests/test-harness-lock.ps1, workstation/paths.ps1]
+  - id: app-lock
+    script: workstation/app-lock/app-lock.ps1
+    helpers: [workstation/app-lock/tests/test-harness-lock.ps1, workstation/paths.ps1]
     trigger: manual
     reads: [LOCALAPPDATA Workstation harness-design.lock (-Name harness-design), harness.design.exe window titles]
     writes: [LOCALAPPDATA Workstation harness-design.lock and harness-design-lock.log when -Name harness-design; hidden pinger process (acquire -StartPinger)]
     committed: no
     auto_commit: false
     enabled: true
-    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/fusion-lock/fusion-lock.ps1 status -Name harness-design
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/app-lock/app-lock.ps1 status -Name harness-design
   - id: check-upstream
     script: workstation/check-upstream.ps1
     helpers: [.github/workflows/check-upstream.yml, workstation/tests/test-check-upstream.ps1]
@@ -218,6 +208,16 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-agents-md-only-warn.ps1
+  - id: rules-inject
+    script: hooks/rules-inject.ps1
+    helpers: [hooks/state-common.ps1, hooks/hooks.json, hooks/cursor-hooks.json, hooks/tests/test-rules-inject.ps1, memory/templates/claude-global-memory-section.md, memory/templates/claude-shared-memory.mdc, memory/templates/app-locks.md]
+    trigger: agent-hook:SessionStart (Claude hooks/hooks.json via hooks/run-ps.sh; Cursor hooks/cursor-hooks.json sessionStart)
+    reads: [hook payload on stdin, WORKSTATION_PROJECTS_ROOT or LOCALAPPDATA Workstation workstation.json (projectsRoot), memory/templates in the plugin, the user's ~/.claude/CLAUDE.md and ~/.cursor/rules files (only to skip a block already there)]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-rules-inject.ps1
   - id: state-hooks
     script: [hooks/state-inject.ps1, hooks/state-lint-stop.ps1, hooks/protected-files-guard.ps1, hooks/sot-after-edit.ps1]
     helpers: [hooks/state-common.ps1, hooks/hooks.json, hooks/cursor-hooks.json, hooks/tests/state-test-support.ps1, hooks/tests/test-state-inject.ps1, hooks/tests/test-state-lint-stop.ps1, hooks/tests/test-state-protected-files-guard.ps1, hooks/tests/test-state-sot-hooks.ps1]

@@ -3,6 +3,17 @@
 Claude hooks are in `hooks.json`, Cursor hooks in `cursor-hooks.json` (the Cursor manifest `hooks` path).
 Every script and its test is listed in `automation.yml`.
 
+## Rules at session start (`rules-inject.ps1`)
+
+Owner decision 2026-11-22: the memory-store rules (`memory/templates/claude-global-memory-section.md`; Cursor:
+`claude-shared-memory.mdc` without its front matter) and the harness.design lock rule (`memory/templates/app-locks.md`)
+load from this hook in Claude Code, Cowork (Claude SessionStart) and Cursor (sessionStart, `additional_context`).
+`install.ps1` no longer creates or appends them in `~\.claude\CLAUDE.md` or `~\.cursor\rules`. If an older install
+already appended a marked block there, the hook skips that part so nothing loads twice. Placeholders come from
+`WORKSTATION_PROJECTS_ROOT` or `%LOCALAPPDATA%\Workstation\workstation.json`. No projects root: silent exit 0.
+Chat on claude.ai runs no hooks and reads no local files; `<Projects>\AGENTS.md` still carries both blocks for agents
+without hooks.
+
 ## Launcher
 
 Every Claude command is `sh "${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh" "${CLAUDE_PLUGIN_ROOT}/hooks/<script>.ps1"`.

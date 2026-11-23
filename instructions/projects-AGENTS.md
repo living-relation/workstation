@@ -46,17 +46,14 @@ blocker or a reason to stop.
 - Part/model files stay out of repos unless that repo's own rules say otherwise; finished models go to the models folder (`$MODELS_DIR`), following the models folder structure (<subject>-rev<current>\rev<X>\); keep only the newest and the previous rev of anything and delete the oldest when filing a new one; CAD model / assembly / STEP-copy rules live in handbuilt-cad (see its AGENTS.md).
 - Generic content only in shared repos: project-specific notes belong in that project.
 
-## 5. Fusion
-Fusion work uses Autodesk's official, Autodesk-hosted MCP servers (nothing to install): Fusion Compute MCP `https://developer.api.autodesk.com/da/v3/mcp/fusion` (preferred, headless cloud Fusion, so local Fusion isn't interrupted); Fusion Data MCP `https://developer.api.autodesk.com/fusion/mcp`; Fusion Desktop MCP is built into Fusion (Preferences > General > API, local `http://127.0.0.1:27182/mcp`). Docs: https://help.autodesk.com/view/ADSKMCP/ENU/.
-
 ## 5b. harness.design lock (one agent drives the harness.design desktop app at a time)
 One lock per PC: `%LOCALAPPDATA%\Workstation\harness-design.lock` (outside every repo); log `harness-design-lock.log` beside it.
-Script, with `-Name harness-design`: `<Projects>\active\workstation\workstation\fusion-lock\fusion-lock.ps1` (call it with `powershell -NoProfile -ExecutionPolicy Bypass -File`).
+Script, with `-Name harness-design`: `<Projects>\active\workstation\workstation\app-lock\app-lock.ps1` (call it with `powershell -NoProfile -ExecutionPolicy Bypass -File`).
 Desktop app only: an agent clicking the app (computer-use) or Dan driving it by hand. The harness.design MCP cloud tools do not need this lock. An agent delete is the exception: it goes through the desktop app and needs the lock.
 harness.design autosaves to the cloud, so unsaved work cannot be detected. `check` clears a lock only when the last check-in was 15+ minutes ago AND `harness.design.exe` (`%LOCALAPPDATA%\Programs\harness-design-desktop\harness.design.exe`) has no open editor. Window titles are conservative: any visible title other than the app name counts as an open editor, because the Windows title text was not confirmed (macOS lists windows by harness name). Otherwise it says ask the owner. Never delete the lock file by hand, and never clear a lock on time alone.
 `-Files` is harness document ids or titles (PowerShell passes `rBjB,QjYZ` as two values).
-- Acquire before using the desktop app (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\fusion-lock\fusion-lock.ps1 acquire -Name harness-design -Holder <your name> -Kind claude-code|cursor|remote -Repo <repo path> -Files rBjB,QjYZ`
-- Check in at least every 10 min while working (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\fusion-lock\fusion-lock.ps1 checkin -Name harness-design -Holder <your name>`
-- Release when done (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\fusion-lock\fusion-lock.ps1 release -Name harness-design -Holder <your name>`
+- Acquire before using the desktop app (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\app-lock\app-lock.ps1 acquire -Name harness-design -Holder <your name> -Kind claude-code|cursor|remote -Repo <repo path> -Files rBjB,QjYZ`
+- Check in at least every 10 min while working (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\app-lock\app-lock.ps1 checkin -Name harness-design -Holder <your name>`
+- Release when done (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\app-lock\app-lock.ps1 release -Name harness-design -Holder <your name>`
 - Claude Code / Cursor may add `-StartPinger` on acquire (a hidden pinger checks in every 5 min). Remote agents run the check-in line themselves.
 - To confirm the harness.design lock is installed for every account on this PC (read-only, PASS/FAIL, nonzero if anything fails): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\health\workstation-status.ps1 -Locks`

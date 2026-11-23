@@ -64,6 +64,14 @@ try {
     Check 'doctor skips desktop when not file-based' ($firstText -like '*SKIP*danie Claude Desktop*') $true
     Check 'doctor skips Grok' ($firstText -like '*SKIP*Grok Bot*') $true
     Check 'doctor passes shared rules' ($firstText -like '*PASS*projects AGENTS.md (shared rules)*') $true
+    $hookDir = Join-Path (Join-Path (Join-Path (Join-Path $users 'Administrator') '.claude') 'plugins') 'cache-x'
+    New-Item -ItemType Directory -Path $hookDir -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $hookDir 'rules-inject.ps1') -Value '# hook'
+    $viaHook = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1
+    $viaHookText = $viaHook -join "`n"
+    Check 'doctor passes a profile whose plugin has the rules hook' ($viaHookText -like '*PASS*Administrator Claude Code gets the harness.design lock rule from the workstation-core SessionStart hook*') $true
+    Check 'doctor exit 0 with the plugin hook' $LASTEXITCODE 0
+    Remove-Item -LiteralPath $hookDir -Recurse -Force
     Set-Content -LiteralPath (Join-Path (Join-Path $users 'Administrator') '.claude\CLAUDE.md') -Value $rule
     $second = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1
     $secondText = $second -join "`n"

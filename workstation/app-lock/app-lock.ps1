@@ -1,24 +1,23 @@
 # harness.design lock: one lock per PC so only one agent drives the harness.design desktop app.
-# -Name defaults to fusion. That name does not take a lock.
-# Fusion work uses Autodesk's official, Autodesk-hosted MCP servers (nothing to install): Fusion Compute MCP `https://developer.api.autodesk.com/da/v3/mcp/fusion` (preferred, headless cloud Fusion, so local Fusion isn't interrupted); Fusion Data MCP `https://developer.api.autodesk.com/fusion/mcp`; Fusion Desktop MCP is built into Fusion (Preferences > General > API, local `http://127.0.0.1:27182/mcp`). Docs: https://help.autodesk.com/view/ADSKMCP/ENU/.
+# -Name has one value, harness-design (the default).
 # harness.design lock file: %LOCALAPPDATA%\<StateFolder>\harness-design.lock. Log: harness-design-lock.log beside it.
-# Rule: agents/projects-AGENTS.md section 5b.
+# Rule: instructions/projects-AGENTS.md section 5b.
 # Windows PowerShell 5.1, ASCII only.
 #
-#   fusion-lock.ps1 -Name harness-design status
-#   fusion-lock.ps1 -Name harness-design acquire -Holder <name> -Kind claude-code|cursor|remote [-Repo <repo path>] [-Files a,b] [-StartPinger] [-ParentPid N]
+#   app-lock.ps1 -Name harness-design status
+#   app-lock.ps1 -Name harness-design acquire -Holder <name> -Kind claude-code|cursor|remote [-Repo <repo path>] [-Files a,b] [-StartPinger] [-ParentPid N]
 # -Repo is recorded and shown by status. It does not decide who is blocked. One lock per PC still blocks every other session.
-#   fusion-lock.ps1 -Name harness-design checkin -Holder <name> [-Files a,b]
-#   fusion-lock.ps1 -Name harness-design release -Holder <name>
-#   fusion-lock.ps1 -Name harness-design check   [-StaleMinutes 15]     # stale check; never clears on time alone
-#   fusion-lock.ps1 -Name harness-design pinger  -Holder <name> -ParentPid N [-IntervalSec 300]
+#   app-lock.ps1 -Name harness-design checkin -Holder <name> [-Files a,b]
+#   app-lock.ps1 -Name harness-design release -Holder <name>
+#   app-lock.ps1 -Name harness-design check   [-StaleMinutes 15]     # stale check; never clears on time alone
+#   app-lock.ps1 -Name harness-design pinger  -Holder <name> -ParentPid N [-IntervalSec 300]
 #
 # Exit codes: 0 ok / free, 1 held by someone (status/check), 2 refused (held by another holder),
 #             3 stale and needs the owner (check), 4 bad usage.
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)][ValidateSet('status', 'acquire', 'checkin', 'release', 'check', 'pinger')][string]$Command = 'status',
-    [ValidateSet('fusion', 'harness-design')][string]$Name = 'fusion',
+    [ValidateSet('harness-design')][string]$Name = 'harness-design',
     [string]$Holder,
     [ValidateSet('claude-code', 'cursor', 'remote')][string]$Kind = 'remote',
     [string]$Repo = '',
@@ -30,10 +29,6 @@ param(
     [switch]$Json
 )
 $ErrorActionPreference = 'Stop'
-if ($Name -eq 'fusion') {
-    Write-Host 'Fusion work uses Autodesk''s official, Autodesk-hosted MCP servers (nothing to install): Fusion Compute MCP `https://developer.api.autodesk.com/da/v3/mcp/fusion` (preferred, headless cloud Fusion, so local Fusion isn''t interrupted); Fusion Data MCP `https://developer.api.autodesk.com/fusion/mcp`; Fusion Desktop MCP is built into Fusion (Preferences > General > API, local `http://127.0.0.1:27182/mcp`). Docs: https://help.autodesk.com/view/ADSKMCP/ENU/.'
-    exit 0
-}
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'paths.ps1')
 $LockDir = $WsStateDir
 $LockPath  = Join-Path $LockDir 'harness-design.lock'
@@ -84,7 +79,7 @@ function Test-Pinger([int]$P) {
     # Windows PowerShell has Get-CimInstance. If it is missing, the pid is not treated as our pinger.
     if (-not (Get-Command Get-CimInstance -ErrorAction SilentlyContinue)) { return $false }
     $c = Get-CimInstance Win32_Process -Filter "ProcessId=$P" -ErrorAction SilentlyContinue
-    if (-not ($c -and $c.CommandLine -like '*fusion-lock.ps1*pinger*')) { return $false }
+    if (-not ($c -and $c.CommandLine -like '*app-lock.ps1*pinger*')) { return $false }
     return ($c.CommandLine -like '*-Name harness-design*')
 }
 # Session process to tie the pinger to: first ancestor named claude / Cursor / Code (else the caller must pass -ParentPid).

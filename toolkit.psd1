@@ -21,7 +21,7 @@
 
   # Manual shortcuts only. make-shortcuts.ps1 writes them in ShortcutFolder (gitignored .lnk files).
   # Nothing in this list starts at sign-in. No Startup item and no Run key.
-  # No scheduled task either: the Fusion add-in updater is manual only (Update Fusion add-ins).
+  # No scheduled task either.
   ShortcutFolder     = 'shortcuts'
   Shortcuts          = @(
     @{ Name = 'Health check'; Script = 'health\workstation-status.ps1'; Icon = 23 }
@@ -31,7 +31,6 @@
     @{ Name = 'Stop Desktop Commander';  Script = 'desktop-commander-remote\stop-dc-remote.ps1'; Icon = 131 }
     @{ Name = 'DC remote status';        Script = 'desktop-commander-remote\dc-remote-status.ps1'; Icon = 23 }
     @{ Name = 'Kill orphaned remote processes'; Script = 'kill-orphans.ps1'; Icon = 131 }
-    @{ Name = 'Update Fusion add-ins'; Script = 'fusion-addins\update-fusion-addins.ps1'; Args = '-Pause'; Icon = 238 }
   )
 
   # No sign-in links. An old Startup link that still runs the start script is removed (backup first).

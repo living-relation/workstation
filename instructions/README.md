@@ -39,8 +39,8 @@ app's **Import memory** button to bring them into online Memory.
 Claude Code is set up separately (install.ps1 and the per-project pointer lines). Pointer lines name the
 store path, not `~\.claude\working-memory`. These paste texts do not replace that setup.
 
-`cursor-user-rules.md` holds behavior only: no memory paths (Cursor's memory rule is `claude-shared-memory.mdc`,
-written by install.ps1) and no repo rules beyond pointing at each repo's `AGENTS.md`. It does say which tier
+`cursor-user-rules.md` holds behavior only: no memory paths (Cursor gets the memory rule from the workstation-core
+plugin's sessionStart hook `hooks/rules-inject.ps1`, or an older `claude-shared-memory.mdc` written by install.ps1) and no repo rules beyond pointing at each repo's `AGENTS.md`. It does say which tier
 holds what. Cursor stores User Rules in the account, not on disk, so install.ps1
 cannot check them.
 
@@ -48,4 +48,4 @@ cannot check them.
 
 `state-sot.mdc` is a one-line alwaysApply Cursor rule: read and keep current the project's state and source of truth (copy to `~/.cursor/rules/`).
 
-The Fusion note and the harness.design lock are in `cowork-global-instructions.md`, `instructions-for-claude.md`, `cursor-user-rules.md` (inside the paste block), and `repo-rules.mdc`. Re-paste or re-copy those after pulling. On-disk copies are checked by `workstation\health\workstation-status.ps1 -Locks`.
+The harness.design lock is in `cowork-global-instructions.md`, `instructions-for-claude.md`, `cursor-user-rules.md` (inside the paste block), and `repo-rules.mdc`. Re-paste or re-copy those after pulling. On-disk copies are checked by `workstation\health\workstation-status.ps1 -Locks`.
