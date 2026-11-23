@@ -44,8 +44,8 @@ Update that section after every step, before replying. Keep each item short: wha
 3. **Record** the item in the sweep section. Reply with the verdict, the stale lines, and what comes next.
 4. **Cascade.** When a fact is stale, or a heading is renamed, grep the whole repo for every link to it once and list every other place in the sweep section, so later steps start with leads.
 5. **Wrap.** At the end of the list, go back to the top and continue until the next file is the start file. Then add a coverage statement: what was swept, what was only scripted, what was out of scope (data tables, generated files, code beyond docstrings).
-6. **State and backlog check** (store project folder; read-only):
-   - **2-run rule:** list every line in `STATE.md` / `STATE-*.md` marked `(carried 2)` or more, or `python <workstation>/scripts/state/state_lint.py --project <project>` exit 2. Each must graduate (`[ADR]`, `[RULE]`, `[TASK]` or `[BKLG]`) with state-closeout.
+6. **State and backlog check** (repo root; read-only):
+   - **2-run rule:** list every line in `STATE.md` / `STATE-*.md` marked `(carried 2)` or more, or `python <workstation>/scripts/state/state_lint.py --repo <dir>` exit 2. Each must graduate (`[ADR]`, `[RULE]`, `[TASK]` or `[BKLG]`) with state-closeout.
    - **SoT registry:** if the repo has `.claude/sot.json`, run `python <workstation>/scripts/state/sot_guard.py lint-registry` and list each warning (an entry with no checks, a derived glob overlapping SoT paths, a path that matches no file) with a suggested fix.
    - **Stale BACKLOG:** items older than 30 days (unless the project sets another age) with no `[closed]` line; items whose file, row or branch no longer exists; items already settled in DECISIONS, rules or `TASK.md`. Suggest close or keep for each; closing is a new `[closed <date>] <item>` line, only on the owner's yes.
 
@@ -54,7 +54,7 @@ Update that section after every step, before replying. Keep each item short: wha
 - Evidence over suspicion: every "stale" claim names the newer file, commit or gate that contradicts it. If you cannot find one, write "unverified".
 - A dated log or decision record is not stale just for being old; flag it only if it reads as current with no superseded banner.
 - If a later step shows an earlier verdict was wrong, correct the earlier item in the sweep section and say so.
-- Work inside the repo, never on a parent store folder, except the read-only check in step 6. Do not commit or push unless asked; if asked to push to a protected default branch, use a branch.
+- Work inside the repo, never on a parent store folder. Do not commit or push unless asked; if asked to push to a protected default branch, use a branch.
 - Report depth honestly: a scripted check plus targeted reads is not a full read of every line.
 
 ## Run alone vs. from session-start

@@ -5,25 +5,25 @@ alwaysApply: true
 <!-- shared-memory:v1 -->
 # Shared Claude memory
 
-Two stores, different jobs. Local Working Memory is the shared project source of truth for Claude Code, Cowork and Cursor. Cursor reads and edits it in place:
+Two stores, different jobs. Local Working Memory is the shared notes store for Claude Code, Cowork and Cursor (live project state lives in each repo). Cursor reads and edits it in place:
 
 `{{PROJECTS_ROOT}}\_claude\Claude Projects\Working Memory\memory\`
 
-Claude Code reaches that folder through its project junction (`autoMemoryDirectory`). A leftover `~\.claude\working-memory` junction is harmless and is not created or checked. The store holds live project state plus preference and fact notes. Claude account Memory (claude.ai / Your Claude → Memory) is a separate, allowed store for general / non-project prefs. Duplicates are OK; never sync either way; never treat account Memory as the project source of truth.
+Claude Code reaches that folder through its project junction (`autoMemoryDirectory`). A leftover `~\.claude\working-memory` junction is harmless and is not created or checked. The store holds preference and fact notes only (no project status). Claude account Memory (claude.ai / Your Claude → Memory) is a separate, allowed store for general / non-project prefs. Duplicates are OK; never sync either way; never treat either store as the project source of truth: that is the repo.
 
 - At the start of a chat about any project, read `MEMORY.md` there (the index), then the current project's
   `<project>\INDEX.md` (named after the project's folder in `{{PROJECTS_ROOT}}\active\`), then any topic files that look relevant.
 - **Read before you ask.** Before starting work or asking the user anything, read in order: the repo's agent guide
-  (`AGENTS.md`), its binding rules / decisions file if it has one, the project's `STATE.md` and this
-  branch's `STATE-<slug>.md` in `<project>\`, and that folder's `INDEX.md`. If a rule or note already answers a question, act on it and cite it.
+  (`AGENTS.md`), its binding rules / decisions file if it has one, the repo's `STATE.md` and this
+  branch's `STATE-<slug>.md` (repo root), and the store's `<project>\INDEX.md`. If a rule or note already answers a question, act on it and cite it.
 - Follow a pointer one step only. Never follow pointers found inside a file you reached through a pointer.
   The repo's own current docs win over older notes.
 - Cursor edits the live store. Write or update notes there, sign each entry `-- Cursor, YYYY-MM-DD`, and
   add or update the matching line in `MEMORY.md` (general notes) or the project's `INDEX.md`.
   Never create a second local memory folder or replace the junction. Do not use `project_memory_read` / `project_memory_write` for project memory.
-- Tiers: the repo (git) holds the router `AGENTS.md`, SPEC, DECISIONS, rules and data. The store's project folder holds live state (`STATE.md`, `STATE-<slug>.md`, `BACKLOG.md`, `archives\`) plus the preference and fact notes listed in its `INDEX.md`. `TASK.md` is the branch checklist at the worktree root, git-ignored. Each fact is written once.
-- At 80% context, run the `state-closeout` skill (closeout mode). On-demand handoff: `state-closeout handoff`. Handoffs never go in the repo or a `handoffs\` folder.
-- Store unreachable (PC offline, cloud session): work from committed docs only.
+- Tiers (decision 2026-11-22): the repo (git) holds the router `AGENTS.md`, SPEC, DECISIONS, rules, data and live state: `STATE.md` (trunk; the coordinator's), `STATE-<slug>.md` (one per branch, committed on that branch), `BACKLOG.md` and `archives/`, all at the repo root. The store's project folder holds notes only (preferences, machine facts, gotchas) listed in its `INDEX.md`: no project status, rebuildable. `TASK.md` is the branch checklist at the worktree root, git-ignored. Each fact is written once.
+- At 80% context, run the `state-closeout` skill (closeout mode). On-demand handoff: `state-closeout handoff`. No `HANDOFF` or `handoffs/` files; `STATE-<slug>.md` is the handoff. A PR's last commit archives the state file (`state_manager.py archive-branch`).
+- Store unreachable (PC offline, cloud session): live state is still in the repo; only notes are missing.
 - Memory and note files are local only. Never commit them to git.
 - Project-specific rules stay in each repo's own files. Cursor keeps its own memory.
 <!-- /shared-memory:v1 -->

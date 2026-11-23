@@ -2,11 +2,11 @@
 # Silent when everything is fine under Claude Code (silence keeps its normal permission prompts).
 # Under Cursor (CURSOR_VERSION set) a preToolUse run prints exactly one line, {"permission":"allow"},
 # because Cursor blocks the edit when a hook prints nothing; its messages go to stderr instead. Never deletes notes.
-# Also warns (never blocks, moves or deletes) when a write to the store looks like
-# project progress (status, progress, next steps, TODOs, handoffs, PR or branch state) outside the
-# live-state files. Live state belongs in <store>\<project>\STATE.md, STATE-<branch-slug>.md,
-# BACKLOG.md and archives\; writes there are never flagged. INDEX.md keeps preferences, rules and
-# facts only, so progress written into INDEX.md or another note is flagged.
+# Also warns (never blocks, moves or deletes) when a write to the store is live state or looks like
+# project progress (status, progress, next steps, TODOs, handoffs, PR or branch state). Live state lives
+# in the repo since 2026-11-22 (STATE.md, STATE-<branch-slug>.md, BACKLOG.md, archives/ at the repo root),
+# so STATE / BACKLOG / archives writes in a store project folder warn too. The store keeps notes only
+# (preferences, machine facts, gotchas); its _archive\ (old copies) is quiet.
 # Portable: no hardcoded profile, user or machine names. Paths are worked out at run time:
 #   link  = autoMemoryDirectory from ~\.claude\settings.json (~ expanded); this is the junction.
 #   store = WORKSTATION_MEMORY_STORE if set, else storePath from the optional
@@ -58,12 +58,21 @@ function Test-UnderStore([string]$Path, [string]$Root) {
   if (-not $a -or -not $b) { return $false }
   return ($a -eq $b) -or $a.StartsWith($b + [IO.Path]::DirectorySeparatorChar) -or $a.StartsWith($b + '\') -or $a.StartsWith($b + '/')
 }
-# Live-state files in a project folder (STATE.md, STATE-*.md, BACKLOG.md, archives\...) are where progress belongs.
-function Test-LiveStateFile([string]$NotePath, [string]$Root) {
+# Path below the store root, with / separators ('' when not below it).
+function Get-StoreRel([string]$NotePath, [string]$Root) {
   $a = Get-PathKey $NotePath; $b = Get-PathKey $Root
-  if (-not $a -or -not $b -or $a.Length -le $b.Length) { return $false }
-  $rel = $a.Substring($b.Length).TrimStart('\', '/') -replace '\\', '/'
+  if (-not $a -or -not $b -or $a.Length -le $b.Length) { return '' }
+  return ($a.Substring($b.Length).TrimStart('\', '/') -replace '\\', '/')
+}
+# Live-state files (STATE.md, STATE-*.md, BACKLOG.md, archives\...) in a store project folder. Live state
+# lives in the repo since 2026-11-22, so a write here warns. The store's _archive\ (old copies) is quiet.
+function Test-LiveStateFile([string]$NotePath, [string]$Root) {
+  $rel = Get-StoreRel $NotePath $Root
+  if (-not $rel -or $rel -match '^_archive/') { return $false }
   return [bool]($rel -match '^[^/]+/(state\.md|state-[^/]+\.md|backlog\.md)$' -or $rel -match '^[^/]+/archives/')
+}
+function Test-StoreArchive([string]$NotePath, [string]$Root) {
+  return [bool]((Get-StoreRel $NotePath $Root) -match '^_archive/')
 }
 # status/progress/next-steps/handoff/PR/branch/TODO language, or a project_* note with that content.
 # MEMORY.md and CLAUDE.md are catalogs: not flagged. INDEX.md is flagged on its body only.
@@ -119,13 +128,15 @@ try {
     if ($ti.PSObject.Properties['file_path'] -and $ti.file_path) { $notePath = [string]$ti.file_path }
     elseif ($ti.PSObject.Properties['path'] -and $ti.path) { $notePath = [string]$ti.path }
   }
-  if ($notePath -and (Test-UnderStore $notePath $home_) -and -not (Test-LiveStateFile $notePath $home_)) {
+  if ($notePath -and (Test-UnderStore $notePath $home_) -and (Test-LiveStateFile $notePath $home_)) {
+    Write-Output "MEMORY WARNING: '$notePath' is a live-state file in the memory store. Live state lives in the repo (decision 2026-11-22): STATE.md (trunk), STATE-<branch-slug>.md (a branch, committed on that branch), BACKLOG.md and archives/ at the repo root. The store keeps notes only (preferences, machine facts, gotchas). This is a warning only; the file was not blocked, moved or deleted."
+  } elseif ($notePath -and (Test-UnderStore $notePath $home_) -and -not (Test-StoreArchive $notePath $home_)) {
     $noteText = ''
     if ($ti.PSObject.Properties['content'] -and $ti.content) { $noteText = [string]$ti.content }
     elseif ($ti.PSObject.Properties['new_string'] -and $ti.new_string) { $noteText = [string]$ti.new_string }
     elseif (Test-Path -LiteralPath $notePath -PathType Leaf) { try { $noteText = [IO.File]::ReadAllText($notePath) } catch { } }
     if (Test-ProgressNote $notePath $noteText) {
-      Write-Output "MEMORY WARNING: '$notePath' looks like project progress/state (status, progress, next steps, TODOs, handoffs, or PR/branch state). Put live progress in the project's state file in this store: <project>\STATE.md (trunk) or <project>\STATE-<branch-slug>.md (a branch); queue later work in <project>\BACKLOG.md. INDEX.md and other notes hold only preferences, rules and cross-project facts; each fact is written once. This is a warning only; the note was not blocked, moved or deleted."
+      Write-Output "MEMORY WARNING: '$notePath' looks like project progress/state (status, progress, next steps, TODOs, handoffs, or PR/branch state). Put live progress in the repo's state file: STATE.md (trunk) or STATE-<branch-slug>.md (a branch) at the repo root; queue later work in the repo's BACKLOG.md. The store keeps notes only: INDEX.md and other notes hold preferences, machine facts, gotchas and cross-project facts; each fact is written once. This is a warning only; the note was not blocked, moved or deleted."
     }
   }
 } catch { }

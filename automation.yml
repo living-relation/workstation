@@ -18,6 +18,17 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: bash .github/state-check.sh origin/main HEAD
+  - id: state-files-gate
+    script: .github/workflows/state-files-gate.yml
+    helpers: [.github/state-files-gate.sh, skills/git-checker/hooks/state-files-gate.sh, skills/git-checker/hooks/state-files-gate.yml, scripts/test_state_files_gate.py]
+    trigger: pr-check
+    reads: [the git tree of the PR merge ref]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: bash .github/state-files-gate.sh HEAD
+    check_cmd: python3 scripts/test_state_files_gate.py
   - id: hook-pre-commit
     script: .githooks/pre-commit
     helpers: [scripts/guard-staged.sh, scripts/run-gitleaks.sh]
@@ -222,7 +233,7 @@ automations:
     script: [hooks/state-inject.ps1, hooks/state-lint-stop.ps1, hooks/protected-files-guard.ps1, hooks/sot-after-edit.ps1]
     helpers: [hooks/state-common.ps1, hooks/hooks.json, hooks/cursor-hooks.json, hooks/tests/state-test-support.ps1, hooks/tests/test-state-inject.ps1, hooks/tests/test-state-lint-stop.ps1, hooks/tests/test-state-protected-files-guard.ps1, hooks/tests/test-state-sot-hooks.ps1]
     trigger: agent-hook:SessionStart+Stop+PreToolUse+PostToolUse (Claude hooks/hooks.json via hooks/run-ps.sh; Cursor hooks/cursor-hooks.json sessionStart+preToolUse+postToolUse+beforeShellExecution+stop)
-    reads: [hook payload on stdin, WORKSTATION_MEMORY_STORE, WORKSTATION_STATE_TOOLS, STATE.md and STATE-*.md in the memory store project folder (outside the repo), SPEC files, VERIFIED.lock, .claude/protected-paths.txt and .claude/sot.json of the repo being edited; calls scripts/state state_paths, state_lint and sot_guard (sot-after-edit runs the registry's fast checks)]
+    reads: [hook payload on stdin, WORKSTATION_STATE_TOOLS, STATE.md and STATE-*.md at the root of the repo or worktree being edited (and its sibling worktrees), SPEC files, VERIFIED.lock, .claude/protected-paths.txt and .claude/sot.json of the repo being edited; calls scripts/state state_paths, state_lint and sot_guard (sot-after-edit runs the registry's fast checks)]
     writes: []
     committed: no
     auto_commit: false
@@ -232,8 +243,8 @@ automations:
     script: [hooks/git/pre-commit, hooks/git/post-checkout, hooks/git/post-merge]
     helpers: [hooks/git/state-hook-lib.sh, hooks/git/README.md, hooks/tests/test-state-git-hooks.ps1, hooks/tests/test-state-sot-hooks.ps1]
     trigger: git-hook:pre-commit+post-checkout+post-merge (installed per repo with git config core.hooksPath; chains to workstation.chainHooksPath)
-    reads: [git config workstation.stateTools workstation.chainHooksPath workstation.stateLint, WORKSTATION_STATE_TOOLS, WORKSTATION_MEMORY_STORE, VERIFIED.lock, .claude/sot.json and the checks it lists, the memory store project folder (outside the repo); calls scripts/state state_lint, state_manager, deliverable_lock and sot_guard]
-    writes: [STATE-*.md and archives/ in the memory store project folder (outside the repo; never the root STATE.md), removes untracked TASK.md after a merge]
+    reads: [git config workstation.stateTools workstation.chainHooksPath workstation.stateLint, WORKSTATION_STATE_TOOLS, VERIFIED.lock, .claude/sot.json and the checks it lists, STATE.md and STATE-*.md at the worktree root; calls scripts/state state_lint, state_manager, deliverable_lock and sot_guard]
+    writes: [an untracked STATE-<slug>.md at the worktree root on a new branch checkout (post-checkout; never the root STATE.md), removes untracked TASK.md after a merge; post-merge only warns about a STATE-*.md left on the trunk]
     committed: no
     auto_commit: false
     enabled: true
@@ -274,7 +285,7 @@ automations:
     script: scripts/state/state_paths.py
     helpers: [scripts/state/README.md, scripts/state/tests/test_state_paths.py]
     trigger: manual
-    reads: [WORKSTATION_MEMORY_STORE, user .claude memory-link-guard.config.json and settings.json, git metadata of the repo or worktree]
+    reads: [git metadata of the repo or worktree (state folder = worktree root); WORKSTATION_MEMORY_STORE, user .claude memory-link-guard.config.json and settings.json (notes store only)]
     writes: []
     committed: no
     auto_commit: false
@@ -285,7 +296,7 @@ automations:
     script: scripts/state/state_lint.py
     helpers: [scripts/state/state_paths.py, scripts/state/tests/test_state_lint.py]
     trigger: manual
-    reads: [STATE.md and STATE-*.md in the memory store project folder (outside the repo)]
+    reads: [STATE.md and STATE-*.md at the root of the repo or worktree]
     writes: []
     committed: no
     auto_commit: false
@@ -296,8 +307,8 @@ automations:
     script: scripts/state/state_manager.py
     helpers: [scripts/state/state_paths.py, scripts/state/state_lint.py, scripts/state/tests/test_state_manager.py]
     trigger: manual
-    reads: [the memory store project folder (outside the repo), git metadata]
-    writes: [STATE.md and STATE-*.md and BACKLOG.md and archives/ in the memory store project folder (outside the repo)]
+    reads: [STATE.md, STATE-*.md and BACKLOG.md at the worktree root, git refs (git fetch --prune; git show origin/<branch>:STATE-<slug>.md) and git worktree list for branches]
+    writes: [STATE.md, STATE-<slug>.md, BACKLOG.md and archives/ at the worktree root (init, new-branch); git mv of STATE-<slug>.md into archives/ (archive-branch, staged, never committed by the tool)]
     committed: no
     auto_commit: false
     enabled: true

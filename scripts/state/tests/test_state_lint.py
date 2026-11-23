@@ -87,35 +87,30 @@ class LintCliTests(TempDirCase):
     def test_cli_missing_file_exits_2(self):
         self.assertEqual(run_tool("state_lint.py", self.tmp / "absent.md").returncode, 2)
 
-    def test_unreachable_store_exits_0_with_note(self):
-        result = run_tool("state_lint.py", "--project", "anything",
-                          env={"WORKSTATION_MEMORY_STORE": str(self.tmp / "no-such-store")})
+    def test_unmigrated_repo_exits_0_with_note(self):
+        repo = make_repo(self.tmp, "Plain_Repo")
+        commit_file(repo, "README.md", "x\n")
+        result = run_tool("state_lint.py", "--repo", repo)
         self.assertEqual(result.returncode, 0)
-        self.assertIn("unreachable", result.stderr)
+        self.assertIn("not migrated", result.stderr)
 
-    def test_project_mode_lints_branch_files_and_skips_archives(self):
-        folder = self.tmp / "store" / "proj"
-        (folder / "archives").mkdir(parents=True)
-        (folder / "STATE.md").write_text(VALID_STATE, encoding="utf-8")
-        (folder / "archives" / "STATE-old-20260101.md").write_text("junk\n", encoding="utf-8")
-        (folder / "INDEX.md").write_text("not a state file [ADR]\n", encoding="utf-8")
-        result = run_tool("state_lint.py", "--project", "proj", "--store", self.tmp / "store")
+    def test_repo_mode_lints_branch_files_and_skips_archives(self):
+        repo = make_repo(self.tmp, "Lint_Repo")
+        commit_file(repo, "STATE.md", VALID_STATE)
+        (repo / "archives").mkdir()
+        (repo / "archives" / "STATE-old-20260101.md").write_text("junk\n", encoding="utf-8")
+        (repo / "INDEX.md").write_text("not a state file [ADR]\n", encoding="utf-8")
+        result = run_tool("state_lint.py", "--repo", repo)
         self.assertEqual(result.returncode, 0, result.stdout)
-        (folder / "STATE-feature-x.md").write_text(VALID_STATE + "- [ADR] leftover\n", encoding="utf-8")
-        result = run_tool("state_lint.py", "--project", "proj", "--store", self.tmp / "store")
+        (repo / "STATE-feature-x.md").write_text(VALID_STATE + "- [ADR] leftover\n", encoding="utf-8")
+        result = run_tool("state_lint.py", "--repo", repo)
         self.assertEqual(result.returncode, 2)
         self.assertIn("STATE-feature-x.md", result.stdout)
 
-    def test_repo_mode_resolves_project(self):
-        repo = make_repo(self.tmp, "Lint_Repo")
-        commit_file(repo, "README.md", "x\n")
-        folder = self.tmp / "store" / "lint-repo"
-        folder.mkdir(parents=True)
-        (folder / "STATE.md").write_text(VALID_STATE.replace("Branch: main", "Branch: main [TASK]"),
-                                         encoding="utf-8")
-        result = run_tool("state_lint.py", "--repo", repo, env={"WORKSTATION_MEMORY_STORE": str(self.tmp / "store")})
-        self.assertEqual(result.returncode, 2)
-
+    def test_repo_mode_flags_bad_root_state(self):
+        repo = make_repo(self.tmp, "Bad_Repo")
+        commit_file(repo, "STATE.md", VALID_STATE.replace("Branch: main", "Branch: main [TASK]"))
+        self.assertEqual(run_tool("state_lint.py", "--repo", repo).returncode, 2)
 
 if __name__ == "__main__":
     unittest.main()

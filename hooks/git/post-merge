@@ -1,11 +1,10 @@
 #!/bin/sh
-# State pack post-merge. After `git merge <branch>`, archives that branch's STATE-<slug>.md to
-# archives/STATE-<slug>-<YYYYMMDD>.md (state_manager.py archive-branch; it never writes the root
-# STATE.md). Then removes the merged branch's untracked TASK.md: in that branch's worktree and at
-# this checkout's root. Runs only when HEAD is the trunk (main, master, trunk, or the default branch
-# named by origin/HEAD): a merge into a stacking or feature branch archives nothing.
-# A pull (no branch named in the reflog), merging a trunk branch, or an unreachable store does nothing.
-# Never blocks. Then runs the repo's own post-merge.
+# State pack post-merge. Runs only when HEAD is the trunk (main, master, trunk, or the default branch
+# named by origin/HEAD). After `git merge <branch>`, removes the merged branch's untracked TASK.md:
+# in that branch's worktree and at this checkout's root. After any merge or pull into the trunk, warns
+# when a top-level STATE-*.md (a branch's state file) is on the trunk: the PR should have archived the
+# state file as its last commit (pr-closeout), and CI blocks such a PR. It never edits or commits a
+# STATE file (no writes to the trunk). Never blocks. Then runs the repo's own post-merge.
 HOOK_DIR=$(cd "$(dirname "$0")" && pwd)
 . "$HOOK_DIR/state-hook-lib.sh"
 
@@ -49,15 +48,22 @@ on_trunk() {
   [ -n "$default" ] && [ "$current" = "${default#origin/}" ]
 }
 
+warn_leftover_state() {
+  for leftover in "$1"/STATE-*.md; do
+    [ -f "$leftover" ] || continue
+    echo "post-merge: $(basename "$leftover") is a branch state file on the trunk. Archive the state file in a PR (state_manager.py archive-branch --branch <branch>); CI blocks a PR that leaves one." >&2
+  done
+}
+
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-branch=$(merged_branch)
-if [ -n "$ROOT" ] && [ -n "$branch" ] && on_trunk; then
-  if state_ready; then
-    run_py "$STATE_TOOLS/state_manager.py" archive-branch --repo "$ROOT" --branch "$branch" 2>/dev/null
+if [ -n "$ROOT" ] && on_trunk; then
+  branch=$(merged_branch)
+  if [ -n "$branch" ]; then
+    worktree=$(branch_worktree "$branch")
+    [ -n "$worktree" ] && remove_task_file "$worktree"
+    remove_task_file "$ROOT"
   fi
-  worktree=$(branch_worktree "$branch")
-  [ -n "$worktree" ] && remove_task_file "$worktree"
-  remove_task_file "$ROOT"
+  [ -f "$ROOT/STATE.md" ] && warn_leftover_state "$ROOT"
 fi
 chain_hook post-merge "$@"
 exit 0

@@ -42,7 +42,7 @@ state_ready() {
 }
 
 session_state_file() {
-  run_py -c 'import sys; sys.path.insert(0, sys.argv[1]); import state_paths as p; i = p.resolve(sys.argv[2]); print(i["state_file"] if i["store_reachable"] and i["state_file"] else "")' "$STATE_TOOLS" "$1" 2>/dev/null
+  run_py -c 'import sys; sys.path.insert(0, sys.argv[1]); import state_paths as p; i = p.resolve(sys.argv[2]); print(i["state_file"] if i["state_ready"] and i["state_file"] else "")' "$STATE_TOOLS" "$1" 2>/dev/null
 }
 
 git_common_hooks_dir() {

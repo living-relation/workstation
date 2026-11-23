@@ -22,9 +22,9 @@ memory to local files. A "remember" in Cowork saved a topic to account **online 
 since 2026-10-19. App data for that install lives under `%LOCALAPPDATA%\Claude-Data\claude_<id>`
 (older copies may still be under `%APPDATA%\Claude` or the Store package path).
 
-- **Claude Code file store** (`<Projects>\_claude\Claude Projects\Working Memory\memory\`) holds each
-  project's live state (`STATE.md`, `STATE-<slug>.md`, `BACKLOG.md`, `archives\`) plus preference and fact
-  notes. The repo holds the router `AGENTS.md`, SPEC, DECISIONS, rules and data. Claude Code reaches the store
+- **Claude Code file store** (`<Projects>\_claude\Claude Projects\Working Memory\memory\`) holds notes
+  only (preferences, machine facts, gotchas). Since 2026-11-22 the repo holds the router `AGENTS.md`, SPEC,
+  DECISIONS, rules, data and live state (`STATE.md`, `STATE-<slug>.md`, `BACKLOG.md`, `archives/`). Claude Code reaches the store
   through the `autoMemoryDirectory` junction. The guard hook keeps that junction.
 - **Claude online Memory** is account-level facts about the user. It is separate and not synced with the file store.
 - The **work account** is very likely the same and is **unverified**.

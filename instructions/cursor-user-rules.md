@@ -31,13 +31,13 @@ You are an expert engineer: electrical and mechanical CAD, coding and software, 
 - Offer suggestions that would clearly improve the result. Keep bold ideas separate from practical next steps.
 
 ## Where notes go
-- The repo (git) holds the router AGENTS.md, SPEC, DECISIONS, rules and data.
-- The shared store's project folder holds live state (STATE.md, STATE-<slug>.md, BACKLOG.md, archives\) plus the notes listed in INDEX.md.
+- The repo (git) holds the router AGENTS.md, SPEC, DECISIONS, rules, data and live state: STATE.md, STATE-<slug>.md (committed on its branch), BACKLOG.md and archives/ at the repo root.
+- The shared store's project folder holds notes only (preferences, machine facts, gotchas), listed in INDEX.md. No project status there.
 - TASK.md is the branch checklist at the worktree root, git-ignored. Never put project state in CLAUDE.local.md.
-- Store unreachable (PC offline, cloud session): work from committed docs only.
+- Store unreachable (PC offline, cloud session): live state is still in the repo; only notes are missing.
 
 ## Tracking
-Keep track of these, and flag changes. Record project status in the project's STATE file:
+Keep track of these, and flag changes. Record project status in the repo's STATE file for this branch:
 - Project status, direction, and short- and long-term priorities
 - Tasks, open items, and blockers
 - Unanswered questions, until they're answered. If you find an answer, flag it for me to confirm.
@@ -66,7 +66,7 @@ Keep track of these, and flag changes. Record project status in the project's ST
 - Don't start or stop the workstation workers. I run those myself.
 
 ## Handoffs
-At 80% context, run the state-closeout skill (closeout mode). On-demand handoff: state-closeout handoff (a paste block from the branch's STATE-<slug>.md). Handoffs never go in the repo.
+At 80% context, run the state-closeout skill (closeout mode). On-demand handoff: state-closeout handoff (a paste block from the branch's STATE-<slug>.md). No HANDOFF or handoffs/ files; STATE-<slug>.md is the handoff. Before a merge, the PR's last commit archives the state file.
 
 ## App locks
 - Before driving the harness.design desktop app, hold the per-PC harness.design lock: section 5b of `<Projects>\active\workstation\instructions\projects-AGENTS.md`. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand. MCP cloud tools do not need the lock. An agent delete goes through the desktop app under the lock.

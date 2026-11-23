@@ -671,7 +671,7 @@ if ($settingsOk) {
   }
 
   # PreToolUse: same script warns (never blocks) when a Write/Edit puts project progress in a store note (INDEX.md);
-  # STATE, STATE-<slug> and BACKLOG are the store's live-state files (tier rule).
+  # STATE, STATE-<slug>, BACKLOG and archives written in the store warn too: live state lives in the repo (decision 2026-11-22).
   if (-not $DeferHook) {
     if (-not $settings.PSObject.Properties['hooks'] -or -not $settings.hooks) {
       if ($settings.PSObject.Properties['hooks']) { $settings.hooks = New-Object psobject } else { $settings | Add-Member -NotePropertyName hooks -NotePropertyValue (New-Object psobject) }

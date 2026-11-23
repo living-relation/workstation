@@ -1,5 +1,5 @@
-# Dot-sourced by hooks/tests/test-state-*.ps1. Temp folders and a fake memory store only
-# (WORKSTATION_MEMORY_STORE); never reads or writes the real store or the real profile.
+# Dot-sourced by hooks/tests/test-state-*.ps1. Temp folders (temp repos, and a fake notes store where a
+# test needs one via WORKSTATION_MEMORY_STORE); never reads or writes the real store or the real profile.
 # The state tools come from WORKSTATION_STATE_TOOLS, else this repo's scripts/state.
 $ErrorActionPreference = 'Stop'
 $script:fail = 0

@@ -8,7 +8,7 @@ description: >-
 **In one line:** figure out where the project really stands, change nothing, then say so in one short note.
 
 ## When to use
-Finds the project's true current state cheaply, detects whether the last session was cut off (usage limit, crash), runs git-checker and a cheap drift check, lists the store's STATE files, reports, then asks before each follow-up (repo-cleanup, iterative-cleaning, fixes, state-closeout, PR hook install). Those follow-ups do not run on their own. Any project folder.
+Finds the project's true current state cheaply, detects whether the last session was cut off (usage limit, crash), runs git-checker and a cheap drift check, lists the repo's STATE files, reports, then asks before each follow-up (repo-cleanup, iterative-cleaning, fixes, state-closeout, PR hook install). Those follow-ups do not run on their own. Any project folder.
 
 Works the same in Grok, Claude Code and Cursor. It runs when the user calls it ("run session-start"), and a coordinator also runs it at the start of every session and after every compaction (coordinator-kit). The SessionStart hook only prints the state; it does not replace this skill.
 
@@ -19,14 +19,14 @@ Works the same in Grok, Claude Code and Cursor. It runs when the user calls it (
 ## Hard rules
 - **Steps 1-7 are read-only**, except the CLAUDE fold-and-delete below. No other edits, commits, pulls, pushes, deletes or lock releases. Anything else happens only in step 8, after the user says yes: repo changes through **safe-repo-preflight** (branch + PR, never force-push, never skip hooks, every deletion waits for the user's yes); STATE changes through **state-closeout**.
 - **`AGENTS.md` is the only agent instruction file.** If any `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` is found in the repo, fold its content into `AGENTS.md` (keep every rule, drop exact duplicates), then delete the CLAUDE file, in the same PR. That fold-and-delete is pre-approved by Dan. Do not read or write those CLAUDE files for any other reason. Do it on the task branch, with hooks. Do not do it on `main`.
-- **Read-only helper session** (not the coordinator, no branch or job of its own): run steps 1-7 only, write no STATE file, append findings to the store `BACKLOG.md` with the date and source, and report to the user. Any change goes to the coordinator.
+- **Read-only helper session** (not the coordinator, no branch or job of its own): run steps 1-7 only, write no STATE file, put findings for `BACKLOG.md` in the report (with the date and source) for the coordinator to append, and report to the user. Any change goes to the coordinator.
 - **Follow-ups are not automatic.** The read-only checks run on their own. Every action step in step 8 is one clear question to the user, quoting the finding that triggered it; run it only on his yes. A no or a dismissed question is final for this session.
 - **Only this skill offers the chain.** Every other skill run alone does only its own job and may just suggest the next one.
 - **Never read or print secrets** (`.env*` values, tokens, keys).
 - **Files beat chat memory.** If Claude/Cursor memory disagrees with the repo or the STATE file, trust the files and flag the stale memory.
 - **A resumed chat is a new session.** Reopening an old chat (any age) means running this skill fresh. Treat everything from the earlier chat — its summary, its notes, what it "already knows" — as stale until re-read from the files this session.
 - **No memory-only claims.** Every fact in the note and report names the file it came from, opened this session. If you can't open it, write "not verified: <claim>" instead of stating it.
-- **Report factual contradictions, do not guess them.** Contradictions between facts go in the note as open questions for the user. A conflict between an older agent doc and the workstation-core template (`AGENTS.md` router, state-init profiles, store STATE) is not a blocker and not a reason to stop: step 8 offers state-init or repo-cleanup to migrate it.
+- **Report factual contradictions, do not guess them.** Contradictions between facts go in the note as open questions for the user. A conflict between an older agent doc and the workstation-core template (`AGENTS.md` router, state-init profiles, repo STATE) is not a blocker and not a reason to stop: step 8 offers state-init or repo-cleanup to migrate it.
 
 ---
 
@@ -36,9 +36,9 @@ Works the same in Grok, Claude Code and Cursor. It runs when the user calls it (
 1. **Router:** root `AGENTS.md`, then the nearest nested `AGENTS.md` above the folder you'll work in (closest wins). If a `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` is in the repo, follow the fold-and-delete rule above before other work.
 2. **DECISIONS**, where the router's role table says. Never skipped.
 3. **SPEC**, if the repo has one (Full profile).
-4. **STATE** in the store: `python <workstation>/scripts/state/state_paths.py` gives the project folder. On main: `STATE.md`. On a branch or worktree: `STATE-<slug>.md` (fall back to `STATE.md` if it doesn't exist yet). Store unreachable (PC offline, cloud session): say so and work from committed docs.
+4. **STATE** in the repo (decision 2026-11-22): `python <workstation>/scripts/state/state_paths.py` gives the state folder (this worktree's root). On main: `STATE.md`. On a branch or worktree: `STATE-<slug>.md` (fall back to `STATE.md` if it doesn't exist yet). Then the store's notes, `<project>/INDEX.md` (notes only); store unreachable (PC offline, cloud session): say so; live state is still in the repo.
 5. Every other doc the router names as source of truth, read in full; `README.md`; `.cursor/rules/*.mdc` with `alwaysApply: true`. List each in the note with its last-changed date. Any named doc you couldn't read, or read only partly, goes in the note as a gap.
-6. **List every `STATE-*.md`** in the project folder with its branch. Flag any line with `(carried 2)` or more (it must graduate), and any STATE-<slug> whose branch is merged or gone (archive it with `state_manager.py archive-branch`, on a yes).
+6. **List every branch's `STATE-<slug>.md`** with `python <workstation>/scripts/state/state_manager.py branches --show` (pushed branches through `git fetch --prune` + `git show origin/<branch>:STATE-<slug>.md`, unpushed ones from each worktree). Flag any line with `(carried 2)` or more (it must graduate), and any top-level `STATE-*.md` on the trunk (`state_manager.py verify` flags it): archive the state file in a PR, on a yes.
 
 Skip: `node_modules`, build output, caches, archive/`old` folders, other worktrees' copies, other modules' agent files.
 
@@ -108,14 +108,14 @@ Cleanup needed, see CLEANUP-PLAN.md      <- only if a threshold in step 8 is cro
 
 | # | Threshold | How to check |
 |---|---|---|
-| T1 | More than one file of the same role (decisions, spec, plan) beyond the one the role table names; a state, handoff or progress file inside the repo | case-insensitive file names (`state*`, `decisions*`, `*plan*`, `open-items*`, `handoff*`); the one named file per role is not a duplicate; part specs and CAD pages that only contain "plan" in the name count only if they hold status or decisions |
+| T1 | More than one file of the same role (decisions, spec, plan) beyond the one the role table names; a handoff, open-items or progress file inside the repo other than the template's `STATE.md`, `STATE-<slug>.md`, `BACKLOG.md` and `archives/` | case-insensitive file names (`state*`, `decisions*`, `*plan*`, `open-items*`, `handoff*`); the one named file per role is not a duplicate; part specs and CAD pages that only contain "plan" in the name count only if they hold status or decisions |
 | T3 | Any non-main branch or worktree (merged, unmerged or prunable) not marked keep at the last cleanup | git-checker notes, `git branch -a`, `git worktree list`, `Kept_Branches` in STATE Pointers |
 | T4 | Any `STALE-OUTPUT`, `ORPHAN-SCRIPT`, `UNDECLARED-OUTPUT` or `DUPLICATE-OUTPUT`, or scripts/workflows but no `automation.yml` | git-checker Generated outputs / registry check |
 | T5 | Docs changed since last cleanup commit | `git diff --name-only <last-cleanup>..HEAD -- '*.md' docs/` non-empty |
 | T6 | Task cards without status lines, rules repeated across agent files, or read-first / auto-loaded lookup-only content | step 1 reads |
 | T7 | After-merge / "not done here" steps from merged PRs missing from STATE, TASK.md and BACKLOG | PR bodies (and their `State:` lines) since last cleanup |
-| T8 | Project progress (where work stopped, next steps, open items) in `INDEX.md` notes or other local agent memory instead of the store's STATE files | read-only scan of the agent's local memory/notes for this project's name or path |
-| T9 | A STATE line with `(carried 2)` or more, or a STATE-<slug> for a merged or gone branch | step 1.6 |
+| T8 | Project progress (where work stopped, next steps, open items) in `INDEX.md` notes, a store `STATE*.md` / `BACKLOG.md`, or other local agent memory instead of the repo's STATE files | read-only scan of the agent's local memory/notes for this project's name or path |
+| T9 | A STATE line with `(carried 2)` or more, or a top-level STATE-<slug> left on the trunk | step 1.6 |
 
 T2 is retired; the other numbers stay the same so older notes still match.
 
@@ -126,9 +126,9 @@ Report the findings first, then ask one question per step below, in order, each 
 **c. Docs sweep (T5).** Ask: "Docs changed since last cleanup: <files>. Run **iterative-cleaning** (report-only)?"
 **d. Fixes (T4 or approved cleanup results).** Ask: "Fix <item> on a branch + PR via **safe-repo-preflight**?" No force-push; each deletion is its own yes.
 **d2. Automation registry (T4).** If there's no `automation.yml`, ask: "This repo has <N> scripts/workflows and no automation registry. Run repo-cleanup's automation inventory to draft one (read-only until you approve)?" Installing `registry-check.py` with the hook is part of the hook question below.
-**d3. Graduate (T9).** Ask: "<file> has <line> carried 2 runs (or its branch is gone). Run **state-closeout** (or archive it)?"
+**d3. Graduate (T9).** Ask: "<file> has <line> carried 2 runs (or is a branch state file left on the trunk). Run **state-closeout** (or archive the state file in a PR)?"
 **e. Hook.** If no graduation-check hook is installed, show the git-checker **Install question** word for word. On yes, install the chosen mode as its own PR via safe-repo-preflight. On no: nothing is installed, note `Hook: declined <date>` in the chat note, never re-ask this session; ask again only on a later session-start. Once merged, the hook runs on every PR by itself.
-**e2. Progress in the wrong place (T8).** Live state goes in the store's STATE files. Ask: "<file> holds project progress: <note + line>. Run **state-closeout** to tag it and move it to its home? Delete the old copy after that?" Move it only on yes. Never delete a memory note without its own yes.
+**e2. Progress in the wrong place (T8).** Live state goes in the repo's STATE files. Ask: "<file> holds project progress: <note + line>. Run **state-closeout** to tag it and move it to its home? Delete the old copy after that?" Move it only on yes. Never delete a memory note without its own yes.
 **f. Stopped early?** If this session runs out of room mid-chain, run **state-closeout** `handoff` (or say so in the last reply if there's no room).
 
 ### 9. Tell the user, then start the real work
@@ -138,12 +138,12 @@ Show the note. Then follow the user's instructions for the actual task.
 
 ## Rules for the working session (after session start)
 Tell the agent these, and follow them:
-1. **Keep your own STATE file current** after every finished step: overwrite it (30 lines max), never wait for the end. Finished steps are `[DONE]` and leave it. Never log progress in memory or in the repo.
+1. **Keep your own STATE file current** after every finished step: overwrite it (30 lines max), never wait for the end, and commit it on your branch. Finished steps are `[DONE]` and leave it. Never log progress in memory or in any repo file other than your STATE file.
 2. **Give the path** of any saved output (plan, report, file) in the `[NEXT]` line or the report.
 3. **After opening a PR**, run pr-closeout.
 4. **Every task card gets a status line** (`Status: open` / `Status: done <date>`).
 5. **Decisions go in DECISIONS** as `[ADR]` entries; how-to constraints go in `.claude/rules/` as `[RULE]`s.
-6. **Handoffs:** run `state-closeout handoff`. No handoff files in the repo.
+6. **Handoffs:** run `state-closeout handoff`. No `HANDOFF` or `handoffs/` files; `STATE-<slug>.md` is the handoff.
 7. **Finished to-dos:** delete them from `TASK.md`.
 8. Before ending a turn at a milestone, or opening a PR, run state-closeout; if nothing changed, end with "State: no change."
 

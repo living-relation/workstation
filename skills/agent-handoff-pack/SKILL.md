@@ -13,6 +13,6 @@ This skill is now a thin forward. Run **state-closeout** instead:
 | resume mode | **session-start** (it reads your STATE file and confirms in 3 lines) |
 
 What changed:
-- The handoff is your `STATE-<slug>.md` in the store, not a file in the repo. The paste block that `handoff` mode prints is a copy, not a second store.
-- Do not write handoff files or a handoff folder in the repo, and no handoff in memory.
+- The handoff is your `STATE-<slug>.md` at the repo root, committed and pushed on your branch. The paste block that `handoff` mode prints is a copy, not a second store.
+- No HANDOFF/handoffs files; STATE-<slug> is the handoff. No handoff in memory.
 - A repo that still has old handoff files: run **repo-cleanup**, which tags each line and moves it to its home (or drops it as `[DONE]`).

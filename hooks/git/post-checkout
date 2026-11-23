@@ -1,8 +1,9 @@
 #!/bin/sh
-# State pack post-checkout. On a branch checkout (flag 1), creates STATE-<branch-slug>.md in the
-# memory store for a non-trunk branch if it is missing (state_manager.py new-branch; it never
-# writes the root STATE.md). File checkouts, trunk branches, a detached HEAD, an unreachable
-# store or a repo that is not migrated do nothing. Never blocks. Then runs the repo's own post-checkout.
+# State pack post-checkout. On a branch checkout (flag 1), creates STATE-<branch-slug>.md at the
+# worktree root for a non-trunk branch if it is missing (state_manager.py new-branch; it never
+# writes the root STATE.md). The new file is untracked: commit it on that branch. File checkouts,
+# trunk branches, a detached HEAD or a repo with no STATE.md (not migrated) do nothing. Never blocks.
+# Then runs the repo's own post-checkout.
 HOOK_DIR=$(cd "$(dirname "$0")" && pwd)
 . "$HOOK_DIR/state-hook-lib.sh"
 if [ "$3" = "1" ] && ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && state_ready; then

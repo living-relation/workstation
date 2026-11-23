@@ -1,25 +1,24 @@
 # State git hooks
 
-Per-repo git hooks for live state in the memory store. They call the workstation state tools
+Per-repo git hooks for live state in the repo (decision 2026-11-22). They call the workstation state tools
 (`scripts/state/`); they never reimplement them.
 
 | Hook | Does |
 |---|---|
 | `pre-commit` | Blocks the commit when this branch's STATE file breaks STATE schema v1 (`state_lint.py`), or when `VERIFIED.lock` exists and a locked file changed (`deliverable_lock.py verify`). |
 | `post-checkout` | On a branch checkout, creates `STATE-<branch-slug>.md` if it is missing (`state_manager.py new-branch`). |
-| `post-merge` | After `git merge <branch>` into the trunk (`main`, `master`, `trunk`, or the default named by `origin/HEAD`), archives that branch's STATE file (`state_manager.py archive-branch`), then removes the branch's untracked `TASK.md`. A merge into a stacking or feature branch does nothing. |
+| `post-merge` | After `git merge <branch>` into the trunk (`main`, `master`, `trunk`, or the default named by `origin/HEAD`), removes the branch's untracked `TASK.md`, and warns (never edits) when a top-level `STATE-*.md` is on the trunk. A merge into a stacking or feature branch does nothing. |
 
 `pre-commit` also runs `sot_guard.py check` when the repo has `.claude/sot.json`: a changed source of truth must pass every check its entry lists, and a generated (derived) file may change only with its source.
 
 No hook writes the root `STATE.md`: it has one writer, the coordinator, and its `Branch_States` line
 is generated (`state_manager.py branches`).
 
-`post-merge` sees only a local `git merge <branch>`. A squash merge or a rebase merge on GitHub, and
-the `git pull` that brings it in, name no branch, so the hook cannot tell which STATE file to archive.
-Archiving then happens through `pr-closeout` / `state-closeout` (`state_manager.py archive-branch`).
+No hook archives a state file. The PR's last commit does that (`pr-closeout` step 6,
+`state_manager.py archive-branch`), and the `state-files-gate` CI check blocks a PR that skips it.
 
 `state-hook-lib.sh` is shared by the three. Each hook skips its state steps (and never fails) when the
-store is unreachable, the repo has no project folder yet, or the tools or Python 3 are missing. Then it
+repo is not migrated yet (no `STATE.md` at the worktree root), or the tools or Python 3 are missing. Then it
 runs the repo's own hook of the same name, so the pack adds to a repo's hooks instead of replacing them:
 from `workstation.chainHooksPath` when set, else from `<git-common-dir>/hooks` (the repo's `.git/hooks`,
 so an existing setup there, such as the pre-commit framework, keeps running). An executable chained

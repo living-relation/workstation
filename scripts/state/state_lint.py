@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Lint STATE files against STATE schema v1. Stdlib only.
 
-Usage: state_lint.py FILE | --project NAME | --repo DIR   [--store DIR]
+Usage: state_lint.py FILE | --repo DIR
   FILE       lint one file
-  --project  lint STATE.md and STATE-*.md in <store>/<NAME>/ (archives are skipped)
-  --repo     same, for the project the repo (or worktree) belongs to
-Exit: 0 = OK (also when the store or project folder is unreachable: note on stderr), 2 = violation.
+  --repo     lint STATE.md and STATE-*.md at the root of the repo (or worktree) DIR (archives/ is skipped)
+Exit: 0 = OK (also when DIR is not a git repo or has no STATE.md yet: note on stderr), 2 = violation.
 """
 import argparse
 import re
@@ -115,25 +114,18 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Lint STATE files (schema v1).")
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("file", nargs="?")
-    target.add_argument("--project")
     target.add_argument("--repo")
-    parser.add_argument("--store", help="store root (overrides the normal resolution)")
     args = parser.parse_args(argv)
 
     if args.file:
         files = [Path(args.file)]
     else:
-        store = Path(args.store) if args.store else state_paths.find_store()
-        if not state_paths.store_reachable(store):
-            _note("store unreachable (%s); nothing linted" % store)
-            return 0
-        project = args.project if args.project else state_paths.project_name(args.repo)
-        if not project:
+        folder = state_paths.state_dir(args.repo)
+        if folder is None:
             _note("not a git repo: %s; nothing linted" % args.repo)
             return 0
-        folder = state_paths.project_dir(store, project)
-        if not folder.is_dir():
-            _note("no project folder %s; nothing linted" % folder)
+        if not state_paths.repo_migrated(folder):
+            _note("no %s in %s (repo not migrated); nothing linted" % (state_paths.ROOT_STATE, folder))
             return 0
         files = project_files(folder)
 
