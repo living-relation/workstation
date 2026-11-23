@@ -4,8 +4,8 @@
 # Claude Code: a violation prints the problems to stderr and exits 2, which blocks the stop once so the
 #   agent fixes the file. stop_hook_active (a stop already blocked) exits 0, so it never loops.
 # Cursor: a violation prints one {"followup_message": ...} line; a later loop (loop_count >= 1) stays quiet.
-# Exit 0 with no output when: not a git repo, no tools or Python, store unreachable, no project folder,
-# or no STATE file for this session. Never edits the file.
+# Exit 0 with no output when: not a git repo, no tools or Python, no STATE.md at the worktree root
+# (repo not migrated), or no STATE file for this session. Never edits the file.
 . (Join-Path $PSScriptRoot 'state-common.ps1')
 
 function Test-StopLoop {
@@ -27,7 +27,7 @@ if ($MyInvocation.InvocationName -ne '.') {
     $cwd = Get-StateHookCwd $hookIn
     if (-not $cwd) { exit 0 }
     $info = Get-StatePathInfo $cwd
-    if (-not $info -or -not $info.store_reachable) { exit 0 }
+    if (-not $info -or -not $info.state_ready) { exit 0 }
     $target = [string]$info.state_file
     if (-not $target -or -not (Test-Path -LiteralPath $target -PathType Leaf)) { exit 0 }
     $result = Invoke-StateTool 'state_lint.py' @($target)

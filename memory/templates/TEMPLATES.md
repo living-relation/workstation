@@ -35,7 +35,7 @@ junction. A leftover from an older Cowork / Chat setup is harmless.
 The Claude instruction texts (account Instructions for Claude and the old Cowork Global instructions) are not
 templates: they are in the package's `instructions\` folder, have no placeholders, and are pasted by hand once
 per account (MIGRATION.md step f). They must never hold `{{PROJECTS_ROOT}}`, `{{USERPROFILE}}` or `{{USERNAME}}`.
-Local Working Memory is still the project source of truth for Claude Code, Cowork and Cursor (2026-11-05). Account Memory is a separate allowed store and is not synced. These texts must not point at `~\.claude\working-memory`.
+Since 2026-11-22 live project state (STATE, BACKLOG, archives) lives in each repo; local Working Memory keeps notes only (preferences, machine facts, gotchas) for Claude Code, Cowork and Cursor. Account Memory is a separate allowed store and is not synced. These texts must not point at `~\.claude\working-memory`.
 
 Toolkit files have no placeholders and are not copied: they run straight from the package folder named
 `PackageFolder` in `toolkit.psd1` inside the workstation repo clone. install.ps1 writes

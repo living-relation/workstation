@@ -1,7 +1,7 @@
 ## Memory
-Two stores, different jobs. Local Working Memory on each PC is the project source of truth for live project state and preference and fact notes (Claude Code, Cowork and Cursor). Account Memory (Settings > Your Claude > Memory) is allowed for general facts about me. Duplicates are OK. Never sync the two. Never treat account Memory as the project source of truth.
-Tiers: the repo (git) holds the router AGENTS.md, SPEC, DECISIONS, rules and data. The local store's project folder holds live state (STATE.md, STATE-<slug>.md, BACKLOG.md, archives\) plus the notes listed in INDEX.md. TASK.md is the branch checklist at the worktree root, git-ignored. Never put project state in account Memory.
-At 80% context, run the state-closeout skill (closeout mode). On-demand handoff: state-closeout handoff. Handoffs never go in the repo. Store unreachable (PC offline, cloud session): work from committed docs only.
+Two stores, different jobs. Local Working Memory on each PC holds preference and fact notes (Claude Code, Cowork and Cursor); live project state lives in each repo. Account Memory (Settings > Your Claude > Memory) is allowed for general facts about me. Duplicates are OK. Never sync the two. Never treat account Memory as the project source of truth.
+Tiers: the repo (git) holds the router AGENTS.md, SPEC, DECISIONS, rules, data and live state (STATE.md, STATE-<slug>.md committed on its branch, BACKLOG.md, archives/ at the repo root). The local store's project folder holds notes only (preferences, machine facts, gotchas), listed in INDEX.md. TASK.md is the branch checklist at the worktree root, git-ignored. Never put project state in account Memory or the local store.
+At 80% context, run the state-closeout skill (closeout mode). On-demand handoff: state-closeout handoff. No HANDOFF or handoffs/ files; STATE-<slug>.md is the handoff. Store unreachable (PC offline, cloud session): live state is still in the repo; only notes are missing.
 Do not look for a `~\.claude\working-memory` link. The local store's path is in that PC's Projects folder (`_claude\Claude Projects\Working Memory\memory`).
 
 ## Git and project folders

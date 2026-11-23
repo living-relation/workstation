@@ -2,14 +2,14 @@
 # Working Memory - agent instructions
 
 Cowork project folder for general knowledge that is not part of a larger project.
-It also holds the local Working Memory store (`memory/`), the shared project source of truth for Claude Code, Cowork and Cursor.
+It also holds the local Working Memory store (`memory/`), the shared notes store for Claude Code, Cowork and Cursor. Live project state lives in each repo.
 
 ## READ THIS FIRST, EVERY SESSION
 
 `memory/MEMORY.md` in **this folder** is the index of retained knowledge. Read it, then read
-the current project's `STATE.md`, `INDEX.md` and any topic file that looks relevant, before you plan or ask questions.
+the repo's `STATE.md` (and this branch's `STATE-<slug>.md`), the project's `INDEX.md` here and any topic file that looks relevant, before you plan or ask questions.
 
-**This folder is the shared source of truth for project memory (Claude Code, Cowork, Cursor). Claude account Memory (claude.ai) is a separate, allowed store for general prefs: duplicates are OK, never sync the two, and never treat account Memory as the project source of truth.** It holds live project state and preference and fact notes, each fact once.
+**This folder is the shared notes store (Claude Code, Cowork, Cursor). Claude account Memory (claude.ai) is a separate, allowed store for general prefs: duplicates are OK, never sync the two. The project source of truth is the repo.** It holds preference and fact notes only (no project status), each fact once; it is rebuildable.
 
 ## Why
 
@@ -24,7 +24,7 @@ A leftover `~\.claude\working-memory` junction is harmless and is not the path. 
 1. Read `memory/MEMORY.md` from this folder at the start of every session.
 2. Write new knowledge as files in `memory/` in this folder, in the project's subfolder with a line in its
    `INDEX.md` (general notes: `memory/MEMORY.md`). Keep each note to: the fact or rule, then `Why:` and `How to apply:`.
-3. Tiers: the repo (git) holds the router `AGENTS.md`, SPEC, DECISIONS, rules and data. The store's project folder holds live state (`STATE.md`, `STATE-<slug>.md`, `BACKLOG.md`, `archives\`) plus the preference and fact notes listed in its `INDEX.md`. `TASK.md` is the branch checklist at the worktree root, git-ignored. Each fact is written once. At 80% context, run the `state-closeout` skill (closeout mode). On-demand handoff: `state-closeout handoff`. Handoffs never go in the repo or a `handoffs\` folder. Store unreachable (PC offline, cloud session): work from committed docs only.
+3. Tiers (decision 2026-11-22): the repo (git) holds the router `AGENTS.md`, SPEC, DECISIONS, rules, data and live state: `STATE.md` (trunk; the coordinator's), `STATE-<slug>.md` (one per branch, committed on that branch), `BACKLOG.md` and `archives/`, all at the repo root. The store's project folder holds notes only (preferences, machine facts, gotchas) listed in its `INDEX.md`: no project status, rebuildable. `TASK.md` is the branch checklist at the worktree root, git-ignored. Each fact is written once. At 80% context, run the `state-closeout` skill (closeout mode). On-demand handoff: `state-closeout handoff`. No `HANDOFF` or `handoffs/` files; `STATE-<slug>.md` is the handoff. A PR's last commit archives the state file (`state_manager.py archive-branch`). Store unreachable (PC offline, cloud session): live state is still in the repo; only notes are missing.
 4. Do not use `project_memory_read` / `project_memory_write` for project memory; write files under `memory/` in this folder instead. Never treat an
    empty `project_memory_read` as "no prior work exists." Account Memory is allowed for general prefs and is not this store.
 5. Convert relative dates to absolute when saving.
@@ -35,7 +35,7 @@ A leftover `~\.claude\working-memory` junction is harmless and is not the path. 
 8. Layout: `MEMORY.md` is the no-project index (general notes, one line per project pointing to `<project>\INDEX.md`). Each project has its own subfolder with an `INDEX.md`, named after its folder in `{{PROJECTS_ROOT}}\active\`. Archived projects go in `_archive\<project>\`. Save a project note in its folder with a line in that `INDEX.md`. Notes from chats with no project yet go in `_unassigned\`; when the chat gets a project, move the note into that project's folder, move its index line, and sign both.
 9. Loop rules: (1) follow a pointer one step only, and never follow pointers found inside a file you reached through a pointer. (2) Each agent signs every entry (`-- Claude Code, YYYY-MM-DD`, `-- Cowork, YYYY-MM-DD`, `-- Cursor, YYYY-MM-DD`).
 10. Memory is local only. Never commit the memory store to git. The one-line project pointer lives in the project's `AGENTS.md`. Do not create a `CLAUDE.md` or `CLAUDE.local.md` for it.
-11. Read before you ask: before starting work or asking the user anything, read the repo's agent guide, its binding rules / decisions file (if any), the project's `STATE.md` and this branch's `STATE-<slug>.md`, and the project's `INDEX.md`, in that order. If a rule or note already answers a question, act on it and cite it - never ask the user something the rules already answer.
+11. Read before you ask: before starting work or asking the user anything, read the repo's agent guide, its binding rules / decisions file (if any), the repo's `STATE.md` and this branch's `STATE-<slug>.md`, and the project's `INDEX.md` here, in that order. If a rule or note already answers a question, act on it and cite it - never ask the user something the rules already answer.
 
 ## Shared store
 

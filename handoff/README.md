@@ -1,7 +1,7 @@
 # 80% handoff hooks
 
 When a chat gets close to its context limit, these hooks make the agent run the
-`state-closeout` skill once in closeout mode: tag what the session did, graduate each item to its home, queue the rest in `BACKLOG.md`, and rewrite this branch's STATE file in the memory store (`STATE.md` on trunk, `STATE-<branch-slug>.md` on a branch). A paste block for a new chat is `state-closeout` handoff mode, on demand. The skill does not push to main.
+`state-closeout` skill once in closeout mode: tag what the session did, graduate each item to its home, queue the rest in `BACKLOG.md`, and rewrite this branch's STATE file in the repo (`STATE.md` on trunk, `STATE-<branch-slug>.md` committed on a branch). No HANDOFF/handoffs files; STATE-<slug> is the handoff. A paste block for a new chat is `state-closeout` handoff mode, on demand. The skill does not push to main.
 `context-guard.ps1` still copies the transcript to `~\.claude\compaction-backups\` before compaction. That copy is a backup of the chat, not the handoff record.
 
 | File | Installed to | Wired in |

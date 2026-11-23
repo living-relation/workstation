@@ -1,20 +1,19 @@
 # Tests the hooks/git state pack (pre-commit, post-checkout, post-merge) in a temp repo whose
-# core.hooksPath points at hooks/git, with a fake store (WORKSTATION_MEMORY_STORE). Real git runs the hooks.
+# core.hooksPath points at hooks/git. Live state is committed in the repo. Real git runs the hooks.
 # Usage: powershell -NoProfile -File hooks/tests/test-state-git-hooks.ps1  (WORKSTATION_STATE_TOOLS = scripts/state)
 . (Join-Path $PSScriptRoot 'state-test-support.ps1')
 $pack = Join-Path $script:HooksDir 'git'
 $t = New-TestRoot 'state-git'
-$store = Join-Path $t 'store'
 $saved = @{ store = $env:WORKSTATION_MEMORY_STORE; tools = $env:WORKSTATION_STATE_TOOLS }
-$env:WORKSTATION_MEMORY_STORE = $store
+$env:WORKSTATION_MEMORY_STORE = Join-Path $t 'no-such-store'
 $env:WORKSTATION_STATE_TOOLS = $script:StateTools
 try {
   $repo = New-TestRepo $t 'pack-repo' $pack
-  $project = Join-Path $store 'pack-repo'
+  $project = $repo
   Write-TestFile (Join-Path $project 'STATE.md') (Get-GoodState 'main' 'GOAL' 0)
   Write-TestFile (Join-Path $project 'BACKLOG.md') "# BACKLOG`n"
   Write-TestFile (Join-Path $repo '.gitignore') "TASK.md`n"
-  [void](Invoke-Git $repo add .gitignore)
+  [void](Invoke-Git $repo add .gitignore STATE.md BACKLOG.md)
   $c = Invoke-Git $repo commit -q -m ignore
   Check 'good STATE: commit on main passes' ($c.Code -eq 0)
   function Get-CommitCount { [int]((Invoke-Git $repo rev-list --count HEAD).Out.Trim()) }
@@ -29,6 +28,7 @@ try {
   Write-TestFile (Join-Path $repo 'README.md') "changed`n"
   [void](Invoke-Git $repo checkout -q -- README.md)
   Check 'post-checkout: a file checkout makes no branch file' (@(Get-ChildItem -LiteralPath $project -Filter 'STATE-*.md').Count -eq 1)
+  Check 'post-checkout: the new branch file is untracked (commit it on the branch)' ((Invoke-Git $repo status --porcelain).Out -match '\?\? STATE-feat-x\.md')
 
   Write-TestFile $branchFile (Get-GoodState 'feat/x' 'GOAL' 10)
   $before = Get-CommitCount
@@ -89,18 +89,34 @@ try {
   $c = Invoke-Git $repo commit -q -m 'e2'
   Check 'pre-commit: passes once the .git/hooks gate is gone' ($c.Code -eq 0)
 
+  [void](Invoke-Git $repo add STATE-feat-x.md)
+  $c = Invoke-Git $repo commit -q -m 'branch state'
+  Check 'branch state commits on its branch' ($c.Code -eq 0)
+  $a = & $py (Join-Path $script:StateTools 'state_manager.py') archive-branch --repo $repo 2>&1
+  $c = Invoke-Git $repo commit -q -m 'archive the state file'
+  $archived = @(Get-ChildItem -LiteralPath (Join-Path $project 'archives') -Filter 'STATE-feat-x-*.md' -ErrorAction SilentlyContinue)
+  Check 'archive-branch + commit: last commit moves the state file to archives/' ($c.Code -eq 0 -and $archived.Count -eq 1 -and -not (Test-Path -LiteralPath $branchFile))
   Write-TestFile (Join-Path $repo 'TASK.md') "- [ ] task`n"
   [void](Invoke-Git $repo checkout -q main)
   $m = Invoke-Git $repo merge --no-ff -q -m 'merge feat/x' feat/x
-  $archived = @(Get-ChildItem -LiteralPath (Join-Path $project 'archives') -Filter 'STATE-feat-x-*.md' -ErrorAction SilentlyContinue)
-  Check 'post-merge: STATE-feat-x.md archived' ($m.Code -eq 0 -and $archived.Count -eq 1 -and -not (Test-Path -LiteralPath $branchFile))
+  Check 'post-merge: archived branch merges with no warning' ($m.Code -eq 0 -and $m.Out -notmatch 'branch state file on the trunk')
   Check 'post-merge: root STATE.md is not written' ([IO.File]::ReadAllText($rootState) -ceq $rootBefore)
   Check 'post-merge: TASK.md removed' (-not (Test-Path -LiteralPath (Join-Path $repo 'TASK.md')))
+
+  [void](Invoke-Git $repo checkout -q -b feat/leftover)
+  [void](Invoke-Git $repo add STATE-feat-leftover.md)
+  [void](Invoke-Git $repo commit -q -m 'leftover state')
+  [void](Invoke-Git $repo checkout -q main)
+  $m = Invoke-Git $repo merge --no-ff -q -m 'merge feat/leftover' feat/leftover
+  Check 'post-merge: a state file left on the trunk is warned about, not edited' ($m.Code -eq 0 -and $m.Out -match 'STATE-feat-leftover\.md is a branch state file on the trunk' -and (Test-Path -LiteralPath (Join-Path $repo 'STATE-feat-leftover.md')))
+  [void](Invoke-Git $repo rm -q STATE-feat-leftover.md)
+  [void](Invoke-Git $repo commit -q -m 'test cleanup')
 
   [void](Invoke-Git $repo checkout -q -b feat/wt-base)
   $wt = Join-Path $t 'wt-z'
   [void](Invoke-Git $repo worktree add -q -b feat/z $wt)
-  Check 'post-checkout: worktree add creates STATE-feat-z.md (main repo project)' (Test-Path -LiteralPath (Join-Path $project 'STATE-feat-z.md'))
+  Check 'post-checkout: worktree add creates STATE-feat-z.md in that worktree' ((Test-Path -LiteralPath (Join-Path $wt 'STATE-feat-z.md')) -and -not (Test-Path -LiteralPath (Join-Path $repo 'STATE-feat-z.md')))
+  Remove-Item -LiteralPath (Join-Path $wt 'STATE-feat-z.md') -Force
   Write-TestFile (Join-Path $wt 'TASK.md') "- [ ] z`n"
   Write-TestFile (Join-Path $wt 'z.txt') "z`n"
   [void](Invoke-Git $wt add z.txt)
@@ -117,18 +133,20 @@ try {
   [void](Invoke-Git $repo commit -q -m s)
   [void](Invoke-Git $repo checkout -q feat/stack-base)
   $m = Invoke-Git $repo merge --no-ff -q -m 'merge feat/stack-top' feat/stack-top
-  Check 'post-merge into a feature branch: nothing archived' ($m.Code -eq 0 -and (Test-Path -LiteralPath (Join-Path $project 'STATE-feat-stack-top.md')))
+  Check 'post-merge into a feature branch: no trunk warning' ($m.Code -eq 0 -and $m.Out -notmatch 'on the trunk')
   Check 'post-merge into a feature branch: TASK.md kept' (Test-Path -LiteralPath (Join-Path $repo 'TASK.md'))
   Remove-Item -LiteralPath (Join-Path $repo 'TASK.md') -Force
   [void](Invoke-Git $repo checkout -q main)
 
-  $env:WORKSTATION_MEMORY_STORE = Join-Path $t 'no-such-store'
-  $r = Invoke-Git $repo checkout -q -b feat/offline
-  Check 'store unreachable: checkout works, nothing created' ($r.Code -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $t 'no-such-store')))
-  Write-TestFile (Join-Path $repo 'd.txt') "d`n"
-  [void](Invoke-Git $repo add d.txt)
-  $c = Invoke-Git $repo commit -q -m 'offline'
-  Check 'store unreachable: commit passes' ($c.Code -eq 0)
+  Get-ChildItem -LiteralPath $repo -Filter 'STATE-*.md' | Remove-Item -Force
+  $plain = New-TestRepo $t 'unmigrated-repo' $pack
+  $r = Invoke-Git $plain checkout -q -b feat/offline
+  Check 'unmigrated repo: checkout works, nothing created' ($r.Code -eq 0 -and @(Get-ChildItem -LiteralPath $plain -Filter 'STATE*.md').Count -eq 0)
+  Write-TestFile (Join-Path $plain 'd.txt') "d`n"
+  [void](Invoke-Git $plain add d.txt)
+  $c = Invoke-Git $plain commit -q -m 'offline'
+  Check 'unmigrated repo: commit passes' ($c.Code -eq 0)
+  Check 'notes store unreachable: state still lives in the repo' (-not (Test-Path -LiteralPath (Join-Path $t 'no-such-store')))
   [void](Invoke-Git $repo worktree remove --force $wt)
 } finally {
   $env:WORKSTATION_MEMORY_STORE = $saved.store

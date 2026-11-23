@@ -9,10 +9,10 @@
 #      # starts a comment).
 # Ask before a shell command that runs deliverable_lock.py unlock (this ask is the owner's real gate).
 # Ask before any Write / Edit of VERIFIED.lock itself (only deliverable_lock.py writes it).
-# A SPEC file asks only when the repo is migrated (its store project folder has STATE.md).
-# Deny a write to another branch's STATE-<slug>.md in the memory store (only STATE-<own slug>.md is this
-#   session's; archives\ are not judged here). Ask before a write to the project's root STATE.md when
-#   this session's own file is a STATE-<slug>.md (one writer: the coordinator).
+# A SPEC file asks only when the repo is migrated (its worktree root has STATE.md).
+# Deny a write to another branch's STATE-<slug>.md at a worktree root of the same repo (only
+#   STATE-<own slug>.md is this session's; archives/ are not judged here). Ask before a write to the
+#   root STATE.md when this session's own file is a STATE-<slug>.md (one writer: the coordinator).
 # Allow everything else. Claude Code: only hookSpecificOutput; allow prints nothing. Cursor: only
 #   {"permission", "user_message", "agent_message"}, one line every run. Rule: agents may edit these
 #   files, only with the owner's explicit yes, and checks prove each edit; the one hard block is another
@@ -176,19 +176,31 @@ function Find-ProtectedReason {
 function Test-GuardRepoMigrated {
   param([string]$Root)
   $info = Get-StatePathInfo $Root
-  if (-not $info -or -not $info.store_reachable -or -not $info.project_dir) { return $false }
-  return (Test-Path -LiteralPath (Join-Path ([string]$info.project_dir) 'STATE.md') -PathType Leaf)
+  if (-not $info) { return $false }
+  return [bool]$info.state_ready
+}
+
+# The target's own repo info when the file sits directly at a worktree root of the same main repo
+# as this session (a STATE file location); else $null.
+function Get-SameRepoStateRootInfo {
+  param([string]$FullPath, $Info)
+  $parent = Split-Path $FullPath -Parent
+  if (-not $parent -or -not (Test-Path -LiteralPath $parent -PathType Container)) { return $null }
+  $other = Get-StatePathInfo $parent
+  if (-not $other -or -not $other.state_dir -or -not $other.repo_root) { return $null }
+  if ((ConvertTo-GuardKey ([IO.Path]::GetFullPath([string]$other.state_dir))) -ne (ConvertTo-GuardKey ([IO.Path]::GetFullPath($parent)))) { return $null }
+  if ((ConvertTo-GuardKey ([string]$other.repo_root)) -ne (ConvertTo-GuardKey ([string]$Info.repo_root))) { return $null }
+  return $other
 }
 
 function Find-RootStateFromBranch {
   param([string]$FullPath, [string]$Cwd)
   if ((Split-Path $FullPath -Leaf) -ine 'STATE.md') { return $null }
   $info = Get-StatePathInfo $Cwd
-  if (-not $info -or -not $info.project_dir -or -not $info.state_file) { return $null }
+  if (-not $info -or -not $info.state_dir -or -not $info.state_file) { return $null }
   $mine = Split-Path ([string]$info.state_file) -Leaf
   if ($mine -ieq 'STATE.md') { return $null }
-  $rootKey = ConvertTo-GuardKey ([IO.Path]::GetFullPath((Join-Path ([string]$info.project_dir) 'STATE.md')))
-  if ((ConvertTo-GuardKey $FullPath) -ne $rootKey) { return $null }
+  if (-not (Get-SameRepoStateRootInfo $FullPath $info)) { return $null }
   return "$FullPath is the project's root STATE, owned by the coordinator. This session (branch '$($info.branch)') writes $mine; ask before touching the root STATE"
 }
 
@@ -197,12 +209,9 @@ function Find-OtherBranchState {
   $leaf = Split-Path $FullPath -Leaf
   if ($leaf -notmatch '(?i)^STATE-.+\.md$') { return $null }
   $info = Get-StatePathInfo $Cwd
-  if (-not $info -or -not $info.store) { return $null }
-  $storeKey = ConvertTo-GuardKey ([IO.Path]::GetFullPath([string]$info.store))
+  if (-not $info -or -not $info.state_file) { return $null }
+  if (-not (Get-SameRepoStateRootInfo $FullPath $info)) { return $null }
   $key = ConvertTo-GuardKey $FullPath
-  if (-not $key.StartsWith($storeKey + '/')) { return $null }
-  $rel = $key.Substring($storeKey.Length + 1)
-  if ($rel -notmatch '^[^/]+/state-[^/]+\.md$') { return $null }
   $own = ConvertTo-GuardKey ([IO.Path]::GetFullPath([string]$info.state_file))
   if ($key -eq $own) { return $null }
   $mine = Split-Path ([string]$info.state_file) -Leaf

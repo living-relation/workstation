@@ -29,7 +29,7 @@ Follow `<projects>\AGENTS.md`: no new root folders, never commit watcher data.
 7. **Check the logon task exists:** `Get-ScheduledTask ClaudeSessionWatcher`. If missing, run `<projects>\_tools\watch-register-logon-task.ps1`.
 8. **Add the first task if the owner has one:** `watch-add.ps1 -ProjectName <Name> -Id <task> -Repo <path> [-Worktree ..] [-Card ..] [-Branch ..]`. This also starts the engine. With no task the engine stays off until one is added.
 9. **Verify:** `watch-status.ps1 -ProjectName <Name>` prints a state line (`READY` with no tasks, `RUNNING` with one). If it prints ERROR, read `<projects>\_tools\watch-engine.log`.
-10. **Record the deploy.** Run state-closeout, by the tier rule: that the watcher is deployed and under which name is live status, so it goes in the project's STATE file in the memory store (`STATE.md`, or `STATE-<slug>.md` on a branch); a decision goes to the repo's DECISIONS. A memory note (`INDEX.md`) is only for a new preference, rule or cross-project fact, signed, once, and is never committed. Do not put the ntfy topic in the repo.
+10. **Record the deploy.** Run state-closeout, by the tier rule: that the watcher is deployed and under which name is live status, so it goes in the project's STATE file at the repo root (`STATE.md`, or `STATE-<slug>.md` committed on a branch); a decision goes to the repo's DECISIONS. A memory note (`INDEX.md`) is only for a new preference, rule or cross-project fact, signed, once, and is never committed. Do not put the ntfy topic in the repo.
 
 ## What to tell the owner at the end
 

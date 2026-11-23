@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Graduation check (no repo STATE.md needed; live state lives in the memory store).
+# Graduation check (STATE files are not homes; live state is checked by state_lint.py and state-files-gate).
 #   PR:         state-check.sh <base-ref> <head-ref> [pr-body-file]
 #   pre-commit: state-check.sh HEAD --staged [commit-msg-file]
 #   set mode:   state-check.sh --mode comment|block   (writes .state-check-mode; commit it via a PR)

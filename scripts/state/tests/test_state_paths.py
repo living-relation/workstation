@@ -120,7 +120,18 @@ class WorktreeTests(TempDirCase):
         self.assertEqual(state_paths.project_name(worktree), "my-main-repo")
         self.assertEqual(state_paths.current_branch(worktree), "team/w9-tools")
         info = state_paths.resolve(worktree, env={"WORKSTATION_MEMORY_STORE": str(self.tmp / "store")})
-        self.assertTrue(info["state_file"].endswith(os.path.join("my-main-repo", "STATE-team-w9-tools.md")))
+        self.assertEqual(Path(info["state_file"]), worktree.resolve() / "STATE-team-w9-tools.md")
+        self.assertEqual(Path(info["notes_dir"]), self.tmp / "store" / "my-main-repo")
+        self.assertFalse(info["state_ready"])
+
+    def test_state_ready_when_worktree_root_has_state(self):
+        repo = make_repo(self.tmp, "Ready_Repo")
+        commit_file(repo, "STATE.md", "x\n")
+        (repo / "sub").mkdir()
+        info = state_paths.resolve(repo / "sub", env={"WORKSTATION_MEMORY_STORE": str(self.tmp / "store")})
+        self.assertTrue(info["state_ready"])
+        self.assertEqual(Path(info["state_dir"]), repo.resolve())
+        self.assertEqual(Path(info["state_file"]), repo.resolve() / "STATE.md")
 
     def test_dotgit_file_fallback_without_git(self):
         main = self.tmp / "Other-Repo"

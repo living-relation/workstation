@@ -51,7 +51,7 @@ switch ($Mode) {
         New-Item -ItemType File -Force -Path $fired | Out-Null
         @{
             decision = 'block'
-            reason   = "CONTEXT PRESSURE: context is at $pct, near the compaction point. Invoke the state-closeout skill in closeout mode now: tag what this session did, graduate each item to its home, queue the rest in BACKLOG.md, and rewrite this branch's STATE file in the memory store (STATE.md on trunk, STATE-<branch-slug>.md on a branch; 30 lines max, one [NEXT] step). Commit finished repo work on the task branch first. Do not push to main. Do not start new project work."
+            reason   = "CONTEXT PRESSURE: context is at $pct, near the compaction point. Invoke the state-closeout skill in closeout mode now: tag what this session did, graduate each item to its home, queue the rest in BACKLOG.md, and rewrite this branch's STATE file in the repo (STATE.md on trunk, STATE-<branch-slug>.md on a branch, committed on that branch; 30 lines max, one [NEXT] step). Commit finished repo work on the task branch first. Do not push to main. Do not start new project work."
         } | ConvertTo-Json -Compress
         exit 0
     }

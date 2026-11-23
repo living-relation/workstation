@@ -92,7 +92,7 @@ function Get-StatePathInfo {
   $result = Invoke-StateTool 'state_paths.py' @('--repo', $Repo, '--json')
   if (-not $result -or $result.Code -ne 0 -or -not $result.Out) { return $null }
   try { $info = $result.Out | ConvertFrom-Json } catch { return $null }
-  if (-not $info.project -or -not $info.project_dir) { return $null }
+  if (-not $info.project -or -not $info.state_dir) { return $null }
   return $info
 }
 

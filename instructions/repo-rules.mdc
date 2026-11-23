@@ -3,14 +3,16 @@ description: Follow the repo's AGENTS.md, decisions, CONTRIBUTING, hooks, and CI
 alwaysApply: true
 ---
 Before starting work or asking the user anything, read in order: the repo's agent guide, its binding
-rules / decisions file, then the project's folder in the shared store
-(`<Projects>\_claude\Claude Projects\Working Memory\memory\<project>\`): `STATE.md`, this branch's
-`STATE-<slug>.md`, and `INDEX.md`. If a rule or note already answers a question, act on it and cite
-it; never ask what the rules answer.
-Tiers: the repo holds the router AGENTS.md, SPEC, DECISIONS, rules and data; the store folder holds
-live state (STATE, STATE-<slug>, BACKLOG, archives\) and notes; TASK.md is git-ignored per worktree.
-At 80% context, run state-closeout (closeout mode); on-demand handoff: state-closeout handoff.
-Store unreachable (PC offline, cloud session): work from committed docs only.
+rules / decisions file, the repo's `STATE.md` and this branch's `STATE-<slug>.md` (repo root), then
+the project's notes folder in the shared store
+(`<Projects>\_claude\Claude Projects\Working Memory\memory\<project>\INDEX.md`). If a rule or note
+already answers a question, act on it and cite it; never ask what the rules answer.
+Tiers (decision 2026-11-22): the repo holds the router AGENTS.md, SPEC, DECISIONS, rules, data and live
+state (STATE.md, STATE-<slug>.md committed on its branch, BACKLOG.md, archives/); the store folder holds
+notes only (preferences, machine facts, gotchas); TASK.md is git-ignored per worktree.
+At 80% context, run state-closeout (closeout mode); on-demand handoff: state-closeout handoff. No
+HANDOFF/handoffs files; STATE-<slug> is the handoff. A PR's last commit archives the state file.
+Store unreachable (PC offline, cloud session): live state is still in the repo; only notes are missing.
 Before changing anything in a repo, read and follow its AGENTS.md, decisions, CONTRIBUTING.md, hooks (.pre-commit-config.yaml, core.hooksPath, .git/hooks), and CI workflows. Their rules and decisions still bind.
 Never bypass a hook or gate without the user's explicit yes: no --no-verify, no skipping CI, no
 direct pushes of generated or bot-owned files. Branch + PR, never force-push, one repo at a time.

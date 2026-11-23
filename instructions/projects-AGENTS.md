@@ -5,18 +5,20 @@ Claude, Cursor, Grok Bot and any other agent read this file. A repo's `AGENTS.md
 ## 0. Read first, before starting work or asking
 Before starting work or asking the maintainer anything, read in order: (1) this repo's agent guide
 (`AGENTS.md`), (2) its binding rules / decisions file if it has one, (3) the project's live state in
-the shared store, `<Projects>\_claude\Claude Projects\Working Memory\memory\<project>\`: `STATE.md`
-and this branch's `STATE-<slug>.md` (WSL: that same folder under the Windows Projects root), (4) that
-folder's `INDEX.md` (preference and fact notes). If a rule or note already answers a question, act on
-it and cite it - never ask the maintainer something the rules already answer. Claude desktop online
-Memory is a separate account-level list and is not this store.
+the repo: `STATE.md` and this branch's `STATE-<slug>.md` at the repo root, (4) the project's notes in
+the shared store, `<Projects>\_claude\Claude Projects\Working Memory\memory\<project>\INDEX.md`
+(WSL: that same folder under the Windows Projects root). If a rule or note already answers a question,
+act on it and cite it - never ask the maintainer something the rules already answer. Claude desktop
+online Memory is a separate account-level list and is not this store.
 
 ## 0b. Where things live
-- **Repo (git):** the router `AGENTS.md`, SPEC, DECISIONS, rules and data.
-- **Store project folder:** live state (`STATE.md`, `STATE-<slug>.md`, `BACKLOG.md`, `archives\`) plus the preference and fact notes listed in `INDEX.md`. Never committed.
+Decision 2026-11-22 (supersedes the 2026-11-18 tier rule):
+- **Repo (git):** the router `AGENTS.md`, SPEC, DECISIONS, rules, data and live state: `STATE.md` (trunk; one writer, the coordinator), `STATE-<slug>.md` (one per branch, committed on that branch), `BACKLOG.md` and `archives/`, all at the repo root.
+- **Store project folder:** notes only (preferences, machine facts, gotchas) listed in `INDEX.md`. No project status. Rebuildable; never committed.
 - **`TASK.md`:** the branch checklist at the worktree root, git-ignored.
-- **At 80% context:** run the `state-closeout` skill (closeout mode). On-demand handoff: `state-closeout handoff`. Handoffs never go in the repo or a `handoffs\` folder.
-- **Store unreachable** (PC offline, cloud session): work from committed docs only.
+- **Before merge:** the PR's last commit archives the state file (`state_manager.py archive-branch`: `git mv STATE-<slug>.md archives/STATE-<slug>-<YYYYMMDD>.md`). The `state-files-gate` CI check blocks a PR that leaves a top-level `STATE-*.md`.
+- **At 80% context:** run the `state-closeout` skill (closeout mode). On-demand handoff: `state-closeout handoff`. No `HANDOFF` or `handoffs/` files; `STATE-<slug>.md` is the handoff.
+- **Store unreachable** (PC offline, cloud session): live state is still in the repo; only notes are missing.
 
 ## 1. Follow each repo's own rules
 Before changing anything in any repo, read and follow that repo's `AGENTS.md`, decisions,
@@ -27,7 +29,7 @@ generated or bot-owned files (let the workflow that owns a file regenerate it). 
 would bypass one, stop and ask.
 
 If an older agent doc's layout differs from the workstation-core template (`AGENTS.md` as the
-router, state-init profiles, store STATE), that layout is migrated into the template by
+router, state-init profiles, repo STATE), that layout is migrated into the template by
 session-start, state-init, or repo-cleanup, keeping every rule. A layout difference is not a
 blocker or a reason to stop.
 

@@ -10,7 +10,7 @@ from the repos listed in the pin file.
 
 **Pick up existing work:** open a chat (Grok, Claude Code or Cursor) in the repo's folder and say `run session-start`. It reads AGENTS.md, DECISIONS, SPEC if the repo has one, and STATE, confirms in 3 lines, spots a cut-off last session, and asks before each follow-up.
 
-**Start new work:** create the repo or pick the folder, say `run state-init`, and pick a profile. Full (milestones) gets AGENTS.md, SPEC, DECISIONS, rules, data, and the git hook pack only if you say yes. Toolkit (shared tools, no milestone) gets AGENTS.md, DECISIONS and rules, plus STATE, BACKLOG and archives in the store. Light (small repos) gets AGENTS.md only, and STATE in the store when work starts. A SoT registry entry is added for each data file the repo treats as a source of truth. It shows a plan before any overwrite, waits for yes, and opens a PR. A file already at its template home stays. An older agent doc that conflicts with the template is migrated into that layout. That conflict is not a blocker and not a reason to stop. Then use session-start each session.
+**Start new work:** create the repo or pick the folder, say `run state-init`, and pick a profile. Full (milestones) gets AGENTS.md, SPEC, DECISIONS, rules, data, and the git hook pack only if you say yes. Full and Toolkit also get STATE, BACKLOG and archives in the repo, plus the `state-files-gate` CI check. Toolkit (shared tools, no milestone) gets AGENTS.md, DECISIONS and rules. Light (small repos) gets AGENTS.md only, and STATE in the repo when work starts. A SoT registry entry is added for each data file the repo treats as a source of truth. It shows a plan before any overwrite, waits for yes, and opens a PR. A file already at its template home stays. An older agent doc that conflicts with the template is migrated into that layout. That conflict is not a blocker and not a reason to stop. Then use session-start each session.
 
 **Bring an existing repo in line with the new agent docs:** 1) `run session-start` (folds any CLAUDE.md into AGENTS.md and deletes it in that PR on the task branch; reports drift), 2) `run state-init` (migrates an older agent doc that conflicts with the template into that layout, and adds only what's missing; a file already at its template home stays; the conflict is not a reason to stop), 3) `repo-cleanup` only if agent, decision, plan, handoff or state files have sprawled or duplicated (asks before deleting superseded docs; git history is the backup). One line: `run session-start, then state-init`.
 
@@ -19,14 +19,14 @@ from the repos listed in the pin file.
 | Skill | When |
 |---|---|
 | state-closeout | At 80% context, a pivot, a blocker, a milestone, or a PR |
-| agent-handoff-pack | The job moves to a new chat. It forwards to state-closeout handoff, which prints a paste block. The record is the store's STATE file |
+| agent-handoff-pack | The job moves to a new chat. It forwards to state-closeout handoff, which prints a paste block. The record is the branch's `STATE-<slug>.md` in the repo |
 | coordinator-kit | One chat coordinates a repo's agent work |
 | safe-repo-preflight | Before a change, commit or push |
 | pr-closeout | After a PR opens |
 | debug-root-cause | A bug or a failing test, before a fix |
 | review-feedback | Pull-request review comments, including GitHub Copilot's |
 
-Note: ask for skills by name in plain words. Whether Claude lists them under / with a workstation-core: prefix is unverified. Progress goes only in the store's STATE file (`STATE.md` on main, `STATE-<slug>.md` on a branch), never in the repo and never in memory. Until this repo's state moves to the store, its root `STATE.md` is that file.
+Note: ask for skills by name in plain words. Whether Claude lists them under / with a workstation-core: prefix is unverified. Progress goes only in the repo's STATE file (`STATE.md` on main, `STATE-<slug>.md` committed on a branch and archived as the PR's last commit), never in memory (decision D-2026-11-22-state-in-repo in `DECISIONS.md`).
 
 ## Setup
 ```powershell
@@ -148,11 +148,11 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   official marketplace at user scope. `handoff/claude/pr-closeout-nudge.ps1` is copied into `~/.claude/hooks` and
   wired as a PostToolUse hook in `~/.claude/settings.json` next to context-guard and memory-link-guard.
   **Memory split:** Claude Code's shared store is `<Projects>\_claude\Claude Projects\Working Memory\memory\`
-  (the `autoMemoryDirectory` junction plus `memory-link-guard.ps1`). Tiers: the repo (git) holds the router
-  `AGENTS.md`, SPEC, DECISIONS, rules and data; the store's project folder holds live state (`STATE.md`,
-  `STATE-<slug>.md`, `BACKLOG.md`, `archives\`) plus preference and fact notes in `INDEX.md`; `TASK.md` is
-  git-ignored per worktree. At 80% context agents run `state-closeout`; a session that cannot reach the
-  store works from committed docs only. Claude desktop online Memory is account-level facts about the user and is not synced.
+  (the `autoMemoryDirectory` junction plus `memory-link-guard.ps1`). Tiers (decision 2026-11-22): the repo (git) holds the router
+  `AGENTS.md`, SPEC, DECISIONS, rules, data and live state (`STATE.md`, `STATE-<slug>.md`, `BACKLOG.md`,
+  `archives/`); the store's project folder holds notes only (preferences, machine facts, gotchas in `INDEX.md`);
+  `TASK.md` is git-ignored per worktree. At 80% context agents run `state-closeout`; a session that cannot
+  reach the store still has live state in the repo and only misses notes. Claude desktop online Memory is account-level facts about the user and is not synced.
   As of Store app 4.4212.0.0 ("Unified Claude", personal account, 2026-11-03; work account unverified),
   Cowork / Chat do not write local memory files. Install does not create or check `~\.claude\working-memory`;
   a leftover junction is harmless. Stranded local Cowork notes can be copied into the store or brought in

@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
-"""Resolve the memory store, the project folder and the per-branch STATE file. Stdlib only.
+"""Resolve the repo's live-state folder, the per-branch STATE file and the notes store. Stdlib only.
 
-Store root, first match wins:
+Live state lives in the repo (decision 2026-11-22): the worktree root holds STATE.md (trunk),
+STATE-<branch slug>.md (a branch, committed on that branch), BACKLOG.md and archives/. A repo is
+migrated when its worktree root has STATE.md. The memory store keeps notes only (preferences, machine
+facts, gotchas); its project folder (<store>/<project>/INDEX.md) is the notes folder.
+
+Store root (notes), first match wins:
   1. env WORKSTATION_MEMORY_STORE
   2. storePath in ~/.claude/hooks/memory-link-guard.config.json
   3. the target of the autoMemoryDirectory junction/link named in ~/.claude/settings.json
   4. ~/Projects/_claude/Claude Projects/Working Memory/memory
 Project = the main repo's folder name, slugged (a worktree uses its main repo).
+State folder = this worktree's root (git rev-parse --show-toplevel).
 Branch file = STATE.md on a trunk branch (or detached), else STATE-<branch slug>.md.
 
 Usage: state_paths.py [--repo DIR] [--branch B] [--json]
@@ -152,7 +158,8 @@ def branch_state_name(branch):
     return "STATE-%s.md" % slugify(branch)
 
 
-def project_dir(store, project):
+def notes_dir(store, project):
+    """The project's notes folder in the memory store (INDEX.md and notes; no live state)."""
     return Path(store) / project
 
 
@@ -160,17 +167,30 @@ def store_reachable(store):
     return Path(store).is_dir()
 
 
+def state_dir(repo):
+    """This worktree's root: where STATE.md, STATE-<slug>.md, BACKLOG.md and archives/ live."""
+    top = _git(repo, "rev-parse", "--show-toplevel")
+    return Path(top).resolve() if top else None
+
+
+def repo_migrated(folder):
+    return bool(folder) and (Path(folder) / ROOT_STATE).is_file()
+
+
 def resolve(repo=".", branch=None, env=None, home=None):
     store = find_store(env=env, home=home)
     project = project_name(repo)
     branch = branch or current_branch(repo)
-    folder = project_dir(store, project) if project else None
+    folder = state_dir(repo) if project else None
+    notes = notes_dir(store, project) if project else None
     return {
         "store": str(store),
         "store_reachable": store_reachable(store),
+        "notes_dir": str(notes) if notes else None,
         "repo_root": str(main_repo_root(repo) or ""),
         "project": project,
-        "project_dir": str(folder) if folder else None,
+        "state_dir": str(folder) if folder else None,
+        "state_ready": repo_migrated(folder),
         "branch": branch,
         "slug": slugify(branch) if branch else None,
         "state_file": str(folder / branch_state_name(branch)) if folder else None,
@@ -179,7 +199,7 @@ def resolve(repo=".", branch=None, env=None, home=None):
 
 def main(argv=None):
     configure_output()
-    parser = argparse.ArgumentParser(description="Resolve store, project and STATE file paths.")
+    parser = argparse.ArgumentParser(description="Resolve the repo state folder, the STATE file and the notes store.")
     parser.add_argument("--repo", default=".")
     parser.add_argument("--branch")
     parser.add_argument("--json", action="store_true")

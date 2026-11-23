@@ -1,11 +1,11 @@
 #!/bin/sh
 # State pack pre-commit. Blocks the commit when:
-#   - this branch's STATE file in the memory store breaks STATE schema v1 (state_lint.py);
+#   - this branch's STATE file at the worktree root breaks STATE schema v1 (state_lint.py);
 #     git config workstation.stateLint warn only prints the problems; the default is block;
 #   - VERIFIED.lock exists and a locked file changed or is missing (deliverable_lock.py verify);
 #   - .claude/sot.json exists and a changed source of truth fails its checks, or a generated (derived)
 #     file changed without its source (sot_guard.py check). This is the hard gate on SoT correctness.
-# Store unreachable, repo not migrated, or no tools / Python: those checks are skipped.
+# Repo not migrated (no STATE.md at the worktree root), or no tools / Python: those checks are skipped.
 # Then runs the repo's own pre-commit (workstation.chainHooksPath). Never bypass with --no-verify.
 HOOK_DIR=$(cd "$(dirname "$0")" && pwd)
 . "$HOOK_DIR/state-hook-lib.sh"

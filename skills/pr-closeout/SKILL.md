@@ -1,7 +1,7 @@
 ---
 name: pr-closeout
 description: >-
-  Use after a pull request opens, or when the user says "close out": run state-closeout, commit graduated items on the PR branch, write the PR body State: line, save new preferences, run gates, report.
+  Use after a pull request opens, or when the user says "close out": run state-closeout, commit graduated items on the PR branch, write the PR body State: line, save new preferences, run gates, archive the state file as the last commit, report.
 ---
 
 # PR close-out
@@ -13,8 +13,9 @@ Memory gets a new preference, rule or cross-project fact only, each fact once. T
 Right after a pull request is opened (the local pr-closeout hook says so when it is wired), or
 when the user says "update state and memory" / "close out" / "run pr-closeout". Runs
 **state-closeout** for this branch, commits the repo homes it touched (DECISIONS, rules, SPEC,
-data) on the **same PR branch**, and writes a `State:` line in the PR body. Live state stays in
-the store's STATE files, never in a repo file. Shared memory (`INDEX.md`) gets only preferences,
+data) on the **same PR branch**, and writes a `State:` line in the PR body. Live state lives in
+the repo's STATE files (`STATE-<slug>.md` committed on this branch); the PR's last commit before
+merge archives it. Shared memory (`INDEX.md`) gets only preferences,
 rules and cross-project facts (signed, each fact once). Then runs the repo's gates and doc
 hygiene, and reports in a few lines. Any repo.
 
@@ -22,8 +23,9 @@ hygiene, and reports in a few lines. Any repo.
 - **Repo homes go on the PR's own branch.** Add a commit to the branch you just opened. Never open
   a second PR for it (stacked-PR rule, [[feedback-stacked-prs]]).
 - **Read the repo's rules first.** Read and follow the repo's `AGENTS.md`, decisions, `CONTRIBUTING.md`, hooks, and CI. Their rules and decisions still bind, including a freeze. The router role table names DECISIONS, rules, SPEC, and data. If an older agent doc's layout differs from the template, that layout is migrated, keeping every rule. A layout difference does not freeze this closeout and is not a reason to stop.
-- **No progress in the repo or in INDEX.md.** Live state is the store's STATE / STATE-<slug> /
-  BACKLOG. Memory notes get preferences, corrections, cross-project facts and external pointers.
+- **Progress only in the STATE files.** Live state is the repo's STATE / STATE-<slug> / BACKLOG,
+  never `INDEX.md`, the store or a `HANDOFF` file. Memory notes get preferences, corrections,
+  machine facts, gotchas and external pointers.
 - **SPEC and data change only after the owner's yes.**
 - **Sign every memory note and index line** `-- <agent>, YYYY-MM-DD` (ET dates).
 - **Never force-push, never skip hooks, never merge.** The user merges.
@@ -40,13 +42,13 @@ hygiene, and reports in a few lines. Any repo.
    After-merge steps become `[TASK]` or `[BKLG]` lines, never PR-only text.
 3. **`State:` line.** Add one line to the PR body (`gh pr edit <n> --body-file <file>`), e.g.
    `State: STATE-<slug>.md -> 1 ADR (<id>), 1 RULE (<file>), 2 BKLG; NEXT updated` or
-   `State: no change`. A router line that names another PR-body field stays. A line that puts live state, a handoff, or a `CLAUDE.md` in the repo does not.
-4. **Memory.** Find the store with `python <workstation>/scripts/state/state_paths.py`.
+   `State: no change`. A router line that names another PR-body field stays. A line that puts a handoff file or a `CLAUDE.md` in the repo does not.
+4. **Memory (notes only).** Find the store with `python <workstation>/scripts/state/state_paths.py` (`notes_dir`).
    - **Where you run decides how you reach it.** On the PC (Claude Code, Cursor): write
      the files directly. In a cloud session or the Grok Bot: use Desktop Commander or Remote
      Control to reach the PC folder. If no route works, don't create a memory anywhere else.
-     Put the facts (and the STATE text) in the report under "to save" so the user or the next
-     PC session saves them. Claude desktop online Memory is not this store and is not synced.
+     Put the facts in the report under "to save" so the user or the next PC session saves them.
+     (STATE is in the repo, so it never needs this route.) Claude desktop online Memory is not this store and is not synced.
    - Save new durable things the user said or that turned up this session: preferences,
      corrections, machine or tool gotchas, external links. One note per fact, with frontmatter
      (name, description, type) and the **Why:** / **How to apply:** lines.
@@ -56,7 +58,13 @@ hygiene, and reports in a few lines. Any repo.
      user the memory copy is stale. Do not delete it without a yes.
 5. **Hygiene.** Run the repo's gates from `AGENTS.md` "Commands" (example: `python tools/check_all.py`),
    plus its warn-only doc checks if it has them. Report new warnings only, not old ones.
-6. **Report**, in at most 6 lines:
+6. **Archive the state file (last commit before merge).** When the PR is ready to merge (gates
+   green, no more work planned on it), run `python <workstation>/scripts/state/state_manager.py archive-branch`
+   on the branch. It runs `git mv STATE-<slug>.md archives/STATE-<slug>-<YYYYMMDD>.md`. Commit it
+   ("Archive the state file") and push; it is the PR's last commit. The `state-files-gate` CI check
+   blocks a PR that still has a top-level `STATE-*.md`. More work lands later: restore the file with
+   `git mv` back, update it, and archive again before merge.
+7. **Report**, in at most 6 lines:
    - state: what moved where (or "no change"), with the commit, and the STATE lint result
    - memory: the notes added or updated (or "none")
    - checks: pass/fail
@@ -74,6 +82,6 @@ above is the trigger: run it as soon as you open a PR, or when the user says "ru
 
 ## Not this skill's job
 Merging, deleting branches before the merge, CI babysitting (the app's Auto-fix does that), and
-new docs, scripts or gates in a frozen repo. Archiving STATE-<slug> after the merge belongs to
-the git hook pack (post-merge) or, after a squash or rebase merge on GitHub (which the hook cannot see),
-the coordinator running `state_manager.py archive-branch` (coordinator-kit step 6).
+new docs, scripts or gates in a frozen repo. A local `post-merge` hook never archives or edits a
+STATE file on the trunk (it only warns about one left there); archiving the state file is step 6,
+on the PR branch.

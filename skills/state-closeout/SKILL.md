@@ -18,18 +18,19 @@ Two modes: `closeout` (the default) and `handoff`. Read and follow the repo's `A
 - **Mode `handoff`:** the user asks for a handoff, or another chat or agent takes over.
 
 ## Where things live
-The store is resolved by `python <workstation>/scripts/state/state_paths.py`. It prints the store, the project folder (`<store>/<project>/`) and your slug.
+Live state lives in the repo (decision 2026-11-22). `python <workstation>/scripts/state/state_paths.py` prints the state folder (this worktree's root), your STATE file and slug, and the store's notes folder (`<store>/<project>/`, notes only).
 
 | File | Where | Who writes it |
 |---|---|---|
-| `STATE.md` | project folder | the coordinator, or the only agent |
-| `STATE-<slug>.md` | project folder | the agent on that branch or job |
-| `BACKLOG.md` | project folder | anyone; append only |
-| `archives/` | project folder | `state_manager.py archive-branch` |
+| `STATE.md` | repo root, on the trunk | the coordinator, or the only agent |
+| `STATE-<slug>.md` | repo root, committed on that branch | the agent on that branch or job |
+| `BACKLOG.md` | repo root | anyone; append only |
+| `archives/` | repo root | `state_manager.py archive-branch` (the PR's last commit) |
 | `TASK.md` | worktree root, git-ignored | the branch |
 | DECISIONS, `.claude/rules/`, SPEC, data | the repo, where the router's role table says | the repo, by PR |
+| preference, machine-fact and gotcha notes | the store's `<project>/INDEX.md` | anyone, signed; never project status |
 
-Write only your own STATE file. The root STATE's `Branch_States` line is generated from the `STATE-*.md` files: it reads `generated`, or the coordinator pastes the output of `state_manager.py branches`; never type the list by hand. A worker never edits the root STATE, the router, SPEC or DECISIONS unless its brief says so. It appends findings to BACKLOG and reports.
+Write only your own STATE file. The root STATE's `Branch_States` line is generated from every branch's `STATE-<slug>.md` (`state_manager.py branches` reads pushed branches through `git fetch --prune` + `git show origin/<branch>:STATE-<slug>.md` and unpushed ones from each worktree): it reads `generated`, or the coordinator pastes that output; never type the list by hand. A worker never edits the root STATE, the router, SPEC or DECISIONS unless its brief says so. It appends findings to BACKLOG and reports.
 
 ## The seven tags
 | Tag | Means | Goes to |
@@ -65,8 +66,8 @@ If nothing fits, ask the user. Do not guess.
 3. **Graduate** in this order: `[SOT]` (ask first), `[ADR]`, `[RULE]` (then rules_sync), `[TASK]`, `[BKLG]`, then drop `[DONE]`.
 4. **Check nothing was lost.** Every line that is not `[DONE]` now lives in exactly one home. For a big move, run `python <workstation>/scripts/state/move_integrity.py --before <copy> --after <files>`.
 5. **Rewrite STATE** (overwrite, never append) to the schema below. Add `(carried 1)` to a `[NEXT]` line kept from the last run.
-6. **Lint:** `python <workstation>/scripts/state/state_lint.py <file>`. Exit 2: fix it and run it again. Exit 0 with a note that the store is unreachable: see "Store unreachable".
-7. **Commit the repo homes** (DECISIONS, rules, SPEC, data) on the branch, following the repo's `AGENTS.md`, decisions, `CONTRIBUTING.md`, the hooks, and CI. Store files are not in git.
+6. **Lint:** `python <workstation>/scripts/state/state_lint.py <file>`. Exit 2: fix it and run it again.
+7. **Commit** your STATE file, `BACKLOG.md` and the repo homes (DECISIONS, rules, SPEC, data) on the branch, following the repo's `AGENTS.md`, decisions, `CONTRIBUTING.md`, the hooks, and CI. Never commit to the trunk directly; the root `STATE.md` changes through the coordinator's PR.
 8. **Report** in a few lines: what moved where (counts per home), the STATE line count, and the lint result.
 
 ## Mode `handoff`
@@ -75,7 +76,7 @@ If nothing fits, ask the user. Do not guess.
 ```text
 RESUME: paste this as the first message in a new chat.
 Repo: <repo>   Branch/worktree: <branch> <path>
-State file: <store>/<project>/STATE-<slug>.md
+State file: <repo root>/STATE-<slug>.md (committed on <branch>)
 Last_Verified_SHA: <sha or none>
 Goal: <objective>
 Blocker: <NONE, or the exact failing command>
@@ -83,7 +84,7 @@ Next: [NEXT] <one action, with file path>
 Task list: TASK.md step <n>, or none
 Run session-start, then confirm goal, last good commit and next step in 3 lines before acting.
 ```
-3. Change no file in this mode. The block is a copy; the STATE file is the record. No handoff files and no handoff folder in the repo.
+3. Change no file in this mode. The block is a copy; the STATE file is the record. No `HANDOFF` or `handoffs/` files; `STATE-<slug>.md` is the handoff.
 
 ## STATE schema v1
 ```
@@ -111,8 +112,11 @@ Updated: <YYYY-MM-DD> -- <agent>
 ```
 Optional Pointers lines (root STATE only): `- Last_Cleanup:`, `- Kept_Branches:`, `- Question_Counter:`. Any other Pointers key fails `state_lint.py`.
 
+## Before merge: archive the state file
+pr-closeout's last commit on a branch archives the state file: `python <workstation>/scripts/state/state_manager.py archive-branch` runs `git mv STATE-<slug>.md archives/STATE-<slug>-<YYYYMMDD>.md`; commit and push it. The `state-files-gate` CI check blocks a PR into the trunk that still has a top-level `STATE-*.md`.
+
 ## Store unreachable (PC offline, cloud session)
-Work from committed docs. Put the STATE text you would write in the final reply under "state to save"; the next session on the PC writes it. Never create a store anywhere else.
+Live state is in the repo, so close out as usual on the branch. Only notes are missing: put a new preference or fact note you would save in the final reply under "notes to save". Never create a store anywhere else.
 
 ## Hard rules
 - STATE: 30 lines max, the headers above, only `[NEXT]` tags, overwritten each time.

@@ -15,8 +15,9 @@ FOLLOWUP = (
     "CONTEXT PRESSURE: chat context is at or above 80%. "
     "Run the state-closeout skill in closeout mode immediately. "
     "Do not continue coding. Tag what this chat did, graduate each item to its home, "
-    "queue the rest in BACKLOG.md, and rewrite this branch's STATE file in the memory store "
-    "(STATE.md on trunk, STATE-<branch-slug>.md on a branch; 30 lines max, one [NEXT] step). "
+    "queue the rest in BACKLOG.md, and rewrite this branch's STATE file in the repo "
+    "(STATE.md on trunk, STATE-<branch-slug>.md on a branch, committed on that branch; "
+    "30 lines max, one [NEXT] step). "
     "Commit finished repo work on the task branch first. "
     "Do not push to main. Do not start new project work."
 )
