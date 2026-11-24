@@ -3,8 +3,9 @@
 
 The commands are the same single-line blocks as README.md and INSTALL.md.
 Claude Code installs workstation-core from the workstation-plugins catalog with the
-CLAUDE_CODE commands below (decision D-2026-11-23-claude-code-catalog). The docs give
-them; no script runs them.
+CLAUDE_CODE commands below (decision D-2026-11-23-claude-code-catalog).
+install.ps1 runs the add and install commands (D-2026-11-24-install-runs-catalog).
+install-plugins.ps1 still does not run them. Refresh and update stay manual.
 """
 import json
 import os
@@ -179,9 +180,14 @@ class InstallPluginsDocs(unittest.TestCase):
             "-LinkSkills",
         ):
             self.assertNotIn(banned, script)
+        ran = "install.ps1` runs the add command and the install command below."
+        self.assertIn(ran, install)
+        self.assertIn(ran, readme)
         install_ps1 = (ROOT / "install.ps1").read_text(encoding="utf-8")
         self.assertNotIn("LinkSkills", install_ps1)
         self.assertNotIn("link-skills.ps1", install_ps1)
+        self.assertIn("install-catalog-plugin.ps1", install_ps1)
+        self.assertIn("paste-instructions.ps1", install_ps1)
 
     def test_whatif_prints_clicks_and_does_not_open_or_copy(self):
         if not PWSH:

@@ -1,7 +1,7 @@
 ---
 name: state-init
 description: >-
-  Use when a repo has no state setup yet, work starts in a router-only repo, or older agent docs conflict with the template: adds the router role table, DECISIONS, rules and SPEC, plus STATE, BACKLOG and archives in the repo. Shows the plan before any overwrite.
+  Use when a repo has no state setup yet, work starts in a router-only repo, or older agent docs conflict with the template: adds the router role table, DECISIONS, rules and SPEC, plus STATE, BACKLOG, archives, and repo-profile.json. Shows the plan before any overwrite.
 ---
 # State init
 
@@ -20,6 +20,7 @@ Add SPEC or DECISIONS to a Light repo only when one is needed. If the profile is
 
 ## Steps
 1. **Read first.** `AGENTS.md`, `README.md`, and any decisions, state, spec, rules or data files. Note each one's path.
+1b. **Repo profile.** Run `python <workstation>/scripts/repo_profile.py scan --repo <dir>`. It proposes which of code, CAD, docs, and harness this repo stores. If `repo-profile.json` is already committed, use it and do not ask again (a rerun must match). If the scan is clear, put that proposal in the plan and, after the yes, save it on the branch (`repo_profile.py save --stores ...`). If it lists unclear items, ask only those, then save. Do not guess an unclear item.
 2. **Plan.** For each role, list `exists` (already at the template home; point at it), `migrate` (an older agent doc conflicts with the template layout; its content moves into the template home), `create`, or `skip` (not in this profile). Never create a second file for the same role. A conflict with an older `AGENTS.md`, `CLAUDE.md`, decision log, or state, plan, or handoff file is not a blocker and not a reason to stop.
 3. **Ask.** Show the plan and wait for the yes.
 4. **Repo files** (on a branch):
@@ -47,6 +48,7 @@ Add SPEC or DECISIONS to a Light repo only when one is needed. If the profile is
 | Backlog | `BACKLOG.md` at the repo root |
 | Notes | store `<project>/INDEX.md` (preferences, machine facts, gotchas; no status) |
 | Branch checklist | `TASK.md` at the worktree root, git-ignored |
+| Repo profile | `repo-profile.json` (code / CAD / docs / harness; committed; a rerun uses it) |
 
 ## Hard rules
 - Show the plan before any overwrite. Ask before a delete that is not the pre-approved CLAUDE fold. A file already at its template home stays. An older agent doc that conflicts with the template is migrated into that home in the plan.

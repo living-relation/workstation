@@ -51,3 +51,16 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** staying silent on hook errors; a Cursor subagent hook (it cannot carry the rules); blocking the session (these events cannot block).
 - **Supersedes:** none.
 - **Reopen if:** Cursor's `subagentStart` grows an `additional_context` field, or Claude Code starts passing `SessionStart` context into Task-tool subagents.
+
+## D-2026-11-24-install-runs-catalog: install runs the catalog commands; no npm and no local MCP
+- **Status:** accepted, 2026-11-24 (Dan)
+- **Source:** Dan's approval of items AL, AK, AM, and AQ (2026-11-24).
+- **Context:** D-2026-11-23-claude-code-catalog put the Claude Code catalog commands in the docs and rejected having install scripts run them. PC setup also depended on an agent freely reading SETUP-PROMPT.txt. A local npm package or MCP server was considered as another way to ship the same tools.
+- **Decision:**
+  - `install.ps1` runs `claude plugin marketplace add living-relation/workstation`, then `claude plugin install workstation-core@workstation-plugins`. `install.cmd` starts `install.ps1`, so it runs them too. If the claude CLI is missing, those two commands are skipped and the install continues. Nothing is uninstalled or disabled. Refresh and update stay manual, one command per block, in INSTALL.md and README.md.
+  - At the end of a real install, a paste helper does one instruction file at a time: copy it to the clipboard, open it in Sublime Text (`C:\Program Files\Sublime Text\subl.exe`, or notepad if that program is missing), print where to paste, and wait for Enter. Places: Claude Desktop > Settings > General > Instructions for Claude (`instructions/instructions-for-claude.md`); Cowork Global instructions (`instructions/cowork-global-instructions.md`) only if that box exists; Cursor Settings > Rules > User Rules (`instructions/cursor-user-rules.md`). `-Quiet` skips the helper.
+  - PC setup is a printed guide with numbered phases (`scripts/setup_guide.py`). SETUP-PROMPT.txt is only a pointer to that script. `scripts/setup_verify.py` fails when a phase was missed. Per-repo setup lives in state-init: the agent scans the repo, proposes which of code, CAD, docs, and harness it stores, asks only the unclear items, and saves the answers in committed `repo-profile.json`. A rerun uses that file.
+  - No npm package and no local MCP server for now. The tools are Windows-only PowerShell. The plugins already ship through the Claude catalog and the Cursor copy. MCP tools are model-optional, so they do not replace the start-of-chat rules.
+- **Rejected:** leaving the catalog commands as docs-only (the rejected line in D-2026-11-23-claude-code-catalog); an npm package; a local MCP server.
+- **Supersedes:** the "No script runs them" decision and the "Rejected: having install scripts run the commands" line of D-2026-11-23-claude-code-catalog. The rest of that entry stays.
+- **Reopen if:** Claude Code's catalog install must stay manual, or a non-Windows host needs these tools as an npm package or a local MCP server.

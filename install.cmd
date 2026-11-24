@@ -1,5 +1,6 @@
 @echo off
 rem Run this clone's install.ps1. Path-independent. Arguments go through unchanged.
+rem install.ps1 runs the two Claude Code catalog commands. This file only starts it.
 cd /d "%~dp0"
 echo.
 echo Installing %CD% ...
