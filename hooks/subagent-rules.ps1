@@ -12,7 +12,7 @@ function Get-SubagentRulesText {
     'rules-inject: workstation-core rules for this subagent (memory store and app locks).'
     'Memory store: live state stays in the repo (STATE.md, this branch''s STATE-<slug>.md, BACKLOG.md, archives/ at the repo root). The shared store holds notes only (preferences, machine facts, gotchas) listed in INDEX.md. Read the repo AGENTS.md, decisions, and STATE before asking. Do not put project status in the store or in a CLAUDE.md. At 80% context, run state-closeout. STATE-<slug>.md is the handoff.'
     'harness.design lock: before driving the harness.design desktop app, acquire the per-PC lock, check in at least every 10 min, and release when done (section 5b of instructions/projects-AGENTS.md). Never delete the lock file by hand. MCP cloud tools do not need the lock. An agent delete goes through the desktop app under the lock.'
-    'Fusion Desktop lock: before driving local Fusion Desktop (built-in MCP at 127.0.0.1:27182, a script in the Fusion app, or clicking it), acquire the per-PC fusion-desktop lock (its own lock, -Name fusion-desktop), check in at least every 10 min, and release when done (section 5). Fusion Compute and Data MCP need no lock.'
+    'Fusion Desktop lock: before using local Fusion Desktop (a script in the Fusion app, or driving or clicking the app), acquire the per-PC fusion-desktop lock (its own lock, -Name fusion-desktop), check in at least every 10 min, and release when done (section 5).'
   )
   return ($lines -join "`n")
 }

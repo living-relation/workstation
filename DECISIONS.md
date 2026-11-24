@@ -127,3 +127,16 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** reusing the harness.design lock file; restoring the old AutodeskFusionMCP fork and its port 8765 open-document probe, junctions, the hourly add-in pull, and any scheduled task, startup task or background keeper.
 - **Supersedes:** the "Agents may use Fusion in parallel" part of #108 (Retire the Fusion lock), for Fusion Desktop only.
 - **Reopen if:** Fusion Compute MCP covers what agents need from Fusion Desktop, or Fusion Desktop gets a safe multi-agent mode.
+
+## D-2026-11-24-no-fusion-mcp: no Fusion MCP and no Fusion add-ins in this repo
+- **Status:** accepted, 2026-11-24 (Dan)
+- **Source:** Dan's Grok Bot message t1401u (2026-11-24 ET): "the fusion MCP isn't need to be in the workstation or handbuilt any more. not using it anymore. just keep all fusion specific add ins out of it because they really need to be up to the user"
+- **Context:** D-2026-11-24-fusion-desktop-lock named the Fusion Desktop MCP (`127.0.0.1:27182`) and the Fusion Compute and Data MCP servers in the lock rule, the paste files, the hooks and the app-locks template. Dan no longer uses any Fusion MCP.
+- **Decision:**
+  - The Fusion Desktop lock stays (`app-lock.ps1 -Name fusion-desktop`, same commands and stale rule). It now covers using local Fusion Desktop: running a script in the Fusion app, or driving or clicking the app. No rule, template, hook, paste file or doc here names a Fusion MCP server.
+  - Fusion add-ins are up to the user; this repo carries none and gives no add-in rules.
+  - `install.ps1` replaces an older `Local Fusion Desktop` line that names the MCP with the template's line in an `<!-- app-locks:v1 -->` block, and still drops the retired `Fusion work uses Autodesk's official` line. Nothing is scheduled.
+  - Repo only: no live PC config (Claude, Cursor or MCP registrations) is changed by this decision.
+- **Rejected:** dropping the Fusion Desktop lock with the MCP (agents still use Fusion Desktop).
+- **Supersedes:** the Fusion MCP parts of D-2026-11-24-fusion-desktop-lock (its built-in MCP wording, "Fusion Compute and Fusion Data MCP need no lock", and its Reopen-if line).
+- **Reopen if:** Dan starts using a Fusion MCP again.

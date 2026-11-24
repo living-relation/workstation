@@ -240,8 +240,8 @@ else { Add-Finding 'OK' 'prereq' 'elevation' 'normal window (right for install.p
 
 # ---------------------------------------------------------------- 2. scheduled tasks
 # No memory sync task any more (Claude-Memory-To-Cursor-Sync is retired; see $RetiredNameRx).
-# install.ps1 registers no task. Workstation-UpdateFusionAddins came from an older install; the Fusion add-in
-# updater was removed on 2026-11-22, so a task of that name is a WARN with the command to remove it by hand.
+# install.ps1 registers no task. Workstation-UpdateFusionAddins came from an older install; that updater
+# was removed on 2026-11-22, so a task of that name is a WARN with the command to remove it by hand.
 $knownTasks = @{}
 $oldOwnTasks = @{
   'Workstation-UpdateFusionAddins' = @('update-fusion-addins.ps1')
@@ -259,7 +259,7 @@ if ($null -ne $tasks) {
       $seen[$name] = $true
       $actX = ([Environment]::ExpandEnvironmentVariables($act) -replace '/', '\').ToLower()
       $own = @($oldOwnTasks[$name] | Where-Object { $actX.Contains($_.ToLower()) }).Count -gt 0
-      if ($own) { Add-Finding 'WARN' 'tasks' $label "starts on its own (state $($t.State)); the Fusion add-in updater was removed. Remove this task in a normal PowerShell window (no admin): Unregister-ScheduledTask -TaskName '$name' -Confirm:`$false" }
+      if ($own) { Add-Finding 'WARN' 'tasks' $label "starts on its own (state $($t.State)); that old updater was removed. Remove this task in a normal PowerShell window (no admin): Unregister-ScheduledTask -TaskName '$name' -Confirm:`$false" }
       else { Add-Finding 'WARN' 'tasks' $label "runs '$act', not this package's updater; left alone." }
     } elseif ($knownTasks.ContainsKey($name)) {
       $seen[$name] = $true
@@ -282,7 +282,7 @@ if ($null -ne $tasks) {
     }
   }
   foreach ($k in $knownTasks.Keys) { if (-not $seen[$k]) { Add-Finding 'OK' 'tasks' $k 'not registered' } }
-  foreach ($k in $oldOwnTasks.Keys) { if (-not $seen[$k]) { Add-Finding 'OK' 'tasks' $k 'not registered (the Fusion add-in updater was removed)' } }
+  foreach ($k in $oldOwnTasks.Keys) { if (-not $seen[$k]) { Add-Finding 'OK' 'tasks' $k 'not registered (that old updater was removed)' } }
 }
 
 # ---------------------------------------------------------------- 3. Run / RunOnce / Startup folders

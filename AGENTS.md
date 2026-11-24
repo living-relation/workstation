@@ -31,7 +31,7 @@ store (work-account behavior unverified).
 
 Read `instructions/projects-AGENTS.md` (shared rules) and `CONTRIBUTING.md` first; follow the hooks in
 `.githooks/`. Current status lives only in the root `STATE.md` and open items in `BACKLOG.md`; every
-script and hook is listed in `automation.yml`. Before driving the harness.design desktop app, follow section 5b; before driving local Fusion Desktop (its built-in MCP on 127.0.0.1:27182 or the app itself), follow section 5 (its own `fusion-desktop` lock). For both: acquire before use, check in at least every 10 min, and release when done. This repo is public but still generic: no machine-specific, project-specific or
+script and hook is listed in `automation.yml`. Before driving the harness.design desktop app, follow section 5b; before using local Fusion Desktop (a script in the app or driving the app), follow section 5 (its own `fusion-desktop` lock). For both: acquire before use, check in at least every 10 min, and release when done. This repo is public but still generic: no machine-specific, project-specific or
 personal content, no secrets, no CAD code or models.
 
 Plugin manifests may be committed: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,

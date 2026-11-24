@@ -30,7 +30,7 @@ class TemplateHasFusionDesktopLock(unittest.TestCase):
         text = TEMPLATE.read_text(encoding="utf-8")
         for verb in ("acquire", "checkin", "release"):
             self.assertIn(f"{verb} -Name fusion-desktop", text)
-        self.assertIn("Fusion Compute and Fusion Data MCP need no lock", text)
+        self.assertNotIn("MCP", text.split("Local Fusion Desktop", 1)[1])
         self.assertLess(text.index("Local Fusion Desktop"), text.index("<!-- /app-locks:v1 -->"))
 
 
@@ -54,6 +54,16 @@ class InstallAddsFusionDesktopLines(unittest.TestCase):
     def test_old_block_gets_fusion_lines(self):
         out, _ = self.dry_run("# Projects\n\n" + OLD_BLOCK)
         self.assertIn("add the Fusion Desktop lock lines", out)
+
+    def test_old_fusion_mcp_line_replaced(self):
+        block = TEMPLATE.read_text(encoding="utf-8")
+        start = block.index("Local Fusion Desktop")
+        stop = block.index("\n", start)
+        old_line = ("Local Fusion Desktop (section 5) has its own lock, separate from harness.design: needed for the "
+                    "built-in Fusion Desktop MCP (127.0.0.1:27182), a script run in the Fusion app, or clicking the app. "
+                    "Fusion Compute and Fusion Data MCP need no lock. Same commands with `-Name fusion-desktop`:")
+        out, _ = self.dry_run("# Projects\n\n" + block[:start] + old_line + block[stop:])
+        self.assertIn("update the Fusion Desktop lock line", out)
 
     def test_current_block_left_alone(self):
         block = TEMPLATE.read_text(encoding="utf-8")
