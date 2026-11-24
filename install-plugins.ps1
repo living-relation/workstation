@@ -71,7 +71,9 @@ if ($dry) {
 
 New-Item -ItemType Directory -Force -Path $fullDest | Out-Null
 Get-ChildItem -Force -LiteralPath $fullSrc | Where-Object { $_.Name -ne '.git' -and $_.Name -ne '.venv' } | ForEach-Object {
-  Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $fullDest $_.Name) -Recurse -Force
+  # Destination is the parent folder: Copy-Item then merges into an existing subfolder.
+  # (Join-Path $fullDest $_.Name) nested a re-run into hooks\hooks, skills\skills and so on.
+  Copy-Item -LiteralPath $_.FullName -Destination $fullDest -Recurse -Force
 }
 Write-Output "Copied workstation-core to $fullDest. Reload the Cursor window."
 
