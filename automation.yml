@@ -22,7 +22,7 @@ automations:
     run_cmd: bash .github/state-check.sh origin/main HEAD
   - id: state-files-gate
     script: .github/workflows/state-files-gate.yml
-    helpers: [.github/state-files-gate.sh, skills/git-checker/hooks/state-files-gate.sh, skills/git-checker/hooks/state-files-gate.yml, scripts/test_state_files_gate.py]
+    helpers: [.github/state-files-gate.sh, skills/git-checker/hooks/state-files-gate.sh, skills/git-checker/hooks/state-files-gate.yml, scripts/find_git_bash.py, scripts/test_state_files_gate.py, scripts/test_find_git_bash.py]
     trigger: pr-check
     reads: [the git tree of the PR merge ref]
     writes: []
@@ -413,7 +413,7 @@ automations:
     check_cmd: python -m unittest discover scripts/state/tests -p test_move_integrity.py
   - id: repo-tests
     script: .github/workflows/repo-tests.yml
-    helpers: [scripts/run_repo_tests.py, scripts/test_install_catalog.py, scripts/paste-instructions.ps1, scripts/test_state_files_gate.py, workstation/health/tests/test-cleanup-settings.ps1]
+    helpers: [scripts/run_repo_tests.py, scripts/test_install_catalog.py, scripts/paste-instructions.ps1, scripts/find_git_bash.py, scripts/test_state_files_gate.py, scripts/test_find_git_bash.py, workstation/health/tests/test-cleanup-settings.ps1]
     trigger: pr-check
     reads: [scripts/**, workstation/**/tests/**, hooks/tests/**, handoff/claude/tests/**, memory/hooks/tests/**, claude/tests/**]
     writes: []
