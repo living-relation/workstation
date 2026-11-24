@@ -397,7 +397,7 @@ function Show-AppLocks {
     # The workstation-core plugin's SessionStart hook (hooks\rules-inject.ps1) loads the lock rule in Claude Code
     # (the installed catalog copy) and Cursor (the local copy), so a profile passes when that copy has the hook even
     # if no rule file has the text. Cowork is not checked here: its hooks run in its own sandbox, where run-ps.sh
-    # finds no PowerShell and exits silently (hooks/README.md). Claude chat runs no hooks.
+    # finds no PowerShell and reports WORKSTATION RULES NOT LOADED (hooks/README.md). Claude chat runs no hooks.
     function Find-RulesHook([string]$Dir) {
         if (-not (Test-Path -LiteralPath $Dir)) { return $null }
         $hit = Get-ChildItem -LiteralPath $Dir -Recurse -File -Filter 'rules-inject.ps1' -ErrorAction SilentlyContinue | Select-Object -First 1
