@@ -40,8 +40,14 @@ $r = Invoke-Guard 'precompact' $payload
 $backups = @(Get-ChildItem -LiteralPath (Join-Path $t '.claude\compaction-backups') -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'transcript.jsonl') })
 Check 'context-guard: PreCompact still backs up the transcript' ($r.Code -eq 0 -and $backups.Count -eq 1)
 
-$py = Get-Command python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $py) { $py = Get-Command py -CommandType Application | Select-Object -First 1 }
+$py = $null
+foreach ($name in @('python', 'python3', 'py')) {
+  $py = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue |
+    Where-Object { $_.Source -notmatch 'WindowsApps' } |
+    Select-Object -First 1
+  if ($py) { break }
+}
+if (-not $py) { throw 'python, python3, or py is required for this test' }
 $armed = Join-Path $t '.cursor\hooks\state\handoff-at-80\armed'
 New-Item -ItemType Directory -Force -Path (Split-Path $armed) | Out-Null
 Set-Content -LiteralPath $armed -Value ''

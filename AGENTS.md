@@ -42,3 +42,17 @@ paste catalog `living-relation/workstation`, and turn Sync automatically on so u
 `~/.cursor/plugins/local/workstation-core`.
 `.cursor-plugin/marketplace.json` lists only this repo's plugin (`source` `.`).
 Skills stay in `skills/<name>/SKILL.md`. The plugin ships Claude hooks in `hooks/hooks.json` and Cursor hooks in `hooks/cursor-hooks.json` (the Cursor manifest `hooks` path). No MCP server and no `bin/`.
+
+## Commands (this repo only)
+
+These commands are for `living-relation/workstation` itself. Do not add this
+workflow, runner, or rule to state-init, git-checker templates, the plugin
+install path, or repos that only use workstation.
+
+Before opening a PR, run the full suite on Linux and on Windows:
+
+    python scripts/run_repo_tests.py
+
+The `repo-tests` GitHub Actions workflow (`.github/workflows/repo-tests.yml` in
+this repo only) runs that same suite on `ubuntu-latest` and `windows-latest`,
+and fails if a test writes the real clipboard or opens an editor.

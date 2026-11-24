@@ -44,7 +44,15 @@ try {
   Write-TestFile $branchFile (Get-GoodState 'feat/x' 'GOAL' 0)
 
   Write-TestFile (Join-Path $repo 'deliverable.txt') "v1`n"
-  $py = (Get-Command python -CommandType Application | Select-Object -First 1).Source
+  $pyCmd = $null
+  foreach ($name in @('python', 'python3', 'py')) {
+    $pyCmd = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue |
+      Where-Object { $_.Source -notmatch 'WindowsApps' } |
+      Select-Object -First 1
+    if ($pyCmd) { break }
+  }
+  if (-not $pyCmd) { throw 'python, python3, or py is required for this test' }
+  $py = $pyCmd.Source
   & $py (Join-Path $script:StateTools 'deliverable_lock.py') --repo $repo lock (Join-Path $repo 'deliverable.txt') | Out-Null
   [void](Invoke-Git $repo add deliverable.txt VERIFIED.lock)
   $c = Invoke-Git $repo commit -q -m 'lock deliverable'

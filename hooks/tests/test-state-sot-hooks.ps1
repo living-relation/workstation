@@ -13,7 +13,15 @@ $env:WORKSTATION_MEMORY_STORE = $store
 $env:WORKSTATION_STATE_TOOLS = $script:StateTools
 $claude = @{ WORKSTATION_MEMORY_STORE = $store }
 $cursor = @{ WORKSTATION_MEMORY_STORE = $store; CURSOR_VERSION = '1.7.0' }
-$py = (Get-Command python -CommandType Application | Where-Object { $_.Source -notmatch 'WindowsApps' } | Select-Object -First 1).Source
+$pyCmd = $null
+foreach ($name in @('python', 'python3', 'py')) {
+  $pyCmd = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue |
+    Where-Object { $_.Source -notmatch 'WindowsApps' } |
+    Select-Object -First 1
+  if ($pyCmd) { break }
+}
+if (-not $pyCmd) { throw 'python, python3, or py is required for this test' }
+$py = $pyCmd.Source
 $checker = "import csv, sys`nrows = list(csv.reader(open(sys.argv[1], encoding='utf-8')))`nsys.exit(1 if any('BAD' in r for r in rows[1:]) else 0)`n"
 $goodCsv = "circuit,from,to`nC1,A1,B1`nC2,A2,B2`n"
 

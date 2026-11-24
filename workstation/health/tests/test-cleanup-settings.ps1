@@ -62,14 +62,21 @@ New-Item -ItemType Directory -Path $dash | Out-Null
 Set-Content (Join-Path $dash 'keep.txt') 'ok'
 $locked = Join-Path $dash 'server.log'
 Set-Content $locked 'log'
-& chmod a-r $locked
-$what = & pwsh -NoProfile -File $script -UserHome $w.User -StateDir $w.State -CloneRoot $w.Root -WhatIf 2>&1
-$whatText = $what -join "`n"
-Check 'whatif exits 0' $LASTEXITCODE 0
-Check 'whatif says not running' ($whatText -match 'not running') True
-Check 'whatif does not invent a stop' ($whatText -match 'WOULD stop') False
-Check 'whatif skips locked log' ($whatText -match 'skipped hash') True
-Check 'whatif leaves dashboard' (Test-Path $dash) True
+# Hold an exclusive lock so Get-FileHash in the child process fails ("file in use")
+# on both Windows and Linux. chmod a-r is not available on Windows and does not
+# model a file-in-use skip.
+$lockStream = [IO.File]::Open($locked, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::None)
+try {
+  $what = & pwsh -NoProfile -File $script -UserHome $w.User -StateDir $w.State -CloneRoot $w.Root -WhatIf 2>&1
+  $whatText = $what -join "`n"
+  Check 'whatif exits 0' $LASTEXITCODE 0
+  Check 'whatif says not running' ($whatText -match 'not running') True
+  Check 'whatif does not invent a stop' ($whatText -match 'WOULD stop') False
+  Check 'whatif skips locked log' ($whatText -match 'skipped hash') True
+  Check 'whatif leaves dashboard' (Test-Path $dash) True
+} finally {
+  $lockStream.Close()
+}
 
 $dashScript = Join-Path $w.Root 'workstation\dashboard\server.py'
 $env:WORKSTATION_FAKE_PROCS = (@{ ProcessId = 42; CommandLine = "python $dashScript" } | ConvertTo-Json -Compress)

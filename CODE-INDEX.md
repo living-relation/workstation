@@ -80,6 +80,7 @@ Regenerate with `python3 scripts/gen-code-index.py`; CI runs it with `--check`.
 | `scripts/paste-instructions.ps1` | Copy each instruction file to the clipboard, open it, and wait for Enter. |
 | `scripts/repo_profile.py` | Scan a repo and save what it stores: code, CAD, docs, harness. |
 | `scripts/run-gitleaks.sh` | Runs the pinned gitleaks on staged changes. Fails (never skips) if gitleaks is missing. |
+| `scripts/run_repo_tests.py` | Run this repo's Python and PowerShell test suites (living-relation/workstation only). |
 | `scripts/setup_guide.py` | Print the PC setup guide, one numbered phase at a time in the output. |
 | `scripts/setup_phases.py` | Numbered PC-setup phases. setup_guide.py prints them. setup_verify.py checks them. |
 | `scripts/setup_verify.py` | Fail if any setup phase was not recorded. |

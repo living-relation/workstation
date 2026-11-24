@@ -411,3 +411,14 @@ automations:
     auto_commit: false
     enabled: true
     check_cmd: python -m unittest discover scripts/state/tests -p test_move_integrity.py
+  - id: repo-tests
+    script: .github/workflows/repo-tests.yml
+    helpers: [scripts/run_repo_tests.py, scripts/test_install_catalog.py, scripts/paste-instructions.ps1, scripts/test_state_files_gate.py, workstation/health/tests/test-cleanup-settings.ps1]
+    trigger: pr-check
+    reads: [scripts/**, workstation/**/tests/**, hooks/tests/**, handoff/claude/tests/**, memory/hooks/tests/**, claude/tests/**]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python scripts/run_repo_tests.py
+    check_cmd: python scripts/run_repo_tests.py

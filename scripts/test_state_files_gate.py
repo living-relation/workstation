@@ -1,4 +1,6 @@
 """Tests for the branch state gate (.github/state-files-gate.sh and its git-checker template)."""
+import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -7,6 +9,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 GATE = ROOT / ".github" / "state-files-gate.sh"
 TEMPLATE = ROOT / "skills" / "git-checker" / "hooks" / "state-files-gate.sh"
+
+
+def find_bash():
+    found = shutil.which("bash")
+    if found:
+        return found
+    if os.name == "nt":
+        for candidate in (
+            r"C:\Program Files\Git\usr\bin\bash.exe",
+            r"C:\Program Files\Git\bin\bash.exe",
+        ):
+            if Path(candidate).is_file():
+                return candidate
+    return None
+
+
+BASH = find_bash()
 
 
 def git(repo, *args):
@@ -33,7 +52,17 @@ class GateTests(unittest.TestCase):
         git(self.repo, "commit", "-q", "-m", rel)
 
     def run_gate(self):
-        return subprocess.run(["bash", str(GATE), "HEAD"], cwd=self.repo, capture_output=True, text=True)
+        if not BASH:
+            self.fail(
+                "bash is required to run the state-files-gate script "
+                "(on Windows, Git for Windows provides it)"
+            )
+        return subprocess.run(
+            [BASH, str(GATE), "HEAD"],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+        )
 
     def test_template_and_copy_match(self):
         self.assertEqual(GATE.read_bytes(), TEMPLATE.read_bytes())

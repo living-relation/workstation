@@ -6,6 +6,13 @@
   install.ps1 runs this at the end. -Quiet skips it. One app and section at a time.
   Sublime Text is C:\Program Files\Sublime Text\subl.exe. Notepad is the fallback.
   Cowork is included only when the Global instructions box exists.
+
+  Tests and CI must set WORKSTATION_PASTE_HOOK_DIR. When that directory is set,
+  clipboard text is written to clipboard-N.txt and the editor path to editor.log;
+  Set-Clipboard, clip.exe, pbcopy, xclip, Start-Process, subl.exe, and notepad
+  are never called. Under CI or pytest, a missing hook directory is a hard
+  refusal (exit 1) so a real clipboard or editor cannot be touched. Optional
+  WORKSTATION_PASTE_SIDE_EFFECT_LOG records any real clipboard or editor call.
 #>
 [CmdletBinding()]
 param(
@@ -41,9 +48,56 @@ $sections = @(
   }
 )
 
+function Test-PasteSealed {
+  return -not [string]::IsNullOrWhiteSpace($env:WORKSTATION_PASTE_HOOK_DIR)
+}
+
+function Test-PasteMustRefuseRealTools {
+  if (Test-PasteSealed) { return $false }
+  $ci = "$env:CI"
+  if ($ci -eq 'true' -or $ci -eq 'True' -or $ci -eq '1') { return $true }
+  if (-not [string]::IsNullOrWhiteSpace($env:PYTEST_CURRENT_TEST)) { return $true }
+  return $false
+}
+
+function Write-SideEffectLog([string]$What) {
+  $log = $env:WORKSTATION_PASTE_SIDE_EFFECT_LOG
+  if ([string]::IsNullOrWhiteSpace($log)) { return }
+  $dir = Split-Path -Parent $log
+  if ($dir -and -not (Test-Path -LiteralPath $dir)) {
+    New-Item -ItemType Directory -Path $dir | Out-Null
+  }
+  [IO.File]::AppendAllText($log, $What + [Environment]::NewLine)
+}
+
+function Get-HookDir {
+  $hook = $env:WORKSTATION_PASTE_HOOK_DIR
+  if ([string]::IsNullOrWhiteSpace($hook)) { return $null }
+  if (-not (Test-Path -LiteralPath $hook)) {
+    New-Item -ItemType Directory -Path $hook | Out-Null
+  }
+  return $hook
+}
+
+function Write-RefuseAndExit {
+  Write-Output 'Refusing to write the clipboard or open an editor in CI or pytest without WORKSTATION_PASTE_HOOK_DIR.'
+  exit 1
+}
+
 function Copy-InstructionText([string]$Text) {
+  $hook = Get-HookDir
+  if ($hook) {
+    $n = 1
+    while (Test-Path -LiteralPath (Join-Path $hook "clipboard-$n.txt")) { $n++ }
+    [IO.File]::WriteAllText((Join-Path $hook "clipboard-$n.txt"), $Text)
+    Write-Output 'Copied to the clipboard.'
+    Write-Output 'Clipboard write was sealed (no real clipboard).'
+    return
+  }
+  if (Test-PasteMustRefuseRealTools) { Write-RefuseAndExit }
   try {
     if (Get-Command Set-Clipboard -ErrorAction SilentlyContinue) {
+      Write-SideEffectLog 'Set-Clipboard'
       Set-Clipboard -Value $Text
       Write-Output 'Copied to the clipboard.'
       return
@@ -53,14 +107,23 @@ function Copy-InstructionText([string]$Text) {
 }
 
 function Open-InstructionFile([string]$Path) {
+  $hook = Get-HookDir
+  if ($hook) {
+    [IO.File]::AppendAllText((Join-Path $hook 'editor.log'), $Path + [Environment]::NewLine)
+    Write-Output "Opened in sealed editor: $Path"
+    return
+  }
+  if (Test-PasteMustRefuseRealTools) { Write-RefuseAndExit }
   $subl = 'C:\Program Files\Sublime Text\subl.exe'
   if (Test-Path -LiteralPath $subl) {
+    Write-SideEffectLog "Start-Process $subl"
     Start-Process -FilePath $subl -ArgumentList $Path
     Write-Output "Opened in Sublime Text: $Path"
     return
   }
   $notepad = Get-Command notepad -ErrorAction SilentlyContinue
   if ($notepad) {
+    Write-SideEffectLog "Start-Process $($notepad.Source)"
     Start-Process -FilePath $notepad.Source -ArgumentList $Path
     Write-Output "Opened in notepad: $Path"
     return
