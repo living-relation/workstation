@@ -41,7 +41,7 @@ if (-not $copyHome) {
 Write-Output "Catalog to paste: $Catalog"
 Write-Output 'Catalog name: workstation-plugins'
 Write-Output "Plugin page: $Page"
-Write-Output '1. Sign in to the claude.ai account you use for chat, Cowork, and Claude Code.'
+Write-Output '1. Sign in to the claude.ai account you use for chat and Cowork.'
 Write-Output '2. Open Customize in the left sidebar.'
 Write-Output '3. Open Plugins.'
 Write-Output '4. Click Add, then Add marketplace.'
@@ -50,7 +50,8 @@ Write-Output "6. Paste $Catalog."
 Write-Output '7. Turn Sync automatically on.'
 Write-Output '8. Confirm the add.'
 Write-Output '9. Turn on workstation-core.'
-Write-Output 'That covers chat, Cowork, and Claude Code signed in to this account.'
+Write-Output 'That covers chat and Cowork signed in to this account.'
+Write-Output 'Claude Code: install from the workstation-plugins catalog with the commands in INSTALL.md (Claude Code section). That copy takes precedence over the claude.ai one.'
 Write-Output 'Updates later: updates arrive automatically after merges to main. Check for updates in the catalog forces it sooner.'
 
 $dest = Join-Path $copyHome '.cursor\plugins\local\workstation-core'

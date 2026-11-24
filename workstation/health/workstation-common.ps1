@@ -331,7 +331,7 @@ function Show-AppLocks {
             $claudeHook = Find-RulesHook (Join-ProfilePath $profile @('.claude', 'plugins'))
             if ($claudeText -and (Test-LockRuleComplete $claudeText)) { Add-Item 'PASS' "$leaf Claude Code CLAUDE.md has acquire, check-in, and release for harness.design: $claudeMd" }
             elseif ($claudeHook) { Add-Item 'PASS' "$leaf Claude Code gets the harness.design lock rule from the workstation-core SessionStart hook: $claudeHook" }
-            else { Add-Item 'FAIL' "$leaf Claude Code: no harness.design lock rule in $claudeMd and no workstation-core plugin hook (rules-inject.ps1) under .claude\plugins. Turn on workstation-core at claude.ai." }
+            else { Add-Item 'FAIL' "$leaf Claude Code: no harness.design lock rule in $claudeMd and no workstation-core plugin hook (rules-inject.ps1) under .claude\plugins. Install workstation-core from the workstation-plugins catalog (INSTALL.md, Claude Code section)." }
         }
         if ($hasCursor) {
             $rulesDir = Join-ProfilePath $profile @('.cursor', 'rules')
