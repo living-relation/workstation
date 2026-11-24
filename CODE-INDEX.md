@@ -51,7 +51,7 @@ Regenerate with `python3 scripts/gen-code-index.py`; CI runs it with `--check`.
 | `hooks/projects-root-guard.ps1` | (no description comment) |
 | `hooks/projects-root-report.ps1` | Stop hook. Lists entries in the projects root that are not on the allowed list. |
 | `hooks/protected-files-guard.ps1` | PreToolUse hook (Claude Code and Cursor). Guards files an agent must not change on its own. |
-| `hooks/rules-inject.ps1` | SessionStart hook. Prints the workstation memory-store rules and the harness.design lock rule from this |
+| `hooks/rules-inject.ps1` | SessionStart hook. Prints the workstation memory-store rules and the app lock rules (harness.design, Fusion Desktop) from this |
 | `hooks/rules_fallback.py` | No-PowerShell fallback for the start-of-session hooks (Linux cloud sessions, containers, WSL). |
 | `hooks/run-ps.sh` | Portable launcher for the PowerShell hooks: sh run-ps.sh <script.ps1> [args...] |
 | `hooks/sot-after-edit.ps1` | PostToolUse hook (Claude Code Write / Edit / NotebookEdit; Cursor postToolUse). Non-blocking. |
@@ -107,7 +107,7 @@ Regenerate with `python3 scripts/gen-code-index.py`; CI runs it with `--check`.
 
 | File | What it does |
 |---|---|
-| `workstation/app-lock/app-lock.ps1` | harness.design lock: one lock per PC so only one agent drives the harness.design desktop app. |
+| `workstation/app-lock/app-lock.ps1` | App locks: one lock per PC, per app, so only one agent drives that desktop app at a time. |
 | `workstation/check-upstream.ps1` | Manual. For each skill whose SKILL.md has metadata.upstream: |
 | `workstation/cursor-worker/cursor-worker-lib.ps1` | Shared helpers for the manual Cursor worker. Dot-source only. |
 | `workstation/cursor-worker/start-cursor-worker.ps1` | Manual Start. Lists folders in <Projects>\active and starts one Cursor worker |

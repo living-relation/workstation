@@ -58,6 +58,7 @@ At 80% context, tell me and run the state-closeout skill (closeout mode).
 
 ## App locks
 - Before driving the harness.design desktop app, hold the per-PC harness.design lock: section 5b of `<Projects>\active\workstation\instructions\projects-AGENTS.md`. Acquire before use, check in at least every 10 min, and release when done. Never delete the lock file by hand. MCP cloud tools do not need the lock. An agent delete goes through the desktop app under the lock.
+- Before driving local Fusion Desktop (its built-in MCP at 127.0.0.1:27182, a script in the Fusion app, or clicking it), hold the per-PC Fusion Desktop lock, separate from the harness.design lock: section 5 of `<Projects>\active\workstation\instructions\projects-AGENTS.md` (`-Name fusion-desktop`). Acquire before use, check in at least every 10 min, and release when done. Fusion Compute and Data MCP need no lock.
 
 ## Repos
 - Follow each repo's AGENTS.md, decisions, CONTRIBUTING.md, hooks, and CI before changing anything. Their rules and decisions still bind. If an older agent doc's layout differs from the workstation-core template, that layout is migrated into the template, keeping every rule; a layout difference is not a blocker or a reason to stop.

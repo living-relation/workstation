@@ -81,8 +81,9 @@ try {
     $viaHookText = $viaHook -join "`n"
     Check 'doctor passes a profile with an installed workstation-core that has the rules hook' ($viaHookText -like '*PASS*Administrator Claude Code gets the harness.design lock rule from the installed workstation-core SessionStart hook*') $true
     Check 'doctor exit 0 with the installed plugin' $LASTEXITCODE 0
-    Check 'doctor runs the lock script once' (@($viaHook | Where-Object { "$_" -match 'lock script' }).Count) 1
+    Check 'doctor runs the lock script once per lock' (@($viaHook | Where-Object { "$_" -match 'lock script' }).Count) 2
     Check 'lock script line names harness.design' ($viaHookText -like '*PASS*harness.design lock script status runs (exit 0)*') $true
+    Check 'lock script line names Fusion Desktop' ($viaHookText -like '*PASS*Fusion Desktop lock script status runs (exit 0)*') $true
     $adminSettings = Join-Path (Join-Path (Join-Path $users 'Administrator') '.claude') 'settings.json'
     Set-Content -LiteralPath $adminSettings -Value '{"enabledPlugins":{"workstation-core@workstation-plugins":false}}'
     $offRun = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1

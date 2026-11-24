@@ -6,7 +6,7 @@ Every script and its test is listed in `automation.yml`.
 ## Rules at session start (`rules-inject.ps1`)
 
 Owner decision 2026-11-22: the memory-store rules (`memory/templates/claude-global-memory-section.md`; Cursor:
-`claude-shared-memory.mdc` without its front matter) and the harness.design lock rule (`memory/templates/app-locks.md`)
+`claude-shared-memory.mdc` without its front matter) and the app lock rules for harness.design and Fusion Desktop (`memory/templates/app-locks.md`)
 load from this hook in Claude Code (SessionStart and SubagentStart) and the Cursor desktop app (sessionStart,
 `additional_context`). Cowork runs plugin hooks in its own sandbox, likely Linux with no PowerShell, so `run-ps.sh`
 loads the rules through `rules_fallback.py` when Python is there, else reports WORKSTATION RULES NOT LOADED once
@@ -30,7 +30,7 @@ without hooks. The paste texts `instructions/instructions-for-claude.md` and
 Claude Code `SessionStart` context does not reach a Task-tool subagent. `hooks/hooks.json` runs this script on
 `SubagentStart` (no matcher, so every agent type gets it). The event name and output schema are in
 `https://code.claude.com/docs/en/hooks` (SubagentStart): `hookSpecificOutput.hookEventName` is `SubagentStart`
-and `additionalContext` is a short form of the memory-store rules and the harness.design lock rule, starting
+and `additionalContext` is a short form of the memory-store rules and the app lock rules (harness.design, Fusion Desktop), starting
 with the `rules-inject:` header. For the built-in `web-fetch` subagent, Claude Code runs `SubagentStart` hooks
 from managed settings only, so this plugin hook does not fire there.
 

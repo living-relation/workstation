@@ -1,23 +1,26 @@
-# harness.design lock: one lock per PC so only one agent drives the harness.design desktop app.
-# -Name has one value, harness-design (the default).
-# harness.design lock file: %LOCALAPPDATA%\<StateFolder>\harness-design.lock. Log: harness-design-lock.log beside it.
-# Rule: instructions/projects-AGENTS.md section 5b.
+# App locks: one lock per PC, per app, so only one agent drives that desktop app at a time.
+# -Name harness-design (the default): the harness.design desktop app. Lock file %LOCALAPPDATA%\<StateFolder>\harness-design.lock,
+#   log harness-design-lock.log beside it. Rule: instructions/projects-AGENTS.md section 5b.
+# -Name fusion-desktop: local Autodesk Fusion Desktop (its built-in MCP on 127.0.0.1:27182, or clicking the app).
+#   Lock file fusion-desktop.lock, log fusion-desktop-lock.log beside it. Rule: section 5.
+#   Fusion Compute and Fusion Data MCP (cloud) need no lock.
+# Each name has its own lock file and mutex; holding one never blocks the other.
 # Windows PowerShell 5.1, ASCII only.
 #
-#   app-lock.ps1 -Name harness-design status
-#   app-lock.ps1 -Name harness-design acquire -Holder <name> -Kind claude-code|cursor|remote [-Repo <repo path>] [-Files a,b] [-StartPinger] [-ParentPid N]
+#   app-lock.ps1 -Name harness-design|fusion-desktop status
+#   app-lock.ps1 -Name harness-design|fusion-desktop acquire -Holder <name> -Kind claude-code|cursor|remote [-Repo <repo path>] [-Files a,b] [-StartPinger] [-ParentPid N]
 # -Repo is recorded and shown by status. It does not decide who is blocked. One lock per PC still blocks every other session.
-#   app-lock.ps1 -Name harness-design checkin -Holder <name> [-Files a,b]
-#   app-lock.ps1 -Name harness-design release -Holder <name>
-#   app-lock.ps1 -Name harness-design check   [-StaleMinutes 15]     # stale check; never clears on time alone
-#   app-lock.ps1 -Name harness-design pinger  -Holder <name> -ParentPid N [-IntervalSec 300]
+#   app-lock.ps1 -Name harness-design|fusion-desktop checkin -Holder <name> [-Files a,b]
+#   app-lock.ps1 -Name harness-design|fusion-desktop release -Holder <name>
+#   app-lock.ps1 -Name harness-design|fusion-desktop check   [-StaleMinutes 15]     # stale check; never clears on time alone
+#   app-lock.ps1 -Name harness-design|fusion-desktop pinger  -Holder <name> -ParentPid N [-IntervalSec 300]
 #
 # Exit codes: 0 ok / free, 1 held by someone (status/check), 2 refused (held by another holder),
 #             3 stale and needs the owner (check), 4 bad usage.
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)][ValidateSet('status', 'acquire', 'checkin', 'release', 'check', 'pinger')][string]$Command = 'status',
-    [ValidateSet('harness-design')][string]$Name = 'harness-design',
+    [ValidateSet('harness-design', 'fusion-desktop')][string]$Name = 'harness-design',
     [string]$Holder,
     [ValidateSet('claude-code', 'cursor', 'remote')][string]$Kind = 'remote',
     [string]$Repo = '',
@@ -31,9 +34,15 @@ param(
 $ErrorActionPreference = 'Stop'
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'paths.ps1')
 $LockDir = $WsStateDir
-$LockPath  = Join-Path $LockDir 'harness-design.lock'
-$LogPath   = Join-Path $LockDir 'harness-design-lock.log'
-$MutexName = 'Local\WorkstationHarnessDesignLock'
+if ($Name -eq 'fusion-desktop') {
+    $LockPath  = Join-Path $LockDir 'fusion-desktop.lock'
+    $LogPath   = Join-Path $LockDir 'fusion-desktop-lock.log'
+    $MutexName = 'Local\WorkstationFusionDesktopLock'
+} else {
+    $LockPath  = Join-Path $LockDir 'harness-design.lock'
+    $LogPath   = Join-Path $LockDir 'harness-design-lock.log'
+    $MutexName = 'Local\WorkstationHarnessDesignLock'
+}
 $Self = $MyInvocation.MyCommand.Path
 # harness document ids are often passed as one comma-separated string ("rBjB, QjYZ").
 if ($Files) {
@@ -80,7 +89,7 @@ function Test-Pinger([int]$P) {
     if (-not (Get-Command Get-CimInstance -ErrorAction SilentlyContinue)) { return $false }
     $c = Get-CimInstance Win32_Process -Filter "ProcessId=$P" -ErrorAction SilentlyContinue
     if (-not ($c -and $c.CommandLine -like '*app-lock.ps1*pinger*')) { return $false }
-    return ($c.CommandLine -like '*-Name harness-design*')
+    return ($c.CommandLine -like "*-Name $Name*")
 }
 # Session process to tie the pinger to: first ancestor named claude / Cursor / Code (else the caller must pass -ParentPid).
 function Find-SessionPid {
@@ -171,6 +180,21 @@ function Get-HarnessStaleReason {
     if ($busy.Count) { return ("harness.design editor open: " + (($busy | Select-Object -First 3) -join '; ') + " (any window title other than the app name counts as an editor; Windows title text was not confirmed)") }
     return $null
 }
+
+# Fusion Desktop: unsaved work cannot be read without driving Fusion, so a stale lock is cleared only when
+# Fusion360.exe is not running. Test seam: WORKSTATION_FUSION_FAKE_RUNNING = yes, no or unknown.
+function Get-FusionStaleReason {
+    $fake = [string]$env:WORKSTATION_FUSION_FAKE_RUNNING
+    if ($fake -eq 'no') { return $null }
+    if ($fake -eq 'yes') { return 'Fusion360.exe is running; unsaved work cannot be checked' }
+    if ($fake -eq 'unknown') { return 'cannot read the process list, cannot confirm Fusion is closed' }
+    try { $procs = @(Get-Process -Name 'Fusion360' -ErrorAction Stop) }
+    catch [Microsoft.PowerShell.Commands.ProcessCommandException] { return $null }
+    catch { return 'cannot read the process list, cannot confirm Fusion is closed' }
+    if ($procs.Count) { return 'Fusion360.exe is running; unsaved work cannot be checked' }
+    return $null
+}
+function Get-StaleReason { if ($Name -eq 'fusion-desktop') { return Get-FusionStaleReason } else { return Get-HarnessStaleReason } }
 
 switch ($Command) {
     'status' {
@@ -280,8 +304,9 @@ switch ($Command) {
         $age = Get-AgeMinutes $L
         if ($age -lt $StaleMinutes) { Out-Result ([ordered]@{ state = 'held'; holder = $L.holder; minutes_since_checkin = $age }) 1 }
         # Stale by time. Time alone never clears it.
-        # Cloud autosave: unsaved work is not visible. Clear only when no editor window is open.
-        $why = Get-HarnessStaleReason
+        # harness.design: cloud autosave, unsaved work is not visible; clear only when no editor window is open.
+        # fusion-desktop: clear only when Fusion360.exe is not running.
+        $why = Get-StaleReason
         if ($why) {
             Write-Log "STALE-FLAG $($L.holder) age=${age}m: $why"
             Out-Result ([ordered]@{ state = 'stale-needs-owner'; holder = $L.holder; minutes_since_checkin = $age; reason = $why; next = 'ask the owner before clearing' }) 3
@@ -289,7 +314,7 @@ switch ($Command) {
         $cleared = Invoke-Locked { $C = Read-Lock; if ($C -and $C -ne 'corrupt' -and $C.holder -eq $L.holder -and $C.last_checkin -eq $L.last_checkin) { Remove-Item -LiteralPath $LockPath -Force; return $true }; return $false }
         if ($cleared) {
             if (Test-Pinger ([int]$L.pinger_pid)) { Stop-Process -Id ([int]$L.pinger_pid) -Force -ErrorAction SilentlyContinue }
-            Write-Log "CLEAR $($L.holder) age=${age}m (no harness.design editor open)"
+            Write-Log "CLEAR $($L.holder) age=${age}m ($(if ($Name -eq 'fusion-desktop') { 'Fusion360.exe not running' } else { 'no harness.design editor open' }))"
             Out-Result ([ordered]@{ state = 'cleared'; holder = $L.holder; minutes_since_checkin = $age }) 0
         }
         Out-Result ([ordered]@{ state = 'held'; holder = $L.holder; note = 'lock changed during check' }) 1

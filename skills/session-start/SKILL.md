@@ -57,7 +57,7 @@ Check each sign. Any one = **"last session stopped early"**.
 
 | Sign | How to check |
 |---|---|
-| A lock is still held | lock files inside this repo, or the harness.design app lock held on this PC; say which repo/holder holds it |
+| A lock is still held | lock files inside this repo, or an app lock (harness.design or Fusion Desktop) held on this PC; say which repo/holder holds it |
 | Outputs newer than STATE | files changed after the STATE file's `Updated:` date (`git status`, file times) |
 | Last transcript entry isn't a final reply | last entry of the newest session file is a tool call, tool result or plan, not an answer |
 | Sure usage-limit stop | last entry has `"model":"<synthetic>"` **and** text like "hit your … limit" |

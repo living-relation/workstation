@@ -309,6 +309,7 @@ def test_python_fallback_subagent_rules_match_the_powershell_text(tmp_path):
     assert text.startswith("rules-inject: workstation-core rules for this subagent")
     assert "this branch's STATE-<slug>.md" in text
     assert "harness.design lock:" in text
+    assert "Fusion Desktop lock:" in text
 
 
 @needs_sh
