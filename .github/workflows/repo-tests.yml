@@ -58,12 +58,8 @@ jobs:
       - name: Confirm bash and pwsh
         shell: pwsh
         run: |
-          $bash = @(
-            (Get-Command bash -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source),
-            'C:\Program Files\Git\usr\bin\bash.exe',
-            'C:\Program Files\Git\bin\bash.exe'
-          ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
-          if (-not $bash) { throw 'bash is required for state-files-gate tests (Git for Windows)' }
+          $bash = python scripts/find_git_bash.py
+          if ($LASTEXITCODE -ne 0 -or -not $bash) { throw 'Git Bash is required for state-files-gate tests (Git for Windows). The WSL launcher is ignored.' }
           Write-Output "bash: $bash"
           if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) { throw 'pwsh is required' }
           pwsh -NoProfile -Command '$PSVersionTable.PSVersion'

@@ -73,6 +73,7 @@ Regenerate with `python3 scripts/gen-code-index.py`; CI runs it with `--check`.
 | `scripts/check_cursor_plugin.py` | Check the Cursor plugin manifests. Stdlib only. |
 | `scripts/check_no_claude_md.py` | Fail if this commit's tree tracks a Claude instruction file. |
 | `scripts/fetch-gitleaks.sh` | Downloads the pinned gitleaks into .tools/ and checks its sha256 (Linux/WSL x64). |
+| `scripts/find_git_bash.py` | Locate a real bash for this repo's tests (Git Bash on Windows). |
 | `scripts/gen-code-index.py` | Generate CODE-INDEX.md: one line per tracked script with its first comment line (run from anywhere). |
 | `scripts/gen-inventory.py` | Generate INVENTORY.md from workstation.lock.yaml (run from the repo root). |
 | `scripts/guard-staged.sh` | Pre-commit guard: blocks part/model files, archives, files over 1 MB, and .env files. |
