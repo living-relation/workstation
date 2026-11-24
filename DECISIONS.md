@@ -79,3 +79,15 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** `[ OK ]` for stopped manual tools; printing worker command lines (they carry a key); narrowing the plugin to fewer files (AR, not approved).
 - **Supersedes:** none.
 - **Reopen if:** Claude Code changes the `installed_plugins.json` layout, or the Cursor app stops keeping `<worker>.restart.json`.
+
+## D-2026-11-24-no-powershell-quiet: no PowerShell means no Stop output and a once-only warning
+- **Status:** accepted, 2026-11-24 (Dan)
+- **Source:** Dan's bug report in the Grok Bot chat, 2026-11-23 9:25 PM ET: a Linux cloud Claude Code session looped on Stop.
+- **Context:** with `powershell` and `pwsh` both missing, `run-ps.sh` printed the loud fail for every hook event, Stop included, so the "open your reply with" instruction came back after every reply.
+- **Decision:**
+  - Without PowerShell, `run-ps.sh` prints nothing for any event other than `SessionStart` and `SubagentStart`.
+  - On those two events, `rules-inject`, `state-inject` and `subagent-rules` run `hooks/rules_fallback.py` (python3, else python), which prints the same rules or state text.
+  - If Python is missing or the fallback fails, the loud fail prints at most once per session and event (marker file in `${TMPDIR:-/tmp}` keyed by `session_id`).
+- **Rejected:** keeping the loud fail on every event; a separate POSIX sh copy of the rules text (it would drift from the templates).
+- **Supersedes:** the `run-ps.sh` bullet of D-2026-11-24-hook-loud-fail. The rest of that entry stands.
+- **Reopen if:** Claude Code cloud sessions ship PowerShell, or Python goes missing from them.
