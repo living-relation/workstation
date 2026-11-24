@@ -37,18 +37,20 @@ Add SPEC or DECISIONS to a Light repo only when one is needed. If the profile is
 7. **Commit** on the branch, open the PR, and report: each role, its path, and `created`, `exists`, or `migrated`.
 
 ## Role table (in the router)
-| Role | Location |
-|---|---|
-| Router | `AGENTS.md` |
-| Decisions (why) | `<path>` |
-| Rules (how) | `.claude/rules/` (Cursor copies generated) |
-| SPEC (done criteria) | `<path>` or none |
-| Data (values) | `<paths>` or none |
-| Live state | `STATE.md` (trunk), `STATE-<slug>.md` (committed on its branch), `archives/` at the repo root |
-| Backlog | `BACKLOG.md` at the repo root |
-| Notes | store `<project>/INDEX.md` (preferences, machine facts, gotchas; no status) |
-| Branch checklist | `TASK.md` at the worktree root, git-ignored |
-| Repo profile | `repo-profile.json` (code / CAD / docs / harness; committed; a rerun uses it) |
+"Read when" tells an agent when it needs that file, so it reads the right one instead of every file.
+| Role | Location | Read when |
+|---|---|---|
+| Router | `AGENTS.md` | every session, first |
+| Decisions (why) | `<path>` | every session (session-start), and before changing behavior |
+| Rules (how) | `.claude/rules/` (Cursor copies generated) | before any edit or commit |
+| SPEC (done criteria) | `<path>` or none | before calling a feature done |
+| Data (values) | `<paths>` or none | before using or changing a value |
+| Live state | `STATE.md` (trunk), `STATE-<slug>.md` (committed on its branch), `archives/` at the repo root | every session; `archives/` only for history |
+| Backlog | `BACKLOG.md` at the repo root | picking the next task, or recording an after-merge step |
+| Notes | store `<project>/INDEX.md` (preferences, machine facts, gotchas; no status) | before asking the maintainer anything |
+| Branch checklist | `TASK.md` at the worktree root, git-ignored | while working the branch |
+| Repo profile | `repo-profile.json` (code / CAD / docs / harness; committed; a rerun uses it) | when rerunning state-init |
+| Code map (optional) | `CODE-INDEX.md`, generated; never edited by hand | to find which file does what before searching |
 
 ## Hard rules
 - Show the plan before any overwrite. Ask before a delete that is not the pre-approved CLAUDE fold. A file already at its template home stays. An older agent doc that conflicts with the template is migrated into that home in the plan.

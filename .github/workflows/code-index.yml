@@ -1,0 +1,32 @@
+# Fail if CODE-INDEX.md does not match a fresh run of scripts/gen-code-index.py (a script was added,
+# removed, or its first comment line changed without regenerating the index).
+name: code-index
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: code-index-${{ github.head_ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version-file: .python-version
+      - name: CODE-INDEX.md is up to date
+        run: python3 scripts/gen-code-index.py --check
+      - name: Test the generator
+        run: python3 scripts/test_gen_code_index.py
