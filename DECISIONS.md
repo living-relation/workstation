@@ -29,3 +29,18 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** claude.ai as the only Claude Code route (it went stale); having install scripts run the commands.
 - **Supersedes:** the 2026-11-19 "Claude install is claude.ai only" rule (BACKLOG.md, 2026-11-19 entry), for Claude Code only.
 - **Reopen if:** the claude.ai sync reliably refreshes Claude Code's copy, or the two copies stop resolving by precedence.
+
+## D-2026-11-24-hook-loud-fail: a failed rules hook says so
+- **Status:** accepted, 2026-11-24 (Dan)
+- **Source:** Dan approved the loud-fail and SubagentStart items in the Grok Bot chat that opened this change.
+- **Context:** `rules-inject.ps1` and `state-inject.ps1` exited 0 with no output on any error, and `run-ps.sh` did the same when PowerShell was missing. A session could start with no memory-store or lock rules and no sign that they were missing. Claude Code `SessionStart` `additionalContext` also does not reach a Task-tool subagent.
+- **Decision:**
+  - An unexpected error in those two hooks exits 0 and prints a loud fail. Claude Code gets `systemMessage` (shown to the user) and `hookSpecificOutput.additionalContext` (`https://code.claude.com/docs/en/hooks`). The context tells the agent to open its reply with `WORKSTATION RULES NOT LOADED: <reason>`. Cursor `sessionStart` cannot show a user message, so the same instruction goes in `additional_context` only (`https://cursor.com/docs/hooks`).
+  - `run-ps.sh` prints that same Claude JSON when `powershell` and `pwsh` are both missing. `hookEventName` comes from the payload.
+  - Expected skips stay quiet: no projects root, nothing to add, not a git repo, repo not migrated, no state file.
+  - Claude Code `SubagentStart` (`hooks/subagent-rules.ps1`, no matcher) gives each subagent a short form of the existing memory-store rules and the harness.design lock rule. Output is `hookSpecificOutput.hookEventName` `SubagentStart` plus `additionalContext` (`https://code.claude.com/docs/en/hooks`, SubagentStart).
+  - Cursor stays unwired. Its `subagentStart` output is only `permission` `allow` or `deny` (`https://cursor.com/docs/hooks`).
+  - The two paste texts say to speak first if a `rules-inject:` header is missing. No other new rule.
+- **Rejected:** staying silent on hook errors; a Cursor subagent hook (it cannot carry the rules); blocking the session (these events cannot block).
+- **Supersedes:** none.
+- **Reopen if:** Cursor's `subagentStart` grows an `additional_context` field, or Claude Code starts passing `SessionStart` context into Task-tool subagents.
