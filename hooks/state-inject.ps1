@@ -3,7 +3,10 @@
 # When the branch file does not exist yet, prints STATE.md with a note. Then one line asks the agent to
 # confirm goal, Last_Verified_SHA and next step in 3 lines.
 # Silent exit 0 when: not a git repo, no state tools or Python, no STATE.md at the worktree root
-# (repo not migrated yet), or no STATE file. Never writes anything. Exit 0 on every error.
+# (repo not migrated yet), or no STATE file. Never writes anything. An unexpected error is a loud
+# fail (exit 0): Claude Code gets systemMessage plus additionalContext; Cursor sessionStart puts the
+# same instruction in additional_context. The agent opens with "WORKSTATION RULES NOT LOADED: <reason>".
+# Tests set WORKSTATION_INJECT_FAIL to force that path.
 # Claude Code (SessionStart): plain text on stdout. Cursor (sessionStart): one {"additional_context": ...} line.
 . (Join-Path $PSScriptRoot 'state-common.ps1')
 
@@ -21,12 +24,14 @@ function Format-StateInjection {
 
 if ($MyInvocation.InvocationName -ne '.') {
   $ErrorActionPreference = 'SilentlyContinue'
+  $hookIn = $null
   try {
     try {
       $utf8 = New-Object System.Text.UTF8Encoding $false
       [Console]::OutputEncoding = $utf8
     } catch { }
     $hookIn = Read-StateHookInput
+    if ($env:WORKSTATION_INJECT_FAIL) { throw $env:WORKSTATION_INJECT_FAIL }
     $cwd = Get-StateHookCwd $hookIn
     if (-not $cwd) { exit 0 }
     $info = Get-StatePathInfo $cwd
@@ -49,6 +54,7 @@ if ($MyInvocation.InvocationName -ne '.') {
     }
     exit 0
   } catch {
+    Write-RulesNotLoaded -HookInput $hookIn -Reason $_.Exception.Message -EventName 'SessionStart'
     exit 0
   }
 }
