@@ -7,8 +7,12 @@
 # A part is skipped when the user's own rule file already has that marked block (older installs appended
 # it), so nothing is loaded twice. Placeholders are filled from the projects root saved by install.ps1
 # (%LOCALAPPDATA%\Workstation\workstation.json) or WORKSTATION_PROJECTS_ROOT.
-# Silent exit 0 when: no projects root is known (not a workstation PC), a template is missing, or on any
-# error. Never writes anything.
+# Silent exit 0 when this PC is not a workstation PC (no projects root) or there is nothing to add
+# (the user's own rule file already has the block, or a template is missing). An unexpected error
+# exits 0 with a loud fail: Claude Code gets systemMessage plus additionalContext; Cursor sessionStart
+# gets the same instruction in additional_context (it cannot show a user message). The agent is told
+# to open its reply with "WORKSTATION RULES NOT LOADED: <reason>". Never writes anything.
+# Tests set WORKSTATION_INJECT_FAIL to force that path.
 . (Join-Path $PSScriptRoot 'state-common.ps1')
 
 function Get-RulesProjectsRoot {
@@ -80,9 +84,11 @@ function Format-RulesInjection {
 
 if ($MyInvocation.InvocationName -ne '.') {
   $ErrorActionPreference = 'SilentlyContinue'
+  $hookIn = $null
   try {
     try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch { }
     $hookIn = Read-StateHookInput
+    if ($env:WORKSTATION_INJECT_FAIL) { throw $env:WORKSTATION_INJECT_FAIL }
     $root = Get-RulesProjectsRoot
     if (-not $root) { exit 0 }
     $templates = Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'memory') 'templates'
@@ -93,6 +99,7 @@ if ($MyInvocation.InvocationName -ne '.') {
     else { [Console]::Out.WriteLine($text) }
     exit 0
   } catch {
+    Write-RulesNotLoaded -HookInput $hookIn -Reason $_.Exception.Message -EventName 'SessionStart'
     exit 0
   }
 }

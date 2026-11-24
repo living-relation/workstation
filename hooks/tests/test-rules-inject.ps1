@@ -47,5 +47,15 @@ Remove-Item -LiteralPath (Join-Path $home1 '.claude\CLAUDE.md') -Force
 $r = Start-Session @{ LOCALAPPDATA = (Join-Path $t 'no-local'); WORKSTATION_PROJECTS_ROOT = 'D:\P' }
 Check 'WORKSTATION_PROJECTS_ROOT wins' ($r.Out -match [regex]::Escape('D:\P\_claude'))
 
+$failLine = 'WORKSTATION RULES NOT LOADED: boom'
+$failTell = "Open your reply with this exact line: $failLine"
+$r = Start-Session @{ WORKSTATION_INJECT_FAIL = 'boom' }
+$d = $null; try { $d = $r.Out.Trim() | ConvertFrom-Json } catch { }
+Check 'claude error: loud fail is systemMessage plus SessionStart additionalContext' ($r.Code -eq 0 -and $d.systemMessage -eq $failLine -and $d.hookSpecificOutput.hookEventName -eq 'SessionStart' -and $d.hookSpecificOutput.additionalContext -eq $failTell)
+Check 'claude error: does not print the rules' ($r.Out -notmatch 'shared-memory:v1')
+$r = Start-Session @{ CURSOR_VERSION = '1.7.0'; WORKSTATION_INJECT_FAIL = 'boom' } $cursorPayload
+$d = $null; try { $d = $r.Out.Trim() | ConvertFrom-Json } catch { }
+Check 'cursor error: same instruction in additional_context only' ($r.Code -eq 0 -and $d.additional_context -eq $failTell -and -not $d.systemMessage -and $r.Out -notmatch 'hookSpecificOutput')
+
 Remove-TestRoot $t
 Complete-StateTest

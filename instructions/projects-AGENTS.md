@@ -34,7 +34,7 @@ session-start, state-init, or repo-cleanup, keeping every rule. A layout differe
 blocker or a reason to stop.
 
 ## 2. Git
-- Branch -> PR -> review. No commits on `main`, never force-push. Exception: the skill-zips CI bot may force-push (with lease) its own `chore/skill-zips` branch only.
+- Branch -> PR -> review. No commits on `main`, never force-push.
 - One repo at a time: no batch pull/push/merge scripts or shortcuts.
 - After a merge, update local copies with `git pull --ff-only`, never over uncommitted changes.
 - Commits use the GitHub noreply address; no personal email in commit metadata.

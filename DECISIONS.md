@@ -30,6 +30,41 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Supersedes:** the 2026-11-19 "Claude install is claude.ai only" rule (BACKLOG.md, 2026-11-19 entry), for Claude Code only.
 - **Reopen if:** the claude.ai sync reliably refreshes Claude Code's copy, or the two copies stop resolving by precedence.
 
+## D-2026-11-23-retire-skill-zips: Skill zip tooling retired
+- **Status:** accepted, 2026-11-23 (Dan)
+- **Source:** Dan, Grok Bot chat (Cursor Project leftovers: retire zips yes; 2026-11-23 ET).
+- **Context:** skills reach Claude and Cursor through the workstation-core plugin. The committed `skills/<name>.zip` files, pack scripts, and pack-skill-zips CI bot were leftover install packaging.
+- **Decision:** remove `scripts/pack-skill-zips.*`, the pack-skill-zips workflow, committed `skills/*.zip`, and the git-hook exception that allowed those zips. Skills are not installed by zip upload.
+- **Rejected:** keeping the packer as an optional local tool.
+- **Reopen if:** a consumer still needs a committed skill zip and cannot use the plugin.
+## D-2026-11-24-hook-loud-fail: a failed rules hook says so
+- **Status:** accepted, 2026-11-24 (Dan)
+- **Source:** Dan approved the loud-fail and SubagentStart items in the Grok Bot chat that opened this change.
+- **Context:** `rules-inject.ps1` and `state-inject.ps1` exited 0 with no output on any error, and `run-ps.sh` did the same when PowerShell was missing. A session could start with no memory-store or lock rules and no sign that they were missing. Claude Code `SessionStart` `additionalContext` also does not reach a Task-tool subagent.
+- **Decision:**
+  - An unexpected error in those two hooks exits 0 and prints a loud fail. Claude Code gets `systemMessage` (shown to the user) and `hookSpecificOutput.additionalContext` (`https://code.claude.com/docs/en/hooks`). The context tells the agent to open its reply with `WORKSTATION RULES NOT LOADED: <reason>`. Cursor `sessionStart` cannot show a user message, so the same instruction goes in `additional_context` only (`https://cursor.com/docs/hooks`).
+  - `run-ps.sh` prints that same Claude JSON when `powershell` and `pwsh` are both missing. `hookEventName` comes from the payload.
+  - Expected skips stay quiet: no projects root, nothing to add, not a git repo, repo not migrated, no state file.
+  - Claude Code `SubagentStart` (`hooks/subagent-rules.ps1`, no matcher) gives each subagent a short form of the existing memory-store rules and the harness.design lock rule. Output is `hookSpecificOutput.hookEventName` `SubagentStart` plus `additionalContext` (`https://code.claude.com/docs/en/hooks`, SubagentStart).
+  - Cursor stays unwired. Its `subagentStart` output is only `permission` `allow` or `deny` (`https://cursor.com/docs/hooks`).
+  - The two paste texts say to speak first if a `rules-inject:` header is missing. No other new rule.
+- **Rejected:** staying silent on hook errors; a Cursor subagent hook (it cannot carry the rules); blocking the session (these events cannot block).
+- **Supersedes:** none.
+- **Reopen if:** Cursor's `subagentStart` grows an `additional_context` field, or Claude Code starts passing `SessionStart` context into Task-tool subagents.
+
+## D-2026-11-24-install-runs-catalog: install runs the catalog commands; no npm and no local MCP
+- **Status:** accepted, 2026-11-24 (Dan)
+- **Source:** Dan's approval of items AL, AK, AM, and AQ (2026-11-24).
+- **Context:** D-2026-11-23-claude-code-catalog put the Claude Code catalog commands in the docs and rejected having install scripts run them. PC setup also depended on an agent freely reading SETUP-PROMPT.txt. A local npm package or MCP server was considered as another way to ship the same tools.
+- **Decision:**
+  - `install.ps1` runs `claude plugin marketplace add living-relation/workstation`, then `claude plugin install workstation-core@workstation-plugins`. `install.cmd` starts `install.ps1`, so it runs them too. If the claude CLI is missing, those two commands are skipped and the install continues. Nothing is uninstalled or disabled. Refresh and update stay manual, one command per block, in INSTALL.md and README.md.
+  - At the end of a real install, a paste helper does one instruction file at a time: copy it to the clipboard, open it in Sublime Text (`C:\Program Files\Sublime Text\subl.exe`, or notepad if that program is missing), print where to paste, and wait for Enter. Places: Claude Desktop > Settings > General > Instructions for Claude (`instructions/instructions-for-claude.md`); Cowork Global instructions (`instructions/cowork-global-instructions.md`) only if that box exists; Cursor Settings > Rules > User Rules (`instructions/cursor-user-rules.md`). `-Quiet` skips the helper.
+  - PC setup is a printed guide with numbered phases (`scripts/setup_guide.py`). SETUP-PROMPT.txt is only a pointer to that script. `scripts/setup_verify.py` fails when a phase was missed. Per-repo setup lives in state-init: the agent scans the repo, proposes which of code, CAD, docs, and harness it stores, asks only the unclear items, and saves the answers in committed `repo-profile.json`. A rerun uses that file.
+  - No npm package and no local MCP server for now. The tools are Windows-only PowerShell. The plugins already ship through the Claude catalog and the Cursor copy. MCP tools are model-optional, so they do not replace the start-of-chat rules.
+- **Rejected:** leaving the catalog commands as docs-only (the rejected line in D-2026-11-23-claude-code-catalog); an npm package; a local MCP server.
+- **Supersedes:** the "No script runs them" decision and the "Rejected: having install scripts run the commands" line of D-2026-11-23-claude-code-catalog. The rest of that entry stays.
+- **Reopen if:** Claude Code's catalog install must stay manual, or a non-Windows host needs these tools as an npm package or a local MCP server.
+
 ## D-2026-11-23-health-indicators: health check marks running, stopped and plugin versions
 - **Status:** accepted, 2026-11-23 (Dan)
 - **Source:** Dan's Grok Bot chat answers AA-AH and AO (2026-11-23 ET, "reask").

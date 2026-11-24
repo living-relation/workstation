@@ -56,6 +56,8 @@ Skip this if you don't use Claude Code.
 
 Claude Code installs workstation-core straight from this repo's catalog. That copy (`workstation-core@workstation-plugins`) takes precedence over the copy synced from claude.ai; `claude plugin list` then shows the synced one as not loaded. Claude desktop and Cowork still get the plugin from claude.ai (the Claude section above).
 
+`install.ps1` runs the add command and the install command below. `install.cmd` runs `install.ps1`. If the `claude` CLI is missing, those two are skipped and the install continues. Nothing is uninstalled or disabled. Refresh and update stay manual.
+
 **Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin.
 
 1. Add the catalog, once per PC. Skip this if `claude plugin marketplace list` already shows `workstation-plugins`.
@@ -153,8 +155,7 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
 - No CAD code or models in this repo. `workstation.lock.yaml` does not pin any.
 - `skills/` - this repo's skills; skills live only in their repo. They get in from the `workstation-core` plugin: turned on from the `workstation-plugins` catalog on claude.ai for Claude desktop and Cowork, and installed from the same catalog with the `claude plugin` commands for Claude Code (see [INSTALL.md](INSTALL.md)). No zip upload. `install.ps1` does not copy them into `~\.claude\skills`.
   `skills/EXCLUDE.txt` lists Claude-app-owned skills (harness-design, st185-*); those, and any SKILL.md with
-  `source: harness-design-app`, are never zipped, and `link-skills.ps1` never moves or removes their folders.
-  Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching generated `skills/<name>.zip` (CI builds it; nobody uploads it).
+  `source: harness-design-app`, are left alone, and `link-skills.ps1` never moves or removes their folders.
 
   **This repo is the source of truth for Dan's skills** (all 18 are his). `wizard` is his copy of
   [claude-wizard](https://github.com/vlad-ko/claude-wizard) `skill/` at base `43756e1` (`skills/wizard/UPSTREAM.md`).
@@ -162,15 +163,6 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   `base..HEAD`, three-way merges into Dan's copy, bumps `upstream-base`, and opens a PR. No schedule and no
   sign-in item. The same check can be started by hand from Actions: workflow **check-upstream**
   (`workflow_dispatch` only, no cron).
-  Zips update automatically: on a same-repo PR that touches skills (and whose head is not main), a GitHub Action
-  rebuilds them and commits any changes back onto that PR branch. If main's zips are ever stale, the Action
-  resets `chore/skill-zips` to `origin/main` and opens or updates that one PR (it never pushes to main).
-  `GITHUB_TOKEN` commits do not start checks; the Action runs `gh workflow run` on the new commit. The owner
-  must leave **Allow GitHub Actions to create and approve pull requests** on, and keep a ruleset on `main`
-  that blocks direct pushes. The local packer is optional (`scripts\pack-skill-zips.ps1` or
-  `bash scripts/pack-skill-zips.sh`; both call `python3 scripts/pack-skill-zips.py`). Zips are deterministic;
-  the packer only treats directories that contain `SKILL.md` as skills and ignores `.zip` files. Limit
-  violations are reported as warnings; skill files are never edited. Untracked `SKILL.md` fails the packer.
 - Ownership notes: `install.ps1` runs `ownership-notes.ps1`, which adds a README.md/AGENTS.md ("owned by the workstation repo")
   to each folder it creates (`%LOCALAPPDATA%\Workstation` and its subfolders, `<Projects>\_claude`). In the shared
   skill folders it adds only `README-workstation.md`, which lists the links this repo owns. Existing files are never changed.

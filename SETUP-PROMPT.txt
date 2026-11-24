@@ -1,60 +1,15 @@
-Grok Bot: please set up this PC with my workstation setup. Follow these steps in order. Stop and wait for me wherever it says so. Setup is NOT finished until every numbered step below is done, including the instruction paste and the final Health check check.
+This file is a pointer. Do not read it as the setup steps.
 
-0. The package is the workstation repo clone, normally <Projects>\active\workstation (clone it there if it is missing; ask me for the URL). The Workstation toolkit runs straight from this clone, so it must stay on main. Find it (ask me if you cannot). Work on this PC, as the signed-in Windows user. Do not use an elevated (admin) shell; I run the one admin command myself.
+Print the guide and follow each phase in order:
 
-1. FIRST: if REVIEW-NOTES.md exists in the package folder, read all of it before anything else. It holds notes for one specific PC (for example a different Projects folder, extra clean-up steps, and a suggested order). If it is for this PC, its notes override the defaults below, and every extra required step it lists is part of this setup. If you are not sure it is for this PC, ask me.
-   Then read README.md, REORGANIZE.md, MIGRATION.md and instructions\README.md in that folder.
+python3 scripts/setup_guide.py
 
-2. Preflight: in a normal PowerShell, from the package folder, run
-   powershell -NoProfile -ExecutionPolicy Bypass -File .\preflight.ps1
-   It changes nothing and writes preflight-report-<time>.txt. Show me the report as a short list: every CONFLICT and WARN with what it means, then the counts. For each CONFLICT, propose how to resolve it and wait for my decision. Change nothing yourself unless I say so. Re-run preflight until it shows no CONFLICT, or until I tell you to accept a conflict.
-   If my Projects folder is not %USERPROFILE%\Projects (REVIEW-NOTES.md may say), ask me and use -ProjectsRoot for every script.
+When a phase is done, record it:
 
-3. Dry run: powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -WhatIf
-   (it runs preflight again first). Show me what it would create, change, and any warnings. Change nothing yet.
+python3 scripts/setup_guide.py --complete <number>
 
-4. Back up my memories BEFORE anything else changes: do MIGRATION.md step a (every Windows account on this PC, memory folders only). Verify the file counts and show me the totals.
+Setup is not finished until this exits 0:
 
-5. Reorganize: show me the plan from REORGANIZE.md step 1 (inventory -> proposed moves). Move nothing until I approve. Then do the moves I approved and the rest of REORGANIZE.md (steps 2 to 5). Step 5: if the Projects root has a CLAUDE.md, fold it into AGENTS.md yourself (the root is not a git repo; check first, back up first, keep every rule, drop exact duplicates, then delete the root CLAUDE.md). Do not create a CLAUDE.md or CLAUDE.local.md in a repo or at the Projects root. The one-line project memory pointer goes in that project's AGENTS.md. If REORGANIZE.md or MIGRATION.md says to put that pointer in CLAUDE.md or CLAUDE.local.md, use AGENTS.md instead. Then list every CLAUDE.md, .claude\CLAUDE.md, and CLAUDE.local.md in active\ projects and repos as a table. The workstation-core template is the target: fold each into that project's AGENTS.md (keep every rule, drop exact duplicates), then delete the CLAUDE file. That fold is pre-approved. Every rule is kept. A layout difference is not a blocker or a reason to stop. The rules and decisions in those files still bind. Show me the plan before you write over an AGENTS.md. In a git repo, I make the commit myself, and nothing is pushed. Leave %USERPROFILE%\.claude\CLAUDE.md alone.
+python3 scripts/setup_verify.py
 
-6. Run install.ps1 for real (same parameters as the dry run). Add -AcceptConflicts only if I accepted the remaining conflicts in step 2. It copies no toolkit files (the toolkit runs from the clone's workstation\ folder); it writes %LOCALAPPDATA%\Workstation\workstation.json (the Projects root), creates the manual Desktop Commander shortcuts (Start, Stop, status) and the orphan tool in the package's shortcuts\ folder, installs the 80% handoff hooks and the pr-closeout-nudge hook, merges Claude Code MCP connectors into ~\.claude.json and installs official-marketplace plugins from claude\plugins.json, does not copy skills into ~\.claude\skills (the workstation-core plugin delivers them). On a real run it opens https://claude.ai/customize/plugins and prints the clicks: Customize, Plugins, Add, Add marketplace, Add from a repository, paste living-relation/workstation, turn Sync automatically on, turn on workstation-core. Updates later: updates arrive automatically after merges to main. Check for updates in the catalog forces it sooner. The Cursor copy still updates by running the installer again and reloading Cursor. That covers chat and Cowork on that account. For Claude Code, give me the commands in INSTALL.md (Claude Code section), one command per line. It also copies this repo to %USERPROFILE%\.cursor\plugins\local\workstation-core. Reload Cursor after that. A dry run opens nothing and copies nothing. Stop and wait until I say the plugin is on. It adds no autostart (nothing starts at sign-in). For github it reads GITHUB_PERSONAL_ACCESS_TOKEN (or GITHUB_TOKEN) from env, or prompts; empty skips that server. Show me the summary and any warnings.
-   At the end, install.ps1 runs Health check (-NoPause) and prints its FAIL / WARN counts. FAIL or WARN lines are expected at this point; the steps below clear them. Exit code 0 is expected. Exit code 1 (error) or 2 (preflight conflict) is not: show me what went wrong.
-
-7. Old local setup (manual, by me, only if this PC had the previous toolkit): give me `cleanup-legacy.ps1 -WhatIf` first. I review it. Then I run it. The firewall step needs an admin window; if the script says it skipped that rule, I run that one step myself. Wait for my "done". Skip this step on a PC that never had the old setup. There is no memory sync task (Cursor edits the live memory store).
-
-8. Memory migration: do MIGRATION.md steps b to e. Show me the plan and wait for my OK before merging anything. Give me the transcript-only findings for review.
-
-9. Paste (manual, by me; MIGRATION.md step f): tell me to open
-      <package folder>\instructions\instructions-for-claude.md
-   copy ALL of it, and paste it into Claude desktop > Settings > Instructions for Claude (account-level), replacing what is there, if that box is still there. Give me the full path on this PC. Then STOP and wait until I say "done". Do not go on before that.
-   If a Global instructions box is still there, also tell me to paste
-      <package folder>\instructions\cowork-global-instructions.md
-   It no longer points at a local memory folder. Do not re-run preflight to look for a working-memory line. Preflight does not check it.
-   Never edit these instruction texts or Claude's files yourself; I paste them.
-
-10. Stranded desktop memory (manual, by me): Cowork / Chat no longer write local memory files (personal account verified 2026-11-03, Store app 4.4212.0.0, Unified Claude; work account unverified). Tell me that old local Cowork notes can be copied into the Claude Code store or brought in with the app's Import memory button. A leftover %USERPROFILE%\.claude\working-memory junction is harmless; do not delete it. Old per-project Cowork memory lines are obsolete; I may remove them myself. Do not point a Cowork files location at the store. Wait for my "done".
-
-11. Prerequisites and sign-ins (manual, by me): using the install results and Health check, tell me what is missing and give me the exact steps for each, then wait for my "done":
-   - git, and the GitHub sign-in (per-repo pull/push needs git);
-   - the Cursor agent sign-in ("agent login");
-   - Claude Code sign-in ("claude") and the Claude desktop app sign-in;
-   - Python 3, if install skipped the Cursor 80% handoff hook because Python was missing (then re-run install.ps1 so the hook is installed).
-
-12. Any other required step that REVIEW-NOTES.md lists for this PC and that is not done yet (for example removing old automations): do it as REVIEW-NOTES.md says, with my approval where it asks for it.
-
-13. LAST: run
-      powershell -NoProfile -ExecutionPolicy Bypass -File "<package folder>\workstation\health\workstation-status.ps1" -NoPause
-   (-NoPause only reports; it never prompts or changes anything). Count the [FAIL] and [WARN] lines. Setup is finished ONLY when there are 0 [FAIL] and 0 [WARN]. For each one left, tell me what it means and how to fix it, fix it with my OK (or tell me what I must do), and run the check again.
-
-14. Finish with a short report: each numbered step above with done / not done, the final Health check counts (must be 0 FAIL, 0 WARN), what is left for me, and any warnings. Do not call setup finished while any step is not done.
-
-Notes:
-- App startup switches are mine: never turn one on or off yourself. Report them only. Desktop Commander must not start at sign-in.
-- Tell me which active projects have no git remote (pull/push is one repo at a time, by hand).
-
-Always:
-- Never commit memory store files to git. The one-line project memory pointer goes in the project's AGENTS.md. Do not create a CLAUDE.md or CLAUDE.local.md for it.
-- Never run git init on a plain project folder unless I ask.
-- Never force-push.
-- Never copy, ship, or print secrets (keys, credentials, .env files, anything that looks like an API key).
-- Never delete, overwrite, or move anything without my approval. Back up before you change a settings file.
+The printed phases are the only setup steps. Claude Code plugin commands are in INSTALL.md (Claude Code section). install.ps1 runs the add and install commands.

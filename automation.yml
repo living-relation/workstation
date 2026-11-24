@@ -1,14 +1,12 @@
 # automation.yml: every script, hook and job in this repo, grouped by tool (format: skills/git-checker).
 # Check it (read-only): python skills/git-checker/hooks/registry-check.py
-# state-check only posts a PR comment. pack-skill-zips auto-commits skills/*.zip onto PR
-# branches (never main, never if PR head is main; if main is stale it resets chore/skill-zips
-# and force-with-lease that bot branch only). Only gen-inventory writes a tracked file by hand.
+# state-check only posts a PR comment. Only gen-inventory writes a tracked file by hand.
 # trigger: manual | git-hook:<name> | agent-hook:<event> | called-by:<id>. "(inferred)" = read from the code, not run.
 # STALE-OUTPUT compares content: an entry whose reads/script were committed after its writes gets its run_cmd
 # re-run in a temp copy, and is flagged only if a declared output changes. slow: true (optional, default false)
 # marks an expensive generator (or one needing tools CI lacks, the network, or writing outside the repo): it is
 # never re-run and keeps the commit-date check. A run_cmd with a <placeholder> or [optional] part also falls back.
-generated_patterns: ["**/*.checks.json", "**/*_report.json", "**/*.pdf", "**/*.html", "**/*.xlsx", "skills/*.zip"]
+generated_patterns: ["**/*.checks.json", "**/*_report.json", "**/*.pdf", "**/*.html", "**/*.xlsx"]
 ignore: ["**/tests/**", "**/test_*.py"]
 handmade: []
 automations:
@@ -73,7 +71,7 @@ automations:
     run_cmd: .venv/bin/python scripts/gen-inventory.py
   - id: install
     script: install.ps1
-    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/make-shortcuts.ps1, install.cmd, claude/claude-setup.ps1, claude/mcp-servers.json, claude/plugins.json, cleanup-legacy.ps1, scripts/test_install_link_skills.py, workstation/health/claude-ai-plugin.ps1]
+    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/make-shortcuts.ps1, install.cmd, claude/claude-setup.ps1, claude/mcp-servers.json, claude/plugins.json, cleanup-legacy.ps1, scripts/test_install_link_skills.py, workstation/health/claude-ai-plugin.ps1, scripts/install-catalog-plugin.ps1, scripts/paste-instructions.ps1, scripts/test_install_catalog.py]
     trigger: manual
     reads: [toolkit.psd1, memory/templates/**, instructions/**, handoff/**, memory/hooks/**, skills/**, claude/**]
     writes: [outside the repo (inferred) - LOCALAPPDATA Workstation folder, user .claude settings and hooks, user .claude.json MCP servers, Projects _claude store, manual shortcuts/*.lnk]
@@ -91,6 +89,26 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File install-plugins.ps1 -WhatIf
+  - id: setup-guide
+    script: scripts/setup_guide.py
+    helpers: [scripts/setup_phases.py, scripts/setup_verify.py, SETUP-PROMPT.txt, scripts/test_setup_guide.py]
+    trigger: manual
+    reads: [scripts/setup_phases.py]
+    writes: [outside the repo (inferred) - per-PC setup phase log, not committed]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python3 scripts/setup_guide.py
+  - id: repo-profile
+    script: scripts/repo_profile.py
+    helpers: [scripts/test_repo_profile.py, repo-profile.json]
+    trigger: manual
+    reads: [the repo tree]
+    writes: [repo-profile.json]
+    committed: yes
+    auto_commit: false
+    enabled: true
+    run_cmd: python3 scripts/repo_profile.py scan
   - id: uninstall
     script: uninstall.ps1
     trigger: manual
@@ -193,16 +211,6 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/check-upstream.ps1 -WhatIf
-  - id: pack-skill-zips
-    script: .github/workflows/pack-skill-zips.yml
-    helpers: [scripts/pack-skill-zips.py, scripts/pack-skill-zips.sh, scripts/pack-skill-zips.ps1, scripts/pack-skill-zips-commit.sh, scripts/guard-staged.sh, scripts/fetch-gitleaks.sh, scripts/run-gitleaks.sh]
-    trigger: pr-check
-    reads: [skills/**, scripts/pack-skill-zips.py]
-    writes: [skills/*.zip]
-    committed: yes
-    auto_commit: true
-    enabled: true
-    run_cmd: python3 scripts/pack-skill-zips.py --strict
   - id: projects-root-hooks
     script: [hooks/projects-root-guard.ps1, hooks/projects-root-report.ps1]
     helpers: [hooks/projects-root-common.ps1, hooks/tests/test-projects-root-guard.ps1, hooks/hooks.json, hooks/cursor-hooks.json]
@@ -233,6 +241,16 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-rules-inject.ps1
+  - id: subagent-rules
+    script: hooks/subagent-rules.ps1
+    helpers: [hooks/state-common.ps1, hooks/hooks.json, hooks/tests/test-subagent-rules.ps1]
+    trigger: agent-hook:SubagentStart (Claude hooks/hooks.json via hooks/run-ps.sh; no Cursor hook, subagentStart can only allow or deny)
+    reads: [hook payload on stdin]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-subagent-rules.ps1
   - id: state-hooks
     script: [hooks/state-inject.ps1, hooks/state-lint-stop.ps1, hooks/protected-files-guard.ps1, hooks/sot-after-edit.ps1]
     helpers: [hooks/state-common.ps1, hooks/hooks.json, hooks/cursor-hooks.json, hooks/tests/state-test-support.ps1, hooks/tests/test-state-inject.ps1, hooks/tests/test-state-lint-stop.ps1, hooks/tests/test-state-protected-files-guard.ps1, hooks/tests/test-state-sot-hooks.ps1]
@@ -257,7 +275,7 @@ automations:
     script: hooks/run-ps.sh
     helpers: [hooks/README.md, hooks/hooks.json, scripts/test_run_ps_launcher.py]
     trigger: called-by:state-hooks (every Claude hooks/hooks.json command runs through it)
-    reads: [PATH (powershell, else pwsh)]
+    reads: [PATH (powershell, else pwsh); hook payload hook_event_name when both are missing]
     writes: []
     committed: no
     auto_commit: false
