@@ -38,7 +38,7 @@ MISSING = (
     "workstation-core plugin not added on claude.ai yet: "
     "add catalog living-relation/workstation and turn on workstation-core"
 )
-PRESENT = "workstation-core plugin is present on claude.ai"
+PRESENT = "workstation-core synced from claude.ai is on this PC"
 CLAUDE_CODE = (
     "claude plugin marketplace add living-relation/workstation",
     "claude plugin install workstation-core@workstation-plugins",
@@ -294,7 +294,7 @@ class PluginPresence(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         return proc.stdout
 
-    def test_missing_and_present_and_turned_off(self):
+    def test_missing_present_turned_off_and_sync_off(self):
         if not PWSH:
             self.skipTest("powershell is not installed")
         with tempfile.TemporaryDirectory() as tmp:
@@ -309,7 +309,9 @@ class PluginPresence(unittest.TestCase):
                 '{"enabledPlugins":{"workstation-core@synced":false}}\n',
                 encoding="utf-8",
             )
-            self.assertIn(MISSING, self._status(home))
+            # Turning the synced copy off in Claude Code (it uses the catalog copy) does not remove it
+            # from claude.ai, so it still counts as present.
+            self.assertIn(PRESENT, self._status(home))
             settings.write_text('{"syncClaudeAiPlugins":false}\n', encoding="utf-8")
             self.assertIn(MISSING, self._status(home))
 

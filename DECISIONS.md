@@ -29,3 +29,18 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** claude.ai as the only Claude Code route (it went stale); having install scripts run the commands.
 - **Supersedes:** the 2026-11-19 "Claude install is claude.ai only" rule (BACKLOG.md, 2026-11-19 entry), for Claude Code only.
 - **Reopen if:** the claude.ai sync reliably refreshes Claude Code's copy, or the two copies stop resolving by precedence.
+
+## D-2026-11-23-health-indicators: health check marks running, stopped and plugin versions
+- **Status:** accepted, 2026-11-23 (Dan)
+- **Source:** Dan's Grok Bot chat answers AA-AH and AO (2026-11-23 ET, "reask").
+- **Context:** the health check printed `[ OK ]` for a stopped Desktop Commander remote and a stopped Cursor worker, missed a worker that died right after Start ("Authentication required for worker mode"), missed the worker the Cursor app starts by itself, said nothing about which workstation-core version each app had, and passed the Claude Code lock check on any stray `rules-inject.ps1` under `.claude\plugins`. The lock-script loop also ran `status -Name h` twice.
+- **Decision:**
+  - Marks: `[ OK ]` checked and fine, `[ RUN ]` running, `[STOP]` off (normal for a manual tool), `[ -- ]` not checked or info only, `[WARN]` / `[FAIL]` needs a fix.
+  - Desktop Commander: 0 copies STOP, 1 healthy RUN, 1 stale or extra copies WARN.
+  - Cursor worker: STOP or RUN for workers Start started; RUN for the Cursor app's own worker (never stopped by Stop, command line never printed); FAIL for a worker Start recorded that exited with an error since the last boot; WARN when the Cursor app restarts its own worker at app launch (`<worker>.restart.json`). The startup line only claims sign-in and reboot.
+  - Start Cursor worker waits up to 8 s and fails (exit 1, error line, `agent login` advice) when the worker exits right away.
+  - Plugins section: Claude Code catalog copy vs this clone's `origin/main` (WARN when behind, with the two update commands); Cursor copy vs this clone's tracked plugin files; the claude.ai synced copy is info only (a script cannot see the website). A synced copy turned off in Claude Code still counts as on claude.ai.
+  - The Claude Code lock check passes on the hook only from the enabled `workstation-core@workstation-plugins` record in `installed_plugins.json`. The lock script check passes on exit 0 only, once.
+- **Rejected:** `[ OK ]` for stopped manual tools; printing worker command lines (they carry a key); narrowing the plugin to fewer files (AR, not approved).
+- **Supersedes:** none.
+- **Reopen if:** Claude Code changes the `installed_plugins.json` layout, or the Cursor app stops keeping `<worker>.restart.json`.

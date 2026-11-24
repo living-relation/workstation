@@ -1,6 +1,7 @@
 #Requires -Version 5.1
 # Health check (read-only): memory, hooks, skills, app locks, the phone remote,
-# and the manual Cursor worker. A worker that is not running is normal.
+# and the manual Cursor worker. [ RUN ] = running, [STOP] = off (normal for a manual tool),
+# [ -- ] = not checked or info only, [WARN] / [FAIL] = needs a fix.
 # -NoPause never prompts. -Locks runs only the app-lock check.
 # Exit 1 if any app-lock item fails.
 param([switch]$NoPause, [switch]$Locks)
@@ -15,7 +16,7 @@ if ($Locks) {
 
 Write-Title 'Health check'
 Show-MemoryAndHooks
-Show-Skills
+Show-Plugins
 Show-DcRemote
 Show-DcAutostart
 Show-CursorWorker
