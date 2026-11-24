@@ -17,10 +17,20 @@ function Write-Title([string]$t) {
     Write-Host "==== $t ====  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Cyan
     Write-Host ''
 }
+$global:WsHealthFails = 0
 function Write-Ok([string]$m)   { Write-Host "  [ OK ] $m" -ForegroundColor Green }
+function Write-Run([string]$m)  { Write-Host "  [ RUN ] $m" -ForegroundColor Green }
+function Write-Stop([string]$m) { Write-Host "  [STOP] $m" -ForegroundColor DarkGray }
 function Write-Off([string]$m)  { Write-Host "  [ -- ] $m" -ForegroundColor DarkGray }
 function Write-Warn([string]$m) { Write-Host "  [WARN] $m" -ForegroundColor Yellow }
-function Write-Bad([string]$m)  { Write-Host "  [FAIL] $m" -ForegroundColor Red }
+function Write-Bad([string]$m)  { $global:WsHealthFails++; Write-Host "  [FAIL] $m" -ForegroundColor Red }
+function Write-HealthLevel([string]$Level, [string]$Text) {
+    if ($Level -eq 'WARN') { Write-Warn $Text }
+    elseif ($Level -eq 'FAIL') { Write-Bad $Text }
+    elseif ($Level -eq 'STOP') { Write-Stop $Text }
+    elseif ($Level -eq 'SKIP') { Write-Off $Text }
+    else { Write-Run $Text }
+}
 
 function Wait-BridgeClose([switch]$NoPause) {
     if ($NoPause) { return }
@@ -102,7 +112,7 @@ function Show-MemoryAndHooks {
         if ($ifv -eq 'claude-md-and-agents-md') { Write-Ok "Claude reads both CLAUDE.md and AGENTS.md ($ifv)" }
         else { Write-Warn "Claude read-both setting is off (instructionFiles=$(if($ifv){$ifv}else{'unset'}))" }
     }
-    Write-Ok 'working-memory junction is not checked (a leftover is harmless)'
+    Write-Off 'working-memory junction is not checked (a leftover is harmless)'
     $rootClaude = Join-Path $BridgeProjects 'CLAUDE.md'
     if (Test-Path -LiteralPath $rootClaude) { Write-Warn "root CLAUDE.md found ($rootClaude); merge it into AGENTS.md" }
     else { Write-Ok 'Projects root has no CLAUDE.md (AGENTS.md only)' }
@@ -115,20 +125,35 @@ function Show-MemoryAndHooks {
 function Show-Skills {
     Write-Host ''
     Write-Host 'Skills' -ForegroundColor Cyan
-    if (Test-WorkstationCoreOnClaudeAi -UserRoot $HOME) { Write-Ok $WsPluginPresentText }
-    else { Write-Warn $WsPluginMissingText }
+    Write-Off (Get-ClaudeAiSyncedCopyText -UserRoot $HOME)
+    $repo = Split-Path -Parent $BridgeRoot
+    foreach ($line in @(Get-PluginVersionReports -UserRoot $HOME -RepoRoot $repo)) {
+        Write-HealthLevel $line.Level $line.Text
+    }
 }
 
 function Show-DcRemote {
     Write-Host ''
     Write-Host 'Desktop Commander remote' -ForegroundColor Cyan
     $rows = @(Get-DcRemoteRows)
-    if ($rows.Count -eq 0) { Write-Ok 'Desktop Commander remote is not running (manual Start only; one copy serves all chats)' }
-    elseif ($rows.Count -eq 1) { Write-Ok "Desktop Commander remote: one copy pid $($rows[0].Pid) $($rows[0].Verdict) (one copy serves all chats)" }
-    else {
-        $keep = Get-DcRemoteKeep $rows
-        $pidTxt = if ($keep) { "pid $($keep.Pid)" } else { 'no healthy copy' }
-        Write-Ok "Desktop Commander remote: $pidTxt; $($rows.Count - $(if($keep){1}else{0})) extra (one copy serves all chats)"
+    if ($rows.Count -eq 0) {
+        Write-Stop 'Desktop Commander remote is not running (manual Start only; one copy serves all chats)'
+        return
+    }
+    $keep = Get-DcRemoteKeep $rows
+    $extra = @($rows | Where-Object { -not $_.Keep })
+    if ($rows.Count -eq 1 -and $keep -and $keep.Healthy) {
+        Write-Run "Desktop Commander remote: one copy pid $($keep.Pid) online (one copy serves all chats)"
+        return
+    }
+    if ($rows.Count -eq 1) {
+        Write-Bad "Desktop Commander remote died or is broken: pid $($rows[0].Pid) $($rows[0].Verdict) (one copy serves all chats)"
+        return
+    }
+    if ($keep) {
+        Write-Warn "Desktop Commander remote: pid $($keep.Pid) online; $($extra.Count) extra (one copy serves all chats)"
+    } else {
+        Write-Bad "Desktop Commander remote died or is broken: $($rows.Count) copies, no healthy copy (one copy serves all chats)"
     }
 }
 
@@ -153,15 +178,15 @@ function Show-DcAutostart {
             if ($v -match 'start-dc-remote\.ps1') { $hits += "Run:$($p.Name)" }
         }
     }
-    if ($hits) { Write-Warn ("Desktop Commander remote starts at sign-in: " + ($hits -join ', ')) }
-    else { Write-Ok 'Desktop Commander remote does not start at sign-in' }
+    if ($hits) { Write-Warn ("Desktop Commander remote has a Windows startup entry: " + ($hits -join ', ')) }
+    else { Write-Run 'Desktop Commander remote has no Windows startup entry' }
 }
 
 function Show-CursorWorker {
     Write-Host ''
     Write-Host 'Cursor worker' -ForegroundColor Cyan
     foreach ($line in @(Get-CursorWorkerHealthLines)) {
-        if ($line.Level -eq 'WARN') { Write-Warn $line.Text } else { Write-Ok $line.Text }
+        Write-HealthLevel $line.Level $line.Text
     }
 }
 
@@ -287,12 +312,25 @@ function Show-AppLocks {
         if (Test-LockRuleComplete $text) { Add-Item 'PASS' "$Label has acquire, check-in, and release for harness.design: $Path" }
         else { Add-Item 'FAIL' "$Label missing [$($(Get-LockRuleGaps $text) -join ', ')]: $Path" }
     }
-    # The workstation-core plugin's SessionStart hook (hooks\rules-inject.ps1) loads the lock rule in Claude Code,
-    # Cowork and Cursor, so a profile passes when its plugin copy has that hook even if no rule file has the text.
-    function Find-RulesHook([string]$Dir) {
-        if (-not (Test-Path -LiteralPath $Dir)) { return $null }
-        $hit = Get-ChildItem -LiteralPath $Dir -Recurse -File -Filter 'rules-inject.ps1' -ErrorAction SilentlyContinue | Select-Object -First 1
+    # Claude Code loads the lock rule from the enabled workstation-core copy in
+    # installed_plugins.json (hooks\rules-inject.ps1), not from the first cache folder.
+    # Cowork is unverified: hooks/run-ps.sh exits 0 and does nothing when powershell and
+    # pwsh are missing, and Cowork is likely a Linux sandbox.
+    # The Cursor desktop app loads it from ~/.cursor/plugins/local/workstation-core.
+    # Whether a Cursor worker session runs hooks/cursor-hooks.json is unverified.
+    function Find-ClaudeRulesHook([string]$Profile) {
+        if (-not (Get-Command Get-EnabledWorkstationCoreRoot -ErrorAction SilentlyContinue)) { return $null }
+        $root = Get-EnabledWorkstationCoreRoot -UserRoot $Profile
+        if (-not $root -or -not (Test-Path -LiteralPath $root)) { return $null }
+        $direct = Join-Path $root 'hooks/rules-inject.ps1'
+        if (Test-Path -LiteralPath $direct -PathType Leaf) { return $direct }
+        $hit = @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter 'rules-inject.ps1' -ErrorAction SilentlyContinue) | Select-Object -First 1
         if ($hit) { return $hit.FullName }
+        return $null
+    }
+    function Find-CursorRulesHook([string]$Profile) {
+        $direct = Join-ProfilePath $Profile @('.cursor', 'plugins', 'local', 'workstation-core', 'hooks', 'rules-inject.ps1')
+        if (Test-Path -LiteralPath $direct -PathType Leaf) { return $direct }
         return $null
     }
     Write-Host 'App locks (read-only): harness.design' -ForegroundColor Cyan
@@ -328,10 +366,10 @@ function Show-AppLocks {
             $claudeMd = Join-ProfilePath $profile @('.claude', 'CLAUDE.md')
             $claudeText = $null
             if (Test-Path -LiteralPath $claudeMd) { try { $claudeText = [IO.File]::ReadAllText($claudeMd) } catch { } }
-            $claudeHook = Find-RulesHook (Join-ProfilePath $profile @('.claude', 'plugins'))
+            $claudeHook = Find-ClaudeRulesHook $profile
             if ($claudeText -and (Test-LockRuleComplete $claudeText)) { Add-Item 'PASS' "$leaf Claude Code CLAUDE.md has acquire, check-in, and release for harness.design: $claudeMd" }
-            elseif ($claudeHook) { Add-Item 'PASS' "$leaf Claude Code gets the harness.design lock rule from the workstation-core SessionStart hook: $claudeHook" }
-            else { Add-Item 'FAIL' "$leaf Claude Code: no harness.design lock rule in $claudeMd and no workstation-core plugin hook (rules-inject.ps1) under .claude\plugins. Install workstation-core from the workstation-plugins catalog (INSTALL.md, Claude Code section)." }
+            elseif ($claudeHook) { Add-Item 'PASS' "$leaf Claude Code gets the harness.design lock rule from the enabled workstation-core copy: $claudeHook" }
+            else { Add-Item 'FAIL' "$leaf Claude Code: no harness.design lock rule in $claudeMd and no rules-inject.ps1 in the enabled workstation-core copy (installed_plugins.json). Install workstation-core from the workstation-plugins catalog (INSTALL.md, Claude Code section)." }
         }
         if ($hasCursor) {
             $rulesDir = Join-ProfilePath $profile @('.cursor', 'rules')
@@ -343,9 +381,9 @@ function Show-AppLocks {
                 $extra = Join-ProfilePath $profile @('.cursor', $extraName)
                 if (Test-Path -LiteralPath $extra) { $ruleFiles += @(Get-Item -LiteralPath $extra) }
             }
-            $cursorHook = Find-RulesHook (Join-ProfilePath $profile @('.cursor', 'plugins'))
-            if ($cursorHook) { Add-Item 'PASS' "$leaf Cursor gets the harness.design lock rule from the workstation-core sessionStart hook: $cursorHook" }
-            elseif (-not $ruleFiles) { Add-Item 'FAIL' "$leaf Cursor rules: .cursor exists but no .mdc/.md rule file and no workstation-core plugin hook (rules-inject.ps1) under .cursor\plugins was found" }
+            $cursorHook = Find-CursorRulesHook $profile
+            if ($cursorHook) { Add-Item 'PASS' "$leaf Cursor gets the harness.design lock rule from the local workstation-core sessionStart hook: $cursorHook" }
+            elseif (-not $ruleFiles) { Add-Item 'FAIL' "$leaf Cursor rules: .cursor exists but no .mdc/.md rule file and no rules-inject.ps1 in .cursor\plugins\local\workstation-core" }
             else {
                 $hit = $null
                 foreach ($rf in $ruleFiles) {
@@ -395,13 +433,16 @@ function Show-AppLocks {
     foreach ($scriptPath in @($scripts)) {
         if (-not (Test-Path -LiteralPath $scriptPath)) { Add-Item 'FAIL' "lock script missing: $scriptPath"; continue }
         if (-not $shell) { Add-Item 'FAIL' 'powershell not found to run the lock script'; continue }
-        foreach ($pair in @(@('harness-design', 'harness.design'))) {
-            $arg = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath, 'status', '-Name', $pair[0])
+        # The comma keeps this one pair. Without it PowerShell flattens the list and -Name becomes "h".
+        foreach ($pair in @(,@('harness-design', 'harness.design'))) {
+            $name = [string]$pair[0]
+            $label = [string]$pair[1]
+            $arg = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath, 'status', '-Name', $name)
             $out = & $shell @arg 2>&1
             $code = $LASTEXITCODE
             $text = (($out | ForEach-Object { "$_" }) -join ' ')
-            if ($code -in 0, 1) { Add-Item 'PASS' "$($pair[1]) lock script runs (status exit $code): $scriptPath" }
-            else { Add-Item 'FAIL' "$($pair[1]) lock script status failed (exit $code): $scriptPath $text" }
+            if ($code -eq 0) { Add-Item 'PASS' "$label lock script runs (status exit 0): $scriptPath" }
+            else { Add-Item 'FAIL' "$label lock script status failed (exit $code): $scriptPath $text" }
         }
     }
     $ruleSeen = @{}

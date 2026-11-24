@@ -29,3 +29,18 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** claude.ai as the only Claude Code route (it went stale); having install scripts run the commands.
 - **Supersedes:** the 2026-11-19 "Claude install is claude.ai only" rule (BACKLOG.md, 2026-11-19 entry), for Claude Code only.
 - **Reopen if:** the claude.ai sync reliably refreshes Claude Code's copy, or the two copies stop resolving by precedence.
+
+## D-2026-11-24-health-indicators: health lines tell running, off, and broken apart
+- **Status:** accepted, 2026-11-24 (Dan, approved health-check fixes)
+- **Source:** Dan's approved list AA-AH, AO, AP (verified read-only on DansPC 2026-11-23).
+- **Context:** Desktop Commander remote and Cursor worker lines printed [ OK ] in every branch, including off, extra copies, and a worker that died at once. The Cursor app starts its own worker on launch and puts the API key on that process command line.
+- **Decision:**
+  - Those two sections use [ RUN ] (running or healthy), [STOP] (off, normal for a manual start), [WARN] (extra copies, started outside our script, or an autostart), [FAIL] (died or broken), and [ -- ] (not checked). The health check exits 1 on any FAIL.
+  - A Cursor-app or hand-started worker is reported by folder and pid only. The command line is never printed.
+  - App-launch restart is a WARN when a `cursor-agent-worker-*.restart.json` file is present. When it is absent, the other line says "no Windows startup entry" and does not claim the app will stay off.
+  - The skills line is information about the claude.ai synced copy. `workstation-core@synced` set to false is not "not added".
+  - The Claude Code lock line uses the enabled copy from `installed_plugins.json`. The app-lock status check passes only on exit 0.
+  - Cowork loading `rules-inject.ps1`, and a Cursor worker session running `hooks/cursor-hooks.json`, stay unverified (`hooks/README.md`).
+- **Rejected:** printing [ OK ] for every branch; printing the worker command line; saying the app does not start a worker when `restart.json` is missing.
+- **Supersedes:** none
+- **Reopen if:** the Cursor app stops writing `restart.json` when it starts a worker on launch.

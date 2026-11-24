@@ -32,6 +32,7 @@ $settings = @{
     pluginConfigs = @{
         'cc-plugin-agents-md@builtin' = @{ options = @{ instructionFiles = 'claude-md-and-agents-md' } }
     }
+    enabledPlugins = @{ 'workstation-core@synced' = $false }
 }
 ($settings | ConvertTo-Json -Depth 8) | Set-Content (Join-Path $userDir '.claude\settings.json')
 $state = Join-Path $local 'Workstation'
@@ -63,15 +64,43 @@ $env:HOME = $userDir
 $env:USERPROFILE = $userDir
 $env:LOCALAPPDATA = $local
 $env:WORKSTATION_FAKE_PROCS = 'none'
+$env:WORKSTATION_FAKE_AUTOSTART = 'none'
+$env:WORKSTATION_FAKE_RESTART = 'none'
 $env:WORKSTATION_LOCKCHECK_USERS = $users
 $env:WORKSTATION_LOCKCHECK_SCRIPT = Join-Path $repo 'workstation\app-lock\app-lock.ps1'
 $out = & pwsh -NoProfile -ExecutionPolicy Bypass -File $status -NoPause 2>&1
 $code = $LASTEXITCODE
 $text = $out -join "`n"
 $bad = @($out | Where-Object { "$_" -match '\[(FAIL|WARN)\]' })
-if ($bad.Count -or $code -ne 0) {
+$need = @(
+    '[STOP] Desktop Commander remote is not running',
+    '[ RUN ] Desktop Commander remote has no Windows startup entry',
+    '[STOP] Cursor worker is not running',
+    '[ RUN ] Cursor worker has no Windows startup entry',
+    '[ -- ] working-memory junction is not checked',
+    'claude.ai synced copy (Desktop/Cowork): last synced',
+    'has rules-inject no',
+    'Claude Code plugin copy is not enabled',
+    'claude plugin update workstation-core@workstation-plugins',
+    'Cursor local copy is not installed',
+    'install-plugins.ps1'
+)
+$missing = @($need | Where-Object { $text.IndexOf($_) -lt 0 })
+if ($bad.Count -or $code -ne 0 -or $missing.Count -or $text -match 'not added on claude.ai') {
     $text
-    "FAILED exit $code warnings $($bad.Count)"
+    "FAILED exit $code warnings $($bad.Count) missing $($missing -join ' | ')"
+    exit 1
+}
+$deadDir = Join-Path $local 'Workstation\cursor-worker\instances\deadone'
+New-Item -ItemType Directory -Path $deadDir -Force | Out-Null
+Set-Content (Join-Path $deadDir 'worker.json') '{"pid":4242,"folder":"widget"}'
+Set-Content (Join-Path $deadDir 'worker.err.log') 'Authentication required for worker mode. Please run agent login'
+$deadOut = & pwsh -NoProfile -ExecutionPolicy Bypass -File $status -NoPause 2>&1
+$deadCode = $LASTEXITCODE
+$deadText = $deadOut -join "`n"
+if ($deadCode -ne 1 -or $deadText -notmatch '\[FAIL\].*agent login' -or $deadText -match 'sample-key-value|--api-key') {
+    $deadText
+    "FAILED dead-worker exit $deadCode"
     exit 1
 }
 'ALL PASS'

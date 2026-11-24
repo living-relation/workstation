@@ -22,6 +22,7 @@ $env:WORKSTATION_PROJECTS_ROOT = Join-Path $root 'projects'
 $env:WORKSTATION_FAKE_AGENT = Join-Path $root 'agent.cmd'
 $env:WORKSTATION_FAKE_PROCS = 'none'
 $env:WORKSTATION_FAKE_AUTOSTART = 'none'
+$env:WORKSTATION_FAKE_RESTART = 'none'
 $env:LOCALAPPDATA = $local
 
 . $lib
@@ -67,23 +68,66 @@ Check 'cursor app not listed' @($rows | Where-Object { $_.Name -eq 'Cursor' }).C
 Check 'hand-started worker not listed' @($rows | Where-Object { $_.Pid -eq 50 }).Count 0
 Check 'menu script not listed' @($rows | Where-Object { $_.Pid -eq 9 }).Count 0
 
+$oursOnly = (@(
+    @{ ProcessId = 7; ParentProcessId = 1; Name = 'Cursor'; CommandLine = 'Cursor.exe' },
+    @{ ProcessId = 42; ParentProcessId = 1; Name = 'agent'; CommandLine = $ours },
+    @{ ProcessId = 43; ParentProcessId = 42; Name = 'node'; CommandLine = $child },
+    @{ ProcessId = 9; ParentProcessId = 1; Name = 'powershell'; CommandLine = 'powershell -File start-cursor-worker.ps1' }
+) | ConvertTo-Json -Compress)
+$env:WORKSTATION_FAKE_PROCS = $oursOnly
 $lines = @(Get-CursorWorkerHealthLines)
-Check 'running is ok' $lines[0].Level 'OK'
+Check 'running is run' $lines[0].Level 'RUN'
 Check 'running line names the pid' ($lines[0].Text -match 'pid 42') True
+Check 'running line names the folder' ($lines[0].Text -match 'widget') True
 Check 'no autostart warn' @($lines | Where-Object { $_.Level -eq 'WARN' }).Count 0
+
+$appCmd = 'cursor-agent worker start --worker-dir ' + (Join-Path $active 'other') + ' --api-key sample-key-value --endpoint https://example.test'
+$withApp = (@(
+    @{ ProcessId = 42; ParentProcessId = 1; Name = 'agent'; CommandLine = $ours },
+    @{ ProcessId = 77; ParentProcessId = 1; Name = 'cursor-agent'; CommandLine = $appCmd },
+    @{ ProcessId = 50; ParentProcessId = 1; Name = 'agent'; CommandLine = $hand }
+) | ConvertTo-Json -Compress)
+$env:WORKSTATION_FAKE_PROCS = $withApp
+$outRows = @(Get-OutsideCursorWorkerRows)
+Check 'outside workers counted' $outRows.Count 2
+Check 'our rows ignore the app worker' @(Get-CursorWorkerRows).Count 1
+Check 'outside row drops the command' (@($outRows | Where-Object { "$($_.CommandLine)" -match 'sample-key-value' }).Count) 0
+$olines = @(Get-CursorWorkerHealthLines)
+$warnText = (@($olines | Where-Object { $_.Level -eq 'WARN' } | ForEach-Object { $_.Text }) -join ' ')
+Check 'outside warns' ($warnText -match 'started outside our script') True
+Check 'outside names the app pid' ($warnText -match 'pid 77') True
+Check 'outside names the folder' ($warnText -match 'other') True
+Check 'outside hides the key' ($warnText -match 'sample-key-value') False
+Check 'outside hides the api-key flag' ($warnText -match '--api-key') False
 
 $env:WORKSTATION_FAKE_PROCS = 'none'
 $idle = @(Get-CursorWorkerHealthLines)
-Check 'not running is ok' $idle[0].Level 'OK'
+Check 'not running is stop' $idle[0].Level 'STOP'
 Check 'not running is not a warn' @($idle | Where-Object { $_.Level -eq 'WARN' }).Count 0
 Check 'idle text' ($idle[0].Text -match 'not running') True
+Check 'idle startup line' (@($idle | Where-Object { $_.Text -match 'no Windows startup entry' -and $_.Level -eq 'RUN' }).Count) 1
 
 $env:WORKSTATION_FAKE_AUTOSTART = '["Task:Cursor-Worker","Run:CursorWorker"]'
 $auto = @(Get-CursorWorkerHealthLines)
 Check 'autostart warns' @($auto | Where-Object { $_.Level -eq 'WARN' }).Count 1
-Check 'still not a missing-worker warn' ($auto[0].Level) 'OK'
+Check 'still not a missing-worker warn' ($auto[0].Level) 'STOP'
 $env:WORKSTATION_FAKE_AUTOSTART = 'none'
+$env:WORKSTATION_FAKE_RESTART = '["cursor-agent-worker-abc.restart.json"]'
+$re = @(Get-CursorWorkerHealthLines)
+Check 'restart.json warns' @($re | Where-Object { $_.Level -eq 'WARN' -and $_.Text -match 'restart.json' }).Count 1
+Check 'restart does not claim the app is off' @($re | Where-Object { $_.Text -match 'does not start at' }).Count 0
+Check 'no windows startup entry still shown' @($re | Where-Object { $_.Level -eq 'RUN' -and $_.Text -match 'no Windows startup entry' }).Count 1
+$env:WORKSTATION_FAKE_RESTART = 'none'
 $env:WORKSTATION_FAKE_PROCS = 'none'
+
+$deadDir = Join-Path (Join-Path (Join-Path $local 'Workstation') 'cursor-worker') 'instances/deadone'
+New-Item -ItemType Directory -Path $deadDir -Force | Out-Null
+Set-Content (Join-Path $deadDir 'worker.json') '{"pid":4242,"folder":"widget"}'
+Set-Content (Join-Path $deadDir 'worker.err.log') 'Authentication required for worker mode. Please run agent login'
+$dead = @(Get-CursorWorkerHealthLines)
+Check 'dead worker is fail' @($dead | Where-Object { $_.Level -eq 'FAIL' -and $_.Text -match 'pid 4242' -and $_.Text -match 'agent login' }).Count 1
+Check 'dead line has no command' ((@($dead | ForEach-Object { $_.Text }) -join ' ') -match '--api-key|sample-key') False
+Remove-Item -LiteralPath $deadDir -Recurse -Force
 
 $orphans = Join-Path (Join-Path $repo 'workstation\health') 'orphans.ps1'
 . $orphans
@@ -124,6 +168,40 @@ $env:WORKSTATION_FAKE_AGENT = 'missing'
 $nocli = Run-Script $start @('-Folder', 'widget', '-NoPause')
 Check 'missing cli fails' $nocli.code 1
 Check 'missing cli tells login' ($nocli.out -match 'agent login') True
+$env:WORKSTATION_FAKE_AGENT = Join-Path $root 'agent.cmd'
+
+$die = Join-Path $root 'die-agent.ps1'
+Set-Content -LiteralPath $die -Value "[Console]::Error.WriteLine('Authentication required for worker mode. Please run agent login')`r`nexit 1`r`n"
+$sleeper = Join-Path $root 'sleep-agent.ps1'
+Set-Content -LiteralPath $sleeper -Value "Start-Sleep -Seconds 30`r`n"
+$env:WORKSTATION_FAKE_PROCS = 'none'
+$env:WORKSTATION_FAKE_AGENT = $die
+$env:WORKSTATION_START_WAIT_SEC = '3'
+Remove-Item Env:WORKSTATION_FAKE_START_ALIVE -ErrorAction SilentlyContinue
+$authStart = Run-Script $start @('-Folder', 'other', '-NoPause')
+Check 'auth death fails' $authStart.code 1
+Check 'auth death says login' ($authStart.out -match '\[FAIL\].*agent login') True
+Check 'auth death does not say started' ($authStart.out -match '\[ OK \] Started') False
+$startLog = Join-Path (Join-Path (Join-Path $local 'Workstation') 'cursor-worker') 'start.log'
+$logText = ''
+if (Test-Path -LiteralPath $startLog) { $logText = [IO.File]::ReadAllText($startLog) }
+Check 'auth death is not logged as started' ($logText -match 'started pid') False
+Check 'auth death is logged as failed' ($logText -match 'start FAILED') True
+$env:WORKSTATION_FAKE_AGENT = $sleeper
+$env:WORKSTATION_START_WAIT_SEC = '0'
+$live = Run-Script $start @('-Folder', 'widget', '-NoPause')
+Check 'live start exit' $live.code 0
+Check 'live start says started' ($live.out -match '\[ OK \] Started') True
+$logText2 = ''
+if (Test-Path -LiteralPath $startLog) { $logText2 = [IO.File]::ReadAllText($startLog) }
+Check 'live start is logged' ($logText2 -match 'started pid') True
+$psOut = & ps -eo pid,args
+foreach ($pl in @($psOut)) {
+    if ("$pl" -match 'sleep-agent\.ps1' -and "$pl" -match '^\s*(\d+)') {
+        Stop-Process -Id ([int]$Matches[1]) -Force -ErrorAction SilentlyContinue
+    }
+}
+Remove-Item Env:WORKSTATION_START_WAIT_SEC -ErrorAction SilentlyContinue
 $env:WORKSTATION_FAKE_AGENT = Join-Path $root 'agent.cmd'
 
 $env:WORKSTATION_FAKE_PROCS = (@(

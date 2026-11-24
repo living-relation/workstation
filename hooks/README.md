@@ -7,7 +7,9 @@ Every script and its test is listed in `automation.yml`.
 
 Owner decision 2026-11-22: the memory-store rules (`memory/templates/claude-global-memory-section.md`; Cursor:
 `claude-shared-memory.mdc` without its front matter) and the harness.design lock rule (`memory/templates/app-locks.md`)
-load from this hook in Claude Code, Cowork (Claude SessionStart) and Cursor (sessionStart, `additional_context`).
+load from this hook in Claude Code (Claude SessionStart) and in the Cursor desktop app (sessionStart, `additional_context`).
+Cowork is unverified. Claude hooks run through `hooks/run-ps.sh`, which exits 0 and does nothing when `powershell` and `pwsh` are missing, and Cowork is likely a Linux sandbox.
+A Cursor worker session (the worker the Cursor app starts on launch, or a cloud agent on that worker) is also unverified: this repo does not show that those sessions run `hooks/cursor-hooks.json`.
 `install.ps1` no longer creates or appends them in `~\.claude\CLAUDE.md` or `~\.cursor\rules`. If an older install
 already appended a marked block there, the hook skips that part so nothing loads twice. Placeholders come from
 `WORKSTATION_PROJECTS_ROOT` or `%LOCALAPPDATA%\Workstation\workstation.json`. No projects root: silent exit 0.

@@ -17,7 +17,8 @@ function Wait-Close {
     try { [void]$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') } catch { [void](Read-Host) }
 }
 function Write-CwLog([string]$Msg) {
-    if ($env:WORKSTATION_FAKE_PROCS) { return }
+    # 'none' is an empty process list for tests. Still write the log under the temp LOCALAPPDATA.
+    if ($env:WORKSTATION_FAKE_PROCS -and $env:WORKSTATION_FAKE_PROCS -ne 'none') { return }
     try {
         $dir = Get-CursorWorkerRoot
         if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
@@ -125,8 +126,29 @@ try {
     if (-not (Test-Path -LiteralPath $data)) { New-Item -ItemType Directory -Force -Path $data | Out-Null }
     $outLog = Join-Path $data 'worker.out.log'
     $errLog = Join-Path $data 'worker.err.log'
-    $proc = Start-Process -FilePath $info.FilePath -ArgumentList $info.Arguments -WorkingDirectory $picked `
-        -WindowStyle Hidden -PassThru -RedirectStandardOutput $outLog -RedirectStandardError $errLog -ErrorAction Stop
+    $startArgs = @{
+        FilePath = $info.FilePath
+        ArgumentList = $info.Arguments
+        WorkingDirectory = $picked
+        PassThru = $true
+        RedirectStandardOutput = $outLog
+        RedirectStandardError = $errLog
+        ErrorAction = 'Stop'
+    }
+    # -WindowStyle is Windows PowerShell only. pwsh on Linux rejects it.
+    if ($env:OS -eq 'Windows_NT') { $startArgs.WindowStyle = 'Hidden' }
+    $proc = Start-Process @startArgs
+    $waitSec = 5
+    if ($env:WORKSTATION_START_WAIT_SEC -match '^\d+$') { $waitSec = [int]$env:WORKSTATION_START_WAIT_SEC }
+    $launch = Get-CursorWorkerLaunchResult ([int]$proc.Id) @($outLog, $errLog) $waitSec
+    if ($launch.Auth -or -not $launch.Alive) {
+        $msg = "worker died at once (pid $($proc.Id))."
+        if ($launch.Auth) { $msg = "worker died at once (pid $($proc.Id)). Authentication required. Run agent login." }
+        Write-CwLog ("start FAILED: {0}" -f $msg)
+        Write-Bad $msg
+        Wait-Close
+        exit 1
+    }
     $rec = [ordered]@{
         pid = $proc.Id; name = $name; folder = $picked; dataDir = $data; mgmt = $mgmt
         startedAt = (Get-Date).ToString('o'); command = $info.Command

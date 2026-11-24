@@ -15,7 +15,9 @@
     (only after the user reviewed the preflight report). -WhatIf runs preflight too.
   - Never moves or deletes folders, never overwrites memory or starter files.
   - The memory-store rules and the harness.design lock rule load from the workstation-core plugin's
-    SessionStart hook (hooks\rules-inject.ps1) in Claude Code, Cowork and Cursor (owner decision 2026-11-22).
+    SessionStart hook (hooks\rules-inject.ps1) in Claude Code and the Cursor desktop app (owner decision 2026-11-22).
+    Cowork is unverified (hooks/run-ps.sh does nothing without PowerShell; Cowork is likely a Linux sandbox).
+    A Cursor worker session running that hook is unverified.
     Install no longer creates ~\.claude\CLAUDE.md or ~\.cursor\rules\claude-shared-memory.mdc and no longer
     appends to them or to repo-rules.mdc. A block an older install appended there is kept (the hook then
     skips that part). Install only fixes old paths inside such a block (fusion-lock -> app-lock,
@@ -809,9 +811,11 @@ if ($CursorHookOk) {
   }
 }
 
-# 8. Rule files. Claude Code, Cowork and Cursor get the memory and lock rules from the workstation-core plugin's
-#    SessionStart hook (hooks\rules-inject.ps1), so ~\.claude\CLAUDE.md and ~\.cursor\rules\*.mdc are not
-#    created or appended any more. Blocks an older install appended there stay; only their old paths are fixed.
+# 8. Rule files. Claude Code and the Cursor desktop app get the memory and lock rules from the
+#    workstation-core plugin's SessionStart hook (hooks\rules-inject.ps1). Cowork is unverified
+#    (hooks/run-ps.sh does nothing without PowerShell; Cowork is likely a Linux sandbox). A Cursor
+#    worker session running that hook is unverified. ~\.claude\CLAUDE.md and ~\.cursor\rules\*.mdc
+#    are not created or appended any more. Blocks an older install appended there stay; only their old paths are fixed.
 $RepoRulesMdc = Join-Path $UserHome '.cursor\rules\repo-rules.mdc'
 foreach ($rf in @((Join-Path $DotClaude 'CLAUDE.md'), $CursorRule, $RepoRulesMdc)) { Update-AppLockPaths $rf }
 # Projects root guide is AGENTS.md. Do not create or edit a root CLAUDE.md.

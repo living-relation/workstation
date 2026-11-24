@@ -210,6 +210,68 @@ function Test-OurWorkerCommand([string]$Cmd) {
     return [bool]($Cmd -match '(?i)(^|[\s''"=])worker([\s''"]|$)')
 }
 
+# A worker the Cursor app or a hand start left running. It has no workstation=manual label.
+# Never keep or print the command line: the app puts the Cursor API key on it.
+function Test-OutsideWorkerCommand([string]$Cmd) {
+    if (-not $Cmd) { return $false }
+    if ($Cmd -match '(?i)start-cursor-worker\.ps1|stop-cursor-worker\.ps1|cursor-worker-lib\.ps1|workstation-status\.ps1') { return $false }
+    if (Test-OurWorkerCommand $Cmd) { return $false }
+    if ($Cmd -notmatch '(?i)(^|[\s''"=])worker([\s''"]|$)') { return $false }
+    return [bool]($Cmd -match '(?i)--worker-dir|--api-key|cursor-agent|anysphere\.cursor-agent-worker|(^|[\s''"=])start([\s''"]|$)')
+}
+
+function Format-WorkerPidFolder($Row) {
+    $folder = ''
+    if ($Row -and $Row.Folder) { $folder = "$($Row.Folder)".Trim() }
+    if (-not $folder) { $folder = 'folder not recorded' }
+    $pidN = 0
+    try { $pidN = [int]$Row.Pid } catch { $pidN = 0 }
+    return ('pid {0} folder {1}' -f $pidN, $folder)
+}
+
+function Test-WorkerAuthRequired([string[]]$Logs) {
+    foreach ($p in @($Logs)) {
+        if (-not $p) { continue }
+        if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { continue }
+        $tail = @()
+        try { $tail = @(Get-Content -LiteralPath $p -Tail 80 -ErrorAction Stop) } catch { continue }
+        foreach ($line in @($tail)) {
+            if ("$line" -match 'Authentication required') { return $true }
+        }
+    }
+    return $false
+}
+
+# Poll until the new worker exits, the log asks for login, or the wait is up.
+# Seconds 0 checks once. A live worker is checked for about 5 seconds by the start script.
+function Get-CursorWorkerLaunchResult([int]$ProcId, [string[]]$Logs, [int]$Seconds) {
+    $tries = 1
+    if ($Seconds -gt 0) { $tries = $Seconds * 5 }
+    for ($i = 0; $i -lt $tries; $i++) {
+        $auth = Test-WorkerAuthRequired $Logs
+        $alive = Test-WorkerProcessAlive $ProcId
+        if ($auth) { return @{ Alive = [bool]$alive; Auth = $true } }
+        if (-not $alive) {
+            # The exit can land before the redirected log is flushed.
+            Start-Sleep -Milliseconds 300
+            $auth = Test-WorkerAuthRequired $Logs
+            return @{ Alive = $false; Auth = [bool]$auth }
+        }
+        if ($i -lt ($tries - 1)) { Start-Sleep -Milliseconds 200 }
+    }
+    return @{ Alive = $true; Auth = $false }
+}
+
+function Test-WorkerProcessAlive([int]$ProcId) {
+    if ($ProcId -le 0) { return $false }
+    if ($env:WORKSTATION_FAKE_START_ALIVE -eq 'yes') { return $true }
+    if ($env:WORKSTATION_FAKE_START_ALIVE -eq 'no') { return $false }
+    try {
+        $proc = Get-Process -Id $ProcId -ErrorAction Stop
+        return [bool]$proc
+    } catch { return $false }
+}
+
 function Test-WorkerHostName([string]$Name) {
     return [bool]("$Name" -match '^(powershell|pwsh|cmd|agent|node|cursor-agent)(\.exe)?$')
 }
@@ -272,26 +334,118 @@ function Get-CursorWorkerRows {
     return @($roots)
 }
 
+# Workers we did not start. Folder and pid only. The command line is dropped here.
+function Get-OutsideCursorWorkerRows {
+    param($Procs)
+    if ($null -eq $Procs) { $Procs = @(Get-CwProcesses) }
+    $cands = @()
+    foreach ($p in @($Procs)) {
+        $cmd = "$($p.CommandLine)"
+        if (-not (Test-OutsideWorkerCommand $cmd)) { continue }
+        $id = 0; $pp = 0
+        try { $id = [int]$p.ProcessId } catch { continue }
+        try { $pp = [int]$p.ParentProcessId } catch { $pp = 0 }
+        $cands += New-WorkerRow $id $pp "$($p.Name)" '' (Get-FlagValue $cmd '--worker-dir') '' '' ''
+    }
+    $ids = @{}
+    foreach ($c in @($cands)) { $ids["$($c.Pid)"] = $true }
+    $roots = @()
+    foreach ($c in @($cands)) {
+        if ($c.ParentProcessId -gt 0 -and $ids.ContainsKey("$($c.ParentProcessId)")) { continue }
+        $roots += $c
+    }
+    return @($roots)
+}
+
+# A worker.json whose pid is gone. Stop deletes the note, so a leftover is a death.
+function Get-DeadCursorWorkerLines {
+    $inst = Join-Path (Get-CursorWorkerRoot) 'instances'
+    if (-not (Test-Path -LiteralPath $inst -PathType Container)) { return @() }
+    $alive = @{}
+    foreach ($p in @(Get-CwProcesses)) {
+        try { $alive["$([int]$p.ProcessId)"] = $true } catch { }
+    }
+    $lines = @()
+    $notes = @(Get-ChildItem -LiteralPath $inst -Recurse -Filter worker.json -File -ErrorAction SilentlyContinue)
+    foreach ($f in @($notes)) {
+        $rec = $null
+        try { $rec = Get-Content -LiteralPath $f.FullName -Raw -ErrorAction Stop | ConvertFrom-Json } catch { continue }
+        $id = 0
+        try { $id = [int]$rec.pid } catch { continue }
+        if ($id -le 0 -or $alive.ContainsKey("$id")) { continue }
+        $folder = ''
+        if ($rec.folder) { $folder = "$($rec.folder)".Trim() }
+        if (-not $folder) { $folder = 'folder not recorded' }
+        $dir = Split-Path -Parent $f.FullName
+        $logs = @((Join-Path $dir 'worker.out.log'), (Join-Path $dir 'worker.err.log'))
+        $text = "Cursor worker died (pid $id, folder $folder)."
+        if (Test-WorkerAuthRequired $logs) { $text = "Cursor worker died (pid $id, folder $folder). Run agent login." }
+        $lines += [pscustomobject]@{ Level = 'FAIL'; Text = $text }
+    }
+    return @($lines)
+}
+
 function Get-CursorWorkerHealthLines {
     $lines = @()
     $rows = @(Get-CursorWorkerRows)
-    if ($rows.Count -eq 0) {
-        $lines += [pscustomobject]@{ Level = 'OK'; Text = 'Cursor worker is not running (manual Start only)' }
-    } else {
-        $bits = @($rows | ForEach-Object {
-            $nm = $_.DisplayName; if (-not $nm) { $nm = 'worker' }
-            $folder = $_.Folder; if (-not $folder) { $folder = 'folder not recorded' }
-            '{0} pid {1} ({2})' -f $nm, $_.Pid, $folder
-        })
-        $lines += [pscustomobject]@{ Level = 'OK'; Text = ('Cursor worker: {0} running (manual): {1}' -f $rows.Count, ($bits -join '; ')) }
+    $outside = @(Get-OutsideCursorWorkerRows)
+    $deaths = @(Get-DeadCursorWorkerLines)
+    foreach ($d in @($deaths)) { $lines += $d }
+    if ($rows.Count -eq 0 -and $outside.Count -eq 0 -and $deaths.Count -eq 0) {
+        $lines += [pscustomobject]@{ Level = 'STOP'; Text = 'Cursor worker is not running (manual Start only)' }
+    } elseif ($rows.Count -gt 0) {
+        $seenFolder = @{}
+        $dup = $false
+        foreach ($r in @($rows)) {
+            $key = "$($r.Folder)".Trim().ToLowerInvariant()
+            if ($key -and $seenFolder.ContainsKey($key)) { $dup = $true }
+            if ($key) { $seenFolder[$key] = $true }
+        }
+        $bits = @($rows | ForEach-Object { Format-WorkerPidFolder $_ })
+        if ($dup) {
+            $lines += [pscustomobject]@{ Level = 'WARN'; Text = ('Cursor worker: extra copies (manual): {0}' -f ($bits -join '; ')) }
+        } else {
+            $lines += [pscustomobject]@{ Level = 'RUN'; Text = ('Cursor worker: {0} running (manual): {1}' -f $rows.Count, ($bits -join '; ')) }
+        }
+    }
+    if ($outside.Count) {
+        $bits = @($outside | ForEach-Object { Format-WorkerPidFolder $_ })
+        $lines += [pscustomobject]@{ Level = 'WARN'; Text = ('Cursor worker started outside our script: {0}' -f ($bits -join '; ')) }
     }
     $auto = @(Get-CursorWorkerAutostartHits)
     if ($auto.Count) {
-        $lines += [pscustomobject]@{ Level = 'WARN'; Text = ('Cursor worker starts on its own: ' + ($auto -join ', ')) }
+        $lines += [pscustomobject]@{ Level = 'WARN'; Text = ('Cursor worker has a Windows startup entry: ' + ($auto -join ', ')) }
     } else {
-        $lines += [pscustomobject]@{ Level = 'OK'; Text = 'Cursor worker does not start at sign-in, reboot, or app launch' }
+        # Do not claim the Cursor app will stay quiet. That signal is restart.json, below.
+        $lines += [pscustomobject]@{ Level = 'RUN'; Text = 'Cursor worker has no Windows startup entry' }
+    }
+    $restart = @(Get-CursorAppRestartFiles)
+    if ($restart.Count) {
+        $lines += [pscustomobject]@{ Level = 'WARN'; Text = 'Cursor app restarts its worker on launch (restart.json present)' }
     }
     return @($lines)
+}
+
+# The Cursor app writes cursor-agent-worker-*.restart.json when it starts its own worker.
+# A file there is a reliable "it will start again" signal. No file does not prove the app is off.
+function Get-CursorAppRestartFiles {
+    if ($env:WORKSTATION_FAKE_RESTART) {
+        if ($env:WORKSTATION_FAKE_RESTART -eq 'none') { return @() }
+        try { return @($env:WORKSTATION_FAKE_RESTART | ConvertFrom-Json) } catch { return @() }
+    }
+    $roots = @()
+    if ($env:APPDATA) { $roots += (Join-Path $env:APPDATA 'Cursor/User/globalStorage/anysphere.cursor-agent-worker') }
+    if ($env:HOME) {
+        $roots += (Join-Path $env:HOME '.config/Cursor/User/globalStorage/anysphere.cursor-agent-worker')
+        $roots += (Join-Path $env:HOME 'Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker')
+    }
+    $hits = @()
+    foreach ($dir in @($roots | Select-Object -Unique)) {
+        if (-not $dir -or -not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
+        $files = @(Get-ChildItem -LiteralPath $dir -Filter '*.restart.json' -File -ErrorAction SilentlyContinue)
+        foreach ($f in @($files)) { $hits += $f.Name }
+    }
+    return @($hits | Select-Object -Unique)
 }
 
 function Test-CwAutostartText([string]$Text) {

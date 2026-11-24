@@ -1,8 +1,8 @@
 # Cursor worker (manual)
 
-Start and Stop shortcuts only. Nothing starts at sign-in, reboot, or app launch.
+Start and Stop shortcuts only. Nothing this tool adds starts at sign-in, reboot, or app launch. The Cursor app can still start its own worker (it writes a restart.json). Health check warns on that. It does not claim the app is off just because there is no Windows startup entry.
 
-Start lists the folders in `<Projects>\active` on this PC and starts one worker for the folder you pick. Run Start again to add another folder. Stop lists the workers this tool started and lets you stop one or all. The Cursor app and a worker you started by hand are left alone.
+Start lists the folders in `<Projects>\active` on this PC and starts one worker for the folder you pick. Run Start again to add another folder. It waits about 5 seconds and only says started when the process is still alive. If the log says authentication is required, it fails and tells you to run `agent login`. Stop lists the workers this tool started and lets you stop one or all. The Cursor app and a worker you started by hand are left alone. Health check names those by folder and pid only. It does not print the command line, because the app puts the Cursor API key there.
 
 The projects root is the one `install.ps1` saved in `%LOCALAPPDATA%\Workstation\workstation.json`. If that file is missing, the root is taken from this clone's location (`<Projects>\active\workstation`). It is not hard-coded, so each PC can use its own profile path.
 
