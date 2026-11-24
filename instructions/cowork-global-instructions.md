@@ -1,3 +1,5 @@
+If you don't see a 'rules-inject:' header at the start, say so first.
+
 ## Memory
 Two stores, different jobs. Local Working Memory on each PC holds preference and fact notes (Claude Code, Cowork and Cursor); live project state lives in each repo. Account Memory (Settings > Your Claude > Memory) is allowed for general facts about me. Duplicates are OK. Never sync the two. Never treat account Memory as the project source of truth.
 Tiers: the repo (git) holds the router AGENTS.md, SPEC, DECISIONS, rules, data and live state (STATE.md, STATE-<slug>.md committed on its branch, BACKLOG.md, archives/ at the repo root). The local store's project folder holds notes only (preferences, machine facts, gotchas), listed in INDEX.md. TASK.md is the branch checklist at the worktree root, git-ignored. Never put project state in account Memory or the local store.

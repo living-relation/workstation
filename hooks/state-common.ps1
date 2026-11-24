@@ -104,3 +104,30 @@ function Test-CursorHook {
   } catch { }
   return $false
 }
+
+# Loud fail when a rules or state hook errors. Exit stays 0 (SessionStart and SubagentStart cannot block).
+# Claude Code: systemMessage is the visible warning; additionalContext tells the agent to open its reply
+# with the same line (https://code.claude.com/docs/en/hooks — additionalContext lives in hookSpecificOutput).
+# Cursor sessionStart cannot show a user message (https://cursor.com/docs/hooks), so the same instruction
+# goes in additional_context only. hooks/run-ps.sh prints the same Claude JSON when PowerShell is missing.
+function Write-RulesNotLoaded {
+  param($HookInput, [string]$Reason, [string]$EventName)
+  $why = (([string]$Reason) -replace '[\r\n]+', ' ')
+  $why = (($why -replace '\s+', ' ').Trim())
+  if (-not $why) { $why = 'unknown error' }
+  $line = "WORKSTATION RULES NOT LOADED: $why"
+  $tell = "Open your reply with this exact line: $line"
+  if (Test-CursorHook $HookInput) {
+    [Console]::Out.WriteLine((@{ additional_context = $tell } | ConvertTo-Json -Compress))
+    return
+  }
+  if (-not $EventName) { $EventName = 'SessionStart' }
+  $obj = [ordered]@{
+    systemMessage = $line
+    hookSpecificOutput = [ordered]@{
+      hookEventName = $EventName
+      additionalContext = $tell
+    }
+  }
+  [Console]::Out.WriteLine(($obj | ConvertTo-Json -Compress -Depth 6))
+}

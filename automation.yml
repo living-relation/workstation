@@ -221,6 +221,16 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-rules-inject.ps1
+  - id: subagent-rules
+    script: hooks/subagent-rules.ps1
+    helpers: [hooks/state-common.ps1, hooks/hooks.json, hooks/tests/test-subagent-rules.ps1]
+    trigger: agent-hook:SubagentStart (Claude hooks/hooks.json via hooks/run-ps.sh; no Cursor hook, subagentStart can only allow or deny)
+    reads: [hook payload on stdin]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-subagent-rules.ps1
   - id: state-hooks
     script: [hooks/state-inject.ps1, hooks/state-lint-stop.ps1, hooks/protected-files-guard.ps1, hooks/sot-after-edit.ps1]
     helpers: [hooks/state-common.ps1, hooks/hooks.json, hooks/cursor-hooks.json, hooks/tests/state-test-support.ps1, hooks/tests/test-state-inject.ps1, hooks/tests/test-state-lint-stop.ps1, hooks/tests/test-state-protected-files-guard.ps1, hooks/tests/test-state-sot-hooks.ps1]
@@ -245,7 +255,7 @@ automations:
     script: hooks/run-ps.sh
     helpers: [hooks/README.md, hooks/hooks.json, scripts/test_run_ps_launcher.py]
     trigger: called-by:state-hooks (every Claude hooks/hooks.json command runs through it)
-    reads: [PATH (powershell, else pwsh)]
+    reads: [PATH (powershell, else pwsh); hook payload hook_event_name when both are missing]
     writes: []
     committed: no
     auto_commit: false

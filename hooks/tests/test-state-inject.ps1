@@ -61,5 +61,14 @@ Check 'cursor: additional_context carries the branch STATE' ($parsed -and "$($pa
 $r = Invoke-StateHook $hook @{ hook_event_name = 'sessionStart'; workspace_roots = @($other) } @{ CURSOR_VERSION = '1.7.0' }
 Check 'cursor: unmigrated repo stays silent' ($r.Out.Trim() -eq '' -and $r.Code -eq 0)
 
+$failLine = 'WORKSTATION RULES NOT LOADED: boom'
+$failTell = "Open your reply with this exact line: $failLine"
+$r = Invoke-StateHook $hook @{ hook_event_name = 'SessionStart'; cwd = $repo } @{ WORKSTATION_INJECT_FAIL = 'boom' }
+$d = $null; try { $d = $r.Out.Trim() | ConvertFrom-Json } catch { }
+Check 'claude error: loud fail is systemMessage plus SessionStart additionalContext' ($r.Code -eq 0 -and $d.systemMessage -eq $failLine -and $d.hookSpecificOutput.hookEventName -eq 'SessionStart' -and $d.hookSpecificOutput.additionalContext -eq $failTell)
+$r = Invoke-StateHook $hook @{ hook_event_name = 'sessionStart'; workspace_roots = @($repo) } @{ CURSOR_VERSION = '1.7.0'; WORKSTATION_INJECT_FAIL = 'boom' }
+$d = $null; try { $d = $r.Out.Trim() | ConvertFrom-Json } catch { }
+Check 'cursor error: same instruction in additional_context only' ($r.Code -eq 0 -and $d.additional_context -eq $failTell -and -not $d.systemMessage -and $r.Out -notmatch 'hookSpecificOutput')
+
 Remove-TestRoot $t
 Complete-StateTest
