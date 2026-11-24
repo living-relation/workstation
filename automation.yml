@@ -293,11 +293,11 @@ automations:
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File hooks/tests/test-state-git-hooks.ps1
   - id: hook-launcher
-    script: hooks/run-ps.sh
-    helpers: [hooks/README.md, hooks/hooks.json, scripts/test_run_ps_launcher.py]
-    trigger: called-by:state-hooks (every Claude hooks/hooks.json command runs through it)
-    reads: [PATH (powershell, else pwsh); hook payload hook_event_name when both are missing]
-    writes: []
+    script: [hooks/run-ps.sh, hooks/rules_fallback.py]
+    helpers: [hooks/README.md, hooks/hooks.json, scripts/test_run_ps_launcher.py, hooks/subagent-rules.ps1, memory/templates/claude-global-memory-section.md, memory/templates/app-locks.md, scripts/state/state_paths.py]
+    trigger: called-by:state-hooks (every Claude hooks/hooks.json command runs through it; rules_fallback.py only on SessionStart or SubagentStart when powershell and pwsh are both missing)
+    reads: [PATH (powershell, else pwsh, else python3 or python); hook payload hook_event_name, session_id and cwd when both are missing; the same templates, ~/.claude/CLAUDE.md, WORKSTATION_PROJECTS_ROOT and STATE files as rules-inject and state-inject]
+    writes: ['an empty marker file TMPDIR/workstation-rules-warned-<session_id>-<event> (TMPDIR defaults to /tmp) when the no-PowerShell warning is shown, once per session and event']
     committed: no
     auto_commit: false
     enabled: true

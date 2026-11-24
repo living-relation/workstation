@@ -52,6 +52,7 @@ Regenerate with `python3 scripts/gen-code-index.py`; CI runs it with `--check`.
 | `hooks/projects-root-report.ps1` | Stop hook. Lists entries in the projects root that are not on the allowed list. |
 | `hooks/protected-files-guard.ps1` | PreToolUse hook (Claude Code and Cursor). Guards files an agent must not change on its own. |
 | `hooks/rules-inject.ps1` | SessionStart hook. Prints the workstation memory-store rules and the harness.design lock rule from this |
+| `hooks/rules_fallback.py` | No-PowerShell fallback for the start-of-session hooks (Linux cloud sessions, containers, WSL). |
 | `hooks/run-ps.sh` | Portable launcher for the PowerShell hooks: sh run-ps.sh <script.ps1> [args...] |
 | `hooks/sot-after-edit.ps1` | PostToolUse hook (Claude Code Write / Edit / NotebookEdit; Cursor postToolUse). Non-blocking. |
 | `hooks/state-common.ps1` | Shared helpers for the state hooks (state-inject, state-lint-stop, protected-files-guard). |

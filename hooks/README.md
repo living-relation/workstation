@@ -9,7 +9,8 @@ Owner decision 2026-11-22: the memory-store rules (`memory/templates/claude-glob
 `claude-shared-memory.mdc` without its front matter) and the harness.design lock rule (`memory/templates/app-locks.md`)
 load from this hook in Claude Code (SessionStart and SubagentStart) and the Cursor desktop app (sessionStart,
 `additional_context`). Cowork runs plugin hooks in its own sandbox, likely Linux with no PowerShell, so `run-ps.sh`
-reports WORKSTATION RULES NOT LOADED there instead of loading the rules; a cloud Cowork session may not fire
+loads the rules through `rules_fallback.py` when Python is there, else reports WORKSTATION RULES NOT LOADED once
+per session (unverified in Cowork; see Launcher); a cloud Cowork session may not fire
 SessionStart at all (unverified). A Cursor My Machines worker session: Cursor's docs list project `.cursor/hooks.json`
 and `~/.cursor/hooks.json`, not local plugins, so the plugin's hooks may not run there (unverified). Chat runs no hooks.
 `install.ps1` no longer creates or appends them in `~\.claude\CLAUDE.md` or `~\.cursor\rules`. If an older install
@@ -41,9 +42,20 @@ treated as deny. `hooks/cursor-hooks.json` does not wire this script.
 
 Every Claude command is `sh "${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh" "${CLAUDE_PLUGIN_ROOT}/hooks/<script>.ps1"`.
 `run-ps.sh` runs the script with `powershell`, else `pwsh`; stdin, stdout and the exit code pass
-through (exit 2 still blocks). With neither on PATH (Linux containers, WSL) it exits 0 and prints the
-loud fail (`systemMessage` plus `additionalContext`). `hookEventName` is copied from the payload's
-`hook_event_name`, or `SessionStart` when that field is absent. Claude Code runs hook
+through (exit 2 still blocks). With neither on PATH (Linux cloud sessions such as Claude Code web and
+mobile, containers, WSL) it always exits 0:
+- Any event other than `SessionStart` or `SubagentStart` (`Stop`, `PreToolUse`, `PostToolUse`, and so on)
+  prints nothing. Output on `Stop` is fed back to the agent after every reply, which looped the session.
+- On `SessionStart` or `SubagentStart`, `rules-inject`, `state-inject` and `subagent-rules` run
+  `rules_fallback.py` with `python3` (else `python`). It prints the same text as the PowerShell hook from
+  the same templates, state tools and `subagent-rules.ps1` lines. With no projects root (a cloud session),
+  paths show as `<Projects>`. Other scripts (`agents-md-only-warn`) print nothing.
+- If Python is missing or the fallback fails, it prints the loud fail (`systemMessage` plus
+  `additionalContext`) at most once per session and event. The marker is an empty file
+  `${TMPDIR:-/tmp}/workstation-rules-warned-<session_id>-<event>`; with no `session_id` it prints every time.
+  `hookEventName` is copied from the payload's `hook_event_name`, or `SessionStart` when absent.
+
+Claude Code runs hook
 commands with `sh -c` on Linux and macOS and with Git Bash on Windows
 (`https://code.claude.com/docs/en/hooks`); without Git Bash it falls back to PowerShell, where `sh`
 is missing. Cursor commands call `powershell` directly: `sh` is not on the plain Windows PATH.
