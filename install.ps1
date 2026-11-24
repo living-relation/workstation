@@ -49,7 +49,10 @@
     pr-closeout-nudge.ps1 (Claude Code PostToolUse, after a PR is opened), handoff-at-80.py (Cursor preCompact +
     stop, needs py -3); the skill the handoff hooks trigger, agent-handoff-pack, comes from the workstation-core
     plugin. Skills get in from workstation-core: claude.ai for Claude desktop and Cowork, the workstation-plugins
-    catalog for Claude Code (INSTALL.md). This script does not
+    catalog for Claude Code (INSTALL.md). On a real run this script runs
+    `claude plugin marketplace add living-relation/workstation` and
+    `claude plugin install workstation-core@workstation-plugins` (skipped if the claude CLI is missing;
+    it never uninstalls or disables a plugin). This script does not
     copy skills into ~\.claude\skills. No zip upload. On a real run it opens the Plugins page and prints the clicks. Entries are merged by script name (never duplicated); an unrelated
     statusLine is never overwritten; other hook entries are left alone.
   - Merges Claude Code MCP connectors into ~\.claude.json (user-scope) from claude\mcp-servers.json.
@@ -65,8 +68,10 @@
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
   - Does NOT migrate old memory. See MIGRATION.md.
   - Ends by running Health check (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts.
-    The manual steps (admin command, the two instruction pastes, sign-ins) are walked through by the
-    installing agent from SETUP-PROMPT.txt. Setup is finished only when Health check shows 0 FAIL, 0 WARN.
+    The manual steps (admin command, instruction pastes, sign-ins) are the numbered phases printed by
+    scripts\setup_guide.py. SETUP-PROMPT.txt only points at that script. A real run pastes the instruction
+    files at the end unless -Quiet. Setup is finished only when Health check shows 0 FAIL, 0 WARN
+    and scripts\setup_verify.py exits 0.
 
 .PARAMETER ProjectsRoot
   Projects root folder. Default: the projectsRoot saved by the last install, else %USERPROFILE%\Projects,
@@ -459,9 +464,8 @@ function Merge-HookCommand($Container, [string]$Event, [string]$Leaf, [string]$C
 
 # ---------------------------------------------------------------- final Health check
 # Runs Health check -NoPause (read-only, never prompts) and reports the FAIL / WARN counts.
-# The manual steps (admin command, the two pastes, sign-ins) are walked through by the installing
-# agent from SETUP-PROMPT.txt; install does not list or confirm them. Setup is finished only when
-# Health check shows 0 FAIL and 0 WARN (SETUP-PROMPT.txt last check).
+# The manual steps are the phases printed by scripts\setup_guide.py (SETUP-PROMPT.txt is only a pointer).
+# Setup is finished only when Health check shows 0 FAIL and 0 WARN and setup_verify.py exits 0.
 function Invoke-StatusCheck {
   $ErrorActionPreference = 'Continue'  # PS 5.1: native stderr with 2>&1 must not stop the script
   if ($testMode -or $WhatIf) {
@@ -480,7 +484,7 @@ function Invoke-StatusCheck {
   $fails = @($out | Where-Object { $_ -match '\[FAIL\]' }).Count
   $warns = @($out | Where-Object { $_ -match '\[WARN\]' }).Count
   Write-Host ("  Health check: {0} FAIL, {1} WARN" -f $fails, $warns) -ForegroundColor White
-  if ($fails -or $warns) { Write-Host '  Setup is finished only at 0 FAIL and 0 WARN. The remaining SETUP-PROMPT.txt steps usually clear these.' -ForegroundColor Yellow }
+  if ($fails -or $warns) { Write-Host '  Setup is finished only at 0 FAIL and 0 WARN. The remaining setup_guide.py phases usually clear these.' -ForegroundColor Yellow }
   else { Write-Host '  Health check: 0 FAIL, 0 WARN.' -ForegroundColor Green }
 }
 
@@ -931,6 +935,16 @@ try {
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Note 'WARN' "install-plugins.ps1 exit $LASTEXITCODE" }
 } catch { Note 'ERROR' ("plugin setup -- " + $_.Exception.Message) }
 
+# 9c. Claude Code catalog. Two commands only. A missing claude CLI skips them. Never uninstalls or disables.
+$catalog = Join-Path $PSScriptRoot 'scripts\install-catalog-plugin.ps1'
+if (-not (Test-Path -LiteralPath $catalog)) { Note 'ERROR' "not found: $catalog" }
+else {
+  try {
+    if ($WhatIf -or $testMode) { & $catalog -WhatIf } else { & $catalog }
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Note 'WARN' "install-catalog-plugin.ps1 exit $LASTEXITCODE" }
+  } catch { Note 'ERROR' ("catalog plugin -- " + $_.Exception.Message) }
+}
+
 # 9d. Ownership notes in the folders this install creates (add-only).
 try {
   foreach ($r in @(& (Join-Path $PSScriptRoot 'ownership-notes.ps1') -ProjectsRoot $ProjectsRoot -UserHome $UserHome -StateDir $StateDir -WhatIf:$WhatIf)) {
@@ -967,5 +981,17 @@ Write-Host ''
 if ($WhatIf) { Write-Host 'Dry run only. Nothing was changed. Run again without -WhatIf to apply.' -ForegroundColor Cyan }
 else { Write-Host 'Desktop Commander and the Cursor worker run only from their manual shortcuts. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
 Invoke-StatusCheck
+
+# Paste helper: one instruction file at a time. -Quiet skips it. A dry run and -UserHome only print the plan.
+$paste = Join-Path $PSScriptRoot 'scripts\paste-instructions.ps1'
+if (Test-Path -LiteralPath $paste) {
+  try {
+    if ($NoPopup) { & $paste -Quiet -PackageRoot $PkgRoot }
+    elseif ($WhatIf -or $testMode) { & $paste -WhatIf -PackageRoot $PkgRoot }
+    else { & $paste -PackageRoot $PkgRoot }
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Note 'WARN' "paste-instructions.ps1 exit $LASTEXITCODE" }
+  } catch { Note 'ERROR' ("paste helper -- " + $_.Exception.Message) }
+} else { Note 'ERROR' "not found: $paste" }
+
 if (@($Summary | Where-Object Status -eq 'ERROR').Count) { exit 1 }
 exit 0

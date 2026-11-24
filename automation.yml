@@ -73,7 +73,7 @@ automations:
     run_cmd: .venv/bin/python scripts/gen-inventory.py
   - id: install
     script: install.ps1
-    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/make-shortcuts.ps1, install.cmd, claude/claude-setup.ps1, claude/mcp-servers.json, claude/plugins.json, cleanup-legacy.ps1, scripts/test_install_link_skills.py, workstation/health/claude-ai-plugin.ps1]
+    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/make-shortcuts.ps1, install.cmd, claude/claude-setup.ps1, claude/mcp-servers.json, claude/plugins.json, cleanup-legacy.ps1, scripts/test_install_link_skills.py, workstation/health/claude-ai-plugin.ps1, scripts/install-catalog-plugin.ps1, scripts/paste-instructions.ps1, scripts/test_install_catalog.py]
     trigger: manual
     reads: [toolkit.psd1, memory/templates/**, instructions/**, handoff/**, memory/hooks/**, skills/**, claude/**]
     writes: [outside the repo (inferred) - LOCALAPPDATA Workstation folder, user .claude settings and hooks, user .claude.json MCP servers, Projects _claude store, manual shortcuts/*.lnk]
@@ -91,6 +91,26 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File install-plugins.ps1 -WhatIf
+  - id: setup-guide
+    script: scripts/setup_guide.py
+    helpers: [scripts/setup_phases.py, scripts/setup_verify.py, SETUP-PROMPT.txt, scripts/test_setup_guide.py]
+    trigger: manual
+    reads: [scripts/setup_phases.py]
+    writes: [outside the repo (inferred) - per-PC setup phase log, not committed]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python3 scripts/setup_guide.py
+  - id: repo-profile
+    script: scripts/repo_profile.py
+    helpers: [scripts/test_repo_profile.py, repo-profile.json]
+    trigger: manual
+    reads: [the repo tree]
+    writes: [repo-profile.json]
+    committed: yes
+    auto_commit: false
+    enabled: true
+    run_cmd: python3 scripts/repo_profile.py scan
   - id: uninstall
     script: uninstall.ps1
     trigger: manual
