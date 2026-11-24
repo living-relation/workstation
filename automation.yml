@@ -1,14 +1,12 @@
 # automation.yml: every script, hook and job in this repo, grouped by tool (format: skills/git-checker).
 # Check it (read-only): python skills/git-checker/hooks/registry-check.py
-# state-check only posts a PR comment. pack-skill-zips auto-commits skills/*.zip onto PR
-# branches (never main, never if PR head is main; if main is stale it resets chore/skill-zips
-# and force-with-lease that bot branch only). Only gen-inventory writes a tracked file by hand.
+# state-check only posts a PR comment. Only gen-inventory writes a tracked file by hand.
 # trigger: manual | git-hook:<name> | agent-hook:<event> | called-by:<id>. "(inferred)" = read from the code, not run.
 # STALE-OUTPUT compares content: an entry whose reads/script were committed after its writes gets its run_cmd
 # re-run in a temp copy, and is flagged only if a declared output changes. slow: true (optional, default false)
 # marks an expensive generator (or one needing tools CI lacks, the network, or writing outside the repo): it is
 # never re-run and keeps the commit-date check. A run_cmd with a <placeholder> or [optional] part also falls back.
-generated_patterns: ["**/*.checks.json", "**/*_report.json", "**/*.pdf", "**/*.html", "**/*.xlsx", "skills/*.zip"]
+generated_patterns: ["**/*.checks.json", "**/*_report.json", "**/*.pdf", "**/*.html", "**/*.xlsx"]
 ignore: ["**/tests/**", "**/test_*.py"]
 handmade: []
 automations:
@@ -213,16 +211,6 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/check-upstream.ps1 -WhatIf
-  - id: pack-skill-zips
-    script: .github/workflows/pack-skill-zips.yml
-    helpers: [scripts/pack-skill-zips.py, scripts/pack-skill-zips.sh, scripts/pack-skill-zips.ps1, scripts/pack-skill-zips-commit.sh, scripts/guard-staged.sh, scripts/fetch-gitleaks.sh, scripts/run-gitleaks.sh]
-    trigger: pr-check
-    reads: [skills/**, scripts/pack-skill-zips.py]
-    writes: [skills/*.zip]
-    committed: yes
-    auto_commit: true
-    enabled: true
-    run_cmd: python3 scripts/pack-skill-zips.py --strict
   - id: projects-root-hooks
     script: [hooks/projects-root-guard.ps1, hooks/projects-root-report.ps1]
     helpers: [hooks/projects-root-common.ps1, hooks/tests/test-projects-root-guard.ps1, hooks/hooks.json, hooks/cursor-hooks.json]
