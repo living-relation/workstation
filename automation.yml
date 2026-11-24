@@ -1,6 +1,6 @@
 # automation.yml: every script, hook and job in this repo, grouped by tool (format: skills/git-checker).
 # Check it (read-only): python skills/git-checker/hooks/registry-check.py
-# state-check only posts a PR comment. Only gen-inventory writes a tracked file by hand.
+# state-check only posts a PR comment. Only gen-inventory and gen-code-index write a tracked file by hand.
 # trigger: manual | git-hook:<name> | agent-hook:<event> | called-by:<id>. "(inferred)" = read from the code, not run.
 # STALE-OUTPUT compares content: an entry whose reads/script were committed after its writes gets its run_cmd
 # re-run in a temp copy, and is flagged only if a declared output changes. slow: true (optional, default false)
@@ -69,6 +69,27 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: .venv/bin/python scripts/gen-inventory.py
+  - id: gen-code-index
+    script: scripts/gen-code-index.py
+    helpers: [scripts/test_gen_code_index.py]
+    trigger: manual
+    reads: ["**/*.ps1", "**/*.psm1", "**/*.py", "**/*.sh", "**/*.cmd", "**/*.bat"]
+    writes: [CODE-INDEX.md]
+    committed: yes
+    auto_commit: false
+    enabled: true
+    run_cmd: python3 scripts/gen-code-index.py
+    check_cmd: python3 scripts/test_gen_code_index.py
+  - id: code-index
+    script: .github/workflows/code-index.yml
+    trigger: pr-check
+    reads: [CODE-INDEX.md, the git tree at HEAD]
+    writes: []
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python3 scripts/gen-code-index.py --check
+    check_cmd: python3 scripts/test_gen_code_index.py
   - id: install
     script: install.ps1
     helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/make-shortcuts.ps1, install.cmd, claude/claude-setup.ps1, claude/mcp-servers.json, claude/plugins.json, cleanup-legacy.ps1, scripts/test_install_link_skills.py, workstation/health/claude-ai-plugin.ps1, scripts/install-catalog-plugin.ps1, scripts/paste-instructions.ps1, scripts/test_install_catalog.py]
