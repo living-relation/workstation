@@ -23,9 +23,9 @@ CURSOR = (
     '"$env:USERPROFILE\\.cursor\\plugins\\local\\workstation-core" | Out-Null; '
     "Get-ChildItem -Force -LiteralPath . | Where-Object { $_.Name -ne '.git' "
     "-and $_.Name -ne '.venv' } | ForEach-Object { Copy-Item -LiteralPath "
-    '$_.FullName -Destination (Join-Path '
+    '$_.FullName -Destination '
     '"$env:USERPROFILE\\.cursor\\plugins\\local\\workstation-core" '
-    "$_.Name) -Recurse -Force }"
+    "-Recurse -Force }"
 )
 INSTALLER = r"powershell -NoProfile -ExecutionPolicy Bypass -File .\install-plugins.ps1"
 WHATIF = INSTALLER + " -WhatIf"
@@ -206,6 +206,34 @@ class InstallPluginsDocs(unittest.TestCase):
             self.assertNotIn("Opened ", out)
             self.assertIn("Nothing was scheduled", out)
 
+
+    def test_rerun_merges_and_does_not_nest_folders(self):
+        """A second run updates files in place; it never copies hooks into hooks\\hooks."""
+        if not PWSH:
+            self.skipTest("powershell is not installed")
+        with tempfile.TemporaryDirectory() as home:
+            dest = Path(home) / ".cursor" / "plugins" / "local" / "workstation-core"
+            for run in (1, 2):
+                if run == 2:
+                    # An older copy of a file must be replaced on the re-run.
+                    (dest / "hooks" / "rules-inject.ps1").write_text("old\n", encoding="utf-8")
+                proc = subprocess.run(
+                    [PWSH, "-NoProfile", "-NonInteractive", "-File", str(PS1), "-UserHome", home],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    cwd=ROOT,
+                )
+                out = proc.stdout + proc.stderr
+                self.assertEqual(proc.returncode, 0, out)
+            nested = sorted(
+                d.name for d in dest.iterdir() if d.is_dir() and (d / d.name).exists()
+            )
+            self.assertEqual(nested, [], "nested folders after a re-run: " + ", ".join(nested))
+            src = ROOT / "hooks" / "rules-inject.ps1"
+            self.assertEqual((dest / "hooks" / "rules-inject.ps1").read_bytes(), src.read_bytes())
+            self.assertTrue((dest / "skills").is_dir())
+            self.assertFalse((dest / ".git").exists())
 
 class PluginPresence(unittest.TestCase):
     def _status(self, home: Path) -> str:

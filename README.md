@@ -85,7 +85,7 @@ cd <projects-folder>\workstation
 4. Copy into ~/.cursor/plugins/local/workstation-core. This does not open claude.ai.
 
 ```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" | Out-Null; Get-ChildItem -Force -LiteralPath . | Where-Object { $_.Name -ne '.git' -and $_.Name -ne '.venv' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" $_.Name) -Recurse -Force }
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" | Out-Null; Get-ChildItem -Force -LiteralPath . | Where-Object { $_.Name -ne '.git' -and $_.Name -ne '.venv' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination "$env:USERPROFILE\.cursor\plugins\local\workstation-core" -Recurse -Force }
 ```
 
 5. Fully quit and reopen Cursor.

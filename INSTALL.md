@@ -48,7 +48,7 @@ cd <projects-folder>\workstation
 4. Copy into ~/.cursor/plugins/local/workstation-core. This does not open claude.ai.
 
 ```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" | Out-Null; Get-ChildItem -Force -LiteralPath . | Where-Object { $_.Name -ne '.git' -and $_.Name -ne '.venv' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" $_.Name) -Recurse -Force }
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" | Out-Null; Get-ChildItem -Force -LiteralPath . | Where-Object { $_.Name -ne '.git' -and $_.Name -ne '.venv' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination "$env:USERPROFILE\.cursor\plugins\local\workstation-core" -Recurse -Force }
 ```
 
 5. Fully quit and reopen Cursor.
@@ -100,7 +100,7 @@ If you use Claude, do the Claude section at the top of this file.
 **Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin. **Folder:** this repo.
 
 ```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" | Out-Null; Get-ChildItem -Force -LiteralPath . | Where-Object { $_.Name -ne '.git' -and $_.Name -ne '.venv' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" $_.Name) -Recurse -Force }
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cursor\plugins\local\workstation-core" | Out-Null; Get-ChildItem -Force -LiteralPath . | Where-Object { $_.Name -ne '.git' -and $_.Name -ne '.venv' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination "$env:USERPROFILE\.cursor\plugins\local\workstation-core" -Recurse -Force }
 ```
 
 If you use Cursor, do the Cursor section at the top of this file. A shortcut that points outside `~\.cursor\plugins\local` is skipped (https://cursor.com/docs/plugins). `Start-Process` was not run on this Linux check. The copy command was run with a temp `USERPROFILE`. A Cursor window reload was not run.
