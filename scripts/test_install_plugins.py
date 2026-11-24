@@ -2,7 +2,11 @@
 """The plugin installer prints claude.ai clicks on -WhatIf and does not schedule.
 
 The commands are the same single-line blocks as README.md and INSTALL.md.
+Claude Code installs workstation-core from the workstation-plugins catalog with the
+CLAUDE_CODE commands below (decision D-2026-11-23-claude-code-catalog). The docs give
+them; no script runs them.
 """
+import json
 import os
 import shutil
 import subprocess
@@ -35,9 +39,18 @@ MISSING = (
     "add catalog living-relation/workstation and turn on workstation-core"
 )
 PRESENT = "workstation-core plugin is present on claude.ai"
+CLAUDE_CODE = (
+    "claude plugin marketplace add living-relation/workstation",
+    "claude plugin install workstation-core@workstation-plugins",
+    "claude plugin marketplace update workstation-plugins",
+    "claude plugin update workstation-core@workstation-plugins",
+)
+PRECEDENCE = (
+    "That copy (`workstation-core@workstation-plugins`) takes precedence over the copy "
+    "synced from claude.ai"
+)
+DESKTOP_STAYS = "Claude desktop and Cowork still get the plugin from claude.ai"
 BANNED = (
-    "claude plugin install",
-    "claude plugin marketplace",
     "/plugin install",
     "/plugin marketplace",
     "-LinkSkills",
@@ -125,6 +138,30 @@ class InstallPluginsDocs(unittest.TestCase):
             self.assertIn([line], _fence_lines(install))
         for line in (agent, cd, clone, cd_repo, CURSOR):
             self.assertIn([line], _fence_lines(readme))
+        for doc in (install, readme):
+            self.assertIn("Skip this if you don't use Claude Code.", doc)
+            self.assertIn(PRECEDENCE, doc)
+            self.assertIn(DESKTOP_STAYS, doc)
+            fences = _fence_lines(doc)
+            positions = []
+            for cmd in CLAUDE_CODE:
+                # Each command is its own one-line block, in add/install/refresh/update order.
+                self.assertIn([cmd], fences, cmd)
+                positions.append(doc.index("```powershell\n" + cmd + "\n```"))
+            self.assertEqual(positions, sorted(positions))
+            # The plugin id is exact: the catalog name is workstation-plugins, never the repo name.
+            self.assertNotIn("workstation-core@workstation\n", doc)
+            self.assertNotIn("workstation-core@synced", doc)
+        self.assertLess(install.index("## Claude Code"), install.index("## Cursor"))
+        catalog = json.loads((ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+        name = catalog["name"]
+        plugins = [p["name"] for p in catalog["plugins"]]
+        self.assertEqual(name, "workstation-plugins")
+        self.assertIn("workstation-core", plugins)
+        self.assertIn(f"claude plugin install workstation-core@{name}", CLAUDE_CODE)
+        self.assertIn(f"claude plugin marketplace update {name}", CLAUDE_CODE)
+        self.assertIn("INSTALL.md (Claude Code section)", prompt)
+        self.assertNotIn("Claude Code on that account", prompt)
         for blob in (install, readme, prompt):
             low = blob.lower()
             for banned in BANNED:
@@ -164,6 +201,9 @@ class InstallPluginsDocs(unittest.TestCase):
         self.assertNotIn("Sync automatically off", out)
         self.assertIn("Turn on workstation-core", out)
         self.assertIn("browser was not opened", out)
+        self.assertIn("Claude Code: install from the workstation-plugins catalog", out)
+        self.assertIn("INSTALL.md (Claude Code section)", out)
+        self.assertNotIn("Cowork, and Claude Code", out)
         self.assertIn("Nothing was copied", out)
         self.assertIn("Nothing was scheduled", out)
         self.assertNotIn("Opened ", out)

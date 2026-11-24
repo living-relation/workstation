@@ -16,3 +16,16 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** keeping live state in the memory store (PR #90 tier rule); per-branch state left untracked in the worktree; deleting archived branch state.
 - **Supersedes:** the 2026-11-18 tier rule (PR #90, "live state in the memory store project folder").
 - **Reopen if:** a repo must hold state that cannot be public, or the CI gate blocks real merges it should not.
+
+## D-2026-11-23-claude-code-catalog: Claude Code installs workstation-core from the repo catalog
+- **Status:** accepted, 2026-11-23 (Dan)
+- **Source:** Dan's Grok Bot chat answers Y and Z (2026-11-23 ET).
+- **Context:** the claude.ai synced copy in Claude Code did not refresh after merges (DansPC stayed on the 2026-11-21 copy after Check for updates, a full restart and `claude plugin update workstation-core@synced`, which Claude Code refuses for synced plugins). The work PC had no synced copy at all. So Claude Code never got `hooks/rules-inject.ps1`.
+- **Decision:**
+  - Claude Code gets workstation-core from this repo's `workstation-plugins` catalog: `claude plugin marketplace add living-relation/workstation`, then `claude plugin install workstation-core@workstation-plugins`. Refresh later with `claude plugin marketplace update workstation-plugins`, then `claude plugin update workstation-core@workstation-plugins`.
+  - That copy takes precedence over the claude.ai synced copy of the same name; Claude Code lists the synced one as not loaded. Nothing needs disabling.
+  - Claude desktop, Cowork and chat still get the plugin from claude.ai (Sync automatically on). The Cursor copy is unchanged (`install-plugins.ps1`).
+  - The commands are in INSTALL.md and README.md, one per block. No script runs them; `install-plugins.ps1` only points to them.
+- **Rejected:** claude.ai as the only Claude Code route (it went stale); having install scripts run the commands.
+- **Supersedes:** the 2026-11-19 "Claude install is claude.ai only" rule (BACKLOG.md, 2026-11-19 entry), for Claude Code only.
+- **Reopen if:** the claude.ai sync reliably refreshes Claude Code's copy, or the two copies stop resolving by precedence.

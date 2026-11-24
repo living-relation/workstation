@@ -50,6 +50,40 @@ Skip this if you don't use Claude.
 
 Updates arrive automatically after merges to main.
 
+**Claude Code**
+
+Skip this if you don't use Claude Code.
+
+Claude Code installs workstation-core straight from this repo's catalog. That copy (`workstation-core@workstation-plugins`) takes precedence over the copy synced from claude.ai; `claude plugin list` then shows the synced one as not loaded. Claude desktop and Cowork still get the plugin from claude.ai (the Claude section above).
+
+**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin.
+
+1. Add the catalog, once per PC. Skip this if `claude plugin marketplace list` already shows `workstation-plugins`.
+
+```powershell
+claude plugin marketplace add living-relation/workstation
+```
+
+2. Install the plugin.
+
+```powershell
+claude plugin install workstation-core@workstation-plugins
+```
+
+3. Later, after merges to main, refresh the catalog.
+
+```powershell
+claude plugin marketplace update workstation-plugins
+```
+
+4. Then update the installed plugin.
+
+```powershell
+claude plugin update workstation-core@workstation-plugins
+```
+
+5. Start a new Claude Code session. Open sessions keep the plugin they started with.
+
 **Cursor**
 
 Skip this if you don't use Cursor.
@@ -117,7 +151,7 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).
 - No CAD code or models in this repo. `workstation.lock.yaml` does not pin any.
-- `skills/` - this repo's skills; skills live only in their repo. They get in only when `workstation-core` is turned on from the `workstation-plugins` catalog on claude.ai (see [INSTALL.md](INSTALL.md)). No zip upload. `install.ps1` does not copy them into `~\.claude\skills`.
+- `skills/` - this repo's skills; skills live only in their repo. They get in from the `workstation-core` plugin: turned on from the `workstation-plugins` catalog on claude.ai for Claude desktop and Cowork, and installed from the same catalog with the `claude plugin` commands for Claude Code (see [INSTALL.md](INSTALL.md)). No zip upload. `install.ps1` does not copy them into `~\.claude\skills`.
   `skills/EXCLUDE.txt` lists Claude-app-owned skills (harness-design, st185-*); those, and any SKILL.md with
   `source: harness-design-app`, are never zipped, and `link-skills.ps1` never moves or removes their folders.
   Each skill folder (`skills/<name>/` with a `SKILL.md`) has a matching generated `skills/<name>.zip` (CI builds it; nobody uploads it).

@@ -48,7 +48,8 @@
   - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
     pr-closeout-nudge.ps1 (Claude Code PostToolUse, after a PR is opened), handoff-at-80.py (Cursor preCompact +
     stop, needs py -3); the skill the handoff hooks trigger, agent-handoff-pack, comes from the workstation-core
-    plugin. Skills get in only by turning on workstation-core on claude.ai (INSTALL.md). This script does not
+    plugin. Skills get in from workstation-core: claude.ai for Claude desktop and Cowork, the workstation-plugins
+    catalog for Claude Code (INSTALL.md). This script does not
     copy skills into ~\.claude\skills. No zip upload. On a real run it opens the Plugins page and prints the clicks. Entries are merged by script name (never duplicated); an unrelated
     statusLine is never overwritten; other hook entries are left alone.
   - Merges Claude Code MCP connectors into ~\.claude.json (user-scope) from claude\mcp-servers.json.
@@ -918,7 +919,7 @@ $cs = @($Preflight.CursorStartup)
 if ($cs.Count) { foreach ($e in $cs) { Note 'WARN' "Cursor starts at sign-in (not added by this install; remove it by hand if unwanted): $($e.Path)" } }
 else { Note 'OK' 'Cursor does not start at sign-in (install adds no autostart)' }
 
-# 9b. Skills come from the claude.ai plugin (INSTALL.md). This script does not copy them into ~\.claude\skills.
+# 9b. Skills come from the workstation-core plugin (claude.ai; Claude Code: the catalog, INSTALL.md). This script does not copy them into ~\.claude\skills.
 #     A real run opens the Plugins page and prints the clicks. -WhatIf does not open a browser or copy files.
 . (Join-Path $PSScriptRoot 'workstation\health\claude-ai-plugin.ps1')
 if (Test-WorkstationCoreOnClaudeAi -UserRoot $UserHome) { Note 'OK' $WsPluginPresentText }

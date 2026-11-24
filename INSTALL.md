@@ -13,6 +13,40 @@ Skip this if you don't use Claude.
 
 Updates arrive automatically after merges to main.
 
+## Claude Code
+
+Skip this if you don't use Claude Code.
+
+Claude Code installs workstation-core straight from this repo's catalog. That copy (`workstation-core@workstation-plugins`) takes precedence over the copy synced from claude.ai; `claude plugin list` then shows the synced one as not loaded. Claude desktop and Cowork still get the plugin from claude.ai (the Claude section above).
+
+**Terminal:** Windows PowerShell 5.1. **Mode:** normal window, not admin.
+
+1. Add the catalog, once per PC. Skip this if `claude plugin marketplace list` already shows `workstation-plugins`.
+
+```powershell
+claude plugin marketplace add living-relation/workstation
+```
+
+2. Install the plugin.
+
+```powershell
+claude plugin install workstation-core@workstation-plugins
+```
+
+3. Later, after merges to main, refresh the catalog.
+
+```powershell
+claude plugin marketplace update workstation-plugins
+```
+
+4. Then update the installed plugin.
+
+```powershell
+claude plugin update workstation-core@workstation-plugins
+```
+
+5. Start a new Claude Code session. Open sessions keep the plugin they started with.
+
 ## Cursor
 
 Skip this if you don't use Cursor.
@@ -122,6 +156,7 @@ If you use Claude, do the Claude section at the top of this file. If you use Cur
 ## What this does not do
 
 - Does not turn the plugin on at claude.ai. A script cannot. It opens the page and prints the clicks only when you run it.
+- Does not run the Claude Code commands. Run them yourself (Claude Code section).
 - Does not change how `install.ps1` skips an official plugin that is already enabled or already installed at user scope.
 - Does not copy skills into `~\.claude\skills`.
 - Does not upload skill zips.
