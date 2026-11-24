@@ -5,33 +5,17 @@
 wizard, iterative-cleaning, deploy-project-watcher,
 session-start, repo-cleanup, git-checker, concise, pr-closeout,
 coordinator-kit, state-closeout, state-init, deliverable-lock,
-regression-restore, debug-root-cause, review-feedback), their generated
-`skills/<name>.zip` Claude import packages (the skill-zips CI bot rebuilds them
-on the PR; local `scripts/pack-skill-zips.ps1` / `.sh` is optional; do not edit by hand),
+regression-restore, debug-root-cause, review-feedback),
 `automations/` (routine texts, docs only), agent rules and instruction templates,
 workstation helper scripts, the plugin manifests in `.claude-plugin/` and
 `.cursor-plugin/` (no `version` field; skills stay in `skills/`), and the
 plugin hooks under `hooks/`.
 
-**Never:** CAD code or models (they belong to the CAD repo), part files, binaries, archives
-(except the generated Claude-importable `skills/<name>.zip` files owned by pack-skill-zips),
+**Never:** CAD code or models (they belong to the CAD repo), part files, binaries, archives,
 secrets, personal paths or data, batch git shortcuts (scripts that pull/push/merge many repos),
 project-specific notes.
 
-**Process:** branch -> PR -> owner's yes. No edits on `main`, no force-push
-(except the skill-zips CI bot may `git push --force-with-lease` the
-`chore/skill-zips` bot branch only).
-The skill-zips CI bot commits `skills/*.zip` onto the PR branch (same-repo PRs
-only, and never when the PR head is main). It never pushes to main. If zips on
-main are stale, it resets `chore/skill-zips` to `origin/main` and opens or updates
-that one PR.
-
-Owner settings this Action needs (GitHub repo, not in git):
-- Actions → General → **Allow GitHub Actions to create and approve pull requests**
-  (`GITHUB_TOKEN` PRs otherwise get no checks; the Action also runs `gh workflow run`
-  on the new commit).
-- A ruleset on `main` that blocks direct pushes (this Action still refuses to push
-  if a PR head is main).
+**Process:** branch -> PR -> owner's yes. No edits on `main`, no force-push.
 
 **Follow each repo's own rules:** read and follow the repo's `AGENTS.md`, decisions,
 `CONTRIBUTING.md`, hooks, and CI. Their rules and decisions still bind. Never bypass a hook or

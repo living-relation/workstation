@@ -202,8 +202,6 @@ def test_coordinator_kit_is_picked_up_with_the_other_skills():
         if name:
             excluded.add(name)
     assert "coordinator-kit" not in excluded
-    packer = (ROOT / "scripts" / "pack-skill-zips.py").read_text(encoding="utf-8")
-    assert "SKILL.md" in packer and "EXCLUDE.txt" in packer
 
 
 def test_claude_marketplace_is_the_only_catalog():

@@ -30,6 +30,13 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Supersedes:** the 2026-11-19 "Claude install is claude.ai only" rule (BACKLOG.md, 2026-11-19 entry), for Claude Code only.
 - **Reopen if:** the claude.ai sync reliably refreshes Claude Code's copy, or the two copies stop resolving by precedence.
 
+## D-2026-11-23-retire-skill-zips: Skill zip tooling retired
+- **Status:** accepted, 2026-11-23 (Dan)
+- **Source:** Dan, Grok Bot chat (Cursor Project leftovers: retire zips yes; 2026-11-23 ET).
+- **Context:** skills reach Claude and Cursor through the workstation-core plugin. The committed `skills/<name>.zip` files, pack scripts, and pack-skill-zips CI bot were leftover install packaging.
+- **Decision:** remove `scripts/pack-skill-zips.*`, the pack-skill-zips workflow, committed `skills/*.zip`, and the git-hook exception that allowed those zips. Skills are not installed by zip upload.
+- **Rejected:** keeping the packer as an optional local tool.
+- **Reopen if:** a consumer still needs a committed skill zip and cannot use the plugin.
 ## D-2026-11-24-hook-loud-fail: a failed rules hook says so
 - **Status:** accepted, 2026-11-24 (Dan)
 - **Source:** Dan approved the loud-fail and SubagentStart items in the Grok Bot chat that opened this change.
