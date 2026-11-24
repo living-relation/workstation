@@ -68,7 +68,7 @@ Say 'stop old local web server (this clone only)'
 $dashProcs = $null
 if ($env:WORKSTATION_FAKE_PROCS) {
     if ($env:WORKSTATION_FAKE_PROCS -eq 'none') { $dashProcs = @() }
-    else { try { $dashProcs = @($env:WORKSTATION_FAKE_PROCS | ConvertFrom-Json) } catch { $dashProcs = @() } }
+    else { try { $parsed = $env:WORKSTATION_FAKE_PROCS | ConvertFrom-Json; $dashProcs = @($parsed | ForEach-Object { $_ }) } catch { $dashProcs = @() } }
 } elseif (Get-Command Get-CimInstance -ErrorAction SilentlyContinue) {
     $dashProcs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
 }

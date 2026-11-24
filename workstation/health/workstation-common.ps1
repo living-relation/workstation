@@ -19,6 +19,9 @@ function Write-Title([string]$t) {
 }
 function Write-Ok([string]$m)   { Write-Host "  [ OK ] $m" -ForegroundColor Green }
 function Write-Off([string]$m)  { Write-Host "  [ -- ] $m" -ForegroundColor DarkGray }
+# Running / stopped are states, not results: [ RUN ] green, [STOP] gray (normal for a manual tool).
+function Write-Run([string]$m)  { Write-Host "  [ RUN ] $m" -ForegroundColor Green }
+function Write-Stop([string]$m) { Write-Host "  [STOP] $m" -ForegroundColor DarkGray }
 function Write-Warn([string]$m) { Write-Host "  [WARN] $m" -ForegroundColor Yellow }
 function Write-Bad([string]$m)  { Write-Host "  [FAIL] $m" -ForegroundColor Red }
 
@@ -102,7 +105,7 @@ function Show-MemoryAndHooks {
         if ($ifv -eq 'claude-md-and-agents-md') { Write-Ok "Claude reads both CLAUDE.md and AGENTS.md ($ifv)" }
         else { Write-Warn "Claude read-both setting is off (instructionFiles=$(if($ifv){$ifv}else{'unset'}))" }
     }
-    Write-Ok 'working-memory junction is not checked (a leftover is harmless)'
+    Write-Off 'working-memory junction is not checked (a leftover is harmless)'
     $rootClaude = Join-Path $BridgeProjects 'CLAUDE.md'
     if (Test-Path -LiteralPath $rootClaude) { Write-Warn "root CLAUDE.md found ($rootClaude); merge it into AGENTS.md" }
     else { Write-Ok 'Projects root has no CLAUDE.md (AGENTS.md only)' }
@@ -112,23 +115,121 @@ function Show-MemoryAndHooks {
     }
 }
 
-function Show-Skills {
+function Get-WsRepoRoot { return (Split-Path -Parent $BridgeRoot) }
+
+# origin/main of this clone as of its last fetch or pull (HEAD when there is no origin/main). $null without git.
+function Get-WsRepoMainSha {
+    if ($env:WORKSTATION_FAKE_MAIN_SHA) { return $env:WORKSTATION_FAKE_MAIN_SHA }
+    $repo = Get-WsRepoRoot
+    if (-not (Test-Path -LiteralPath (Join-Path $repo '.git'))) { return $null }
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return $null }
+    $sha = & git -C $repo rev-parse --verify --quiet 'origin/main' 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $sha) { $sha = & git -C $repo rev-parse --verify --quiet HEAD 2>$null }
+    if ($LASTEXITCODE -ne 0 -or -not $sha) { return $null }
+    return ("$sha").Trim()
+}
+
+function Get-ShortSha([string]$Sha) {
+    if (-not $Sha) { return 'unknown' }
+    if ($Sha.Length -gt 7) { return $Sha.Substring(0, 7) }
+    return $Sha
+}
+
+# Files of this clone that the Cursor copy should match (tracked plugin parts). Empty without git.
+function Get-WsCursorCopyFiles {
+    $repo = Get-WsRepoRoot
+    if (-not (Test-Path -LiteralPath (Join-Path $repo '.git'))) { return @() }
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return @() }
+    $list = @(& git -C $repo ls-files -- hooks skills rules memory/templates .cursor-plugin 2>$null)
+    if ($LASTEXITCODE -ne 0) { return @() }
+    return @($list | Where-Object { $_ -and ($_ -notmatch '\.zip$') })
+}
+
+function Show-Plugins {
     Write-Host ''
-    Write-Host 'Skills' -ForegroundColor Cyan
-    if (Test-WorkstationCoreOnClaudeAi -UserRoot $HOME) { Write-Ok $WsPluginPresentText }
-    else { Write-Warn $WsPluginMissingText }
+    Write-Host 'Plugins' -ForegroundColor Cyan
+    # Claude Code: the catalog copy (decision D-2026-11-23-claude-code-catalog).
+    if (-not (Test-Path -LiteralPath (Join-Path $HOME '.claude'))) {
+        Write-Off 'Claude Code: not set up on this account (no .claude folder)'
+    } else {
+        $cc = Get-ClaudeCodeWorkstationCore -UserRoot $HOME
+        if (-not $cc.Installed) {
+            Write-Warn "Claude Code: $WsCatalogPluginId is not installed. Commands: INSTALL.md, Claude Code section"
+        } elseif (-not $cc.Enabled) {
+            Write-Warn "Claude Code: $WsCatalogPluginId is turned off. Run: claude plugin enable $WsCatalogPluginId"
+        } elseif (-not $cc.HasRulesHook) {
+            Write-Warn "Claude Code: $WsCatalogPluginId $(Get-ShortSha $cc.Sha) has no hooks\rules-inject.ps1. Update it (INSTALL.md, Claude Code section)"
+        } else {
+            $main = Get-WsRepoMainSha
+            if (-not $main) {
+                Write-Ok "Claude Code: $WsCatalogPluginId $(Get-ShortSha $cc.Sha) enabled (version not compared: no git clone)"
+            } elseif ($cc.Sha -and ($main.StartsWith($cc.Sha) -or $cc.Sha.StartsWith($main))) {
+                Write-Ok "Claude Code: $WsCatalogPluginId $(Get-ShortSha $cc.Sha) enabled, same as origin/main"
+            } else {
+                Write-Warn "Claude Code: $WsCatalogPluginId $(Get-ShortSha $cc.Sha) is behind origin/main $(Get-ShortSha $main) (as of the last pull). Run, one at a time: claude plugin marketplace update workstation-plugins / claude plugin update $WsCatalogPluginId"
+            }
+        }
+    }
+    # Cursor: the local copy made by install-plugins.
+    $cursorDir = Join-Path $HOME '.cursor'
+    if (-not (Test-Path -LiteralPath $cursorDir)) {
+        Write-Off 'Cursor: not set up on this account (no .cursor folder)'
+    } else {
+        $dest = Join-Path $cursorDir 'plugins\local\workstation-core'
+        if (-not (Test-Path -LiteralPath (Join-Path $dest '.cursor-plugin\plugin.json'))) {
+            Write-Warn "Cursor: no workstation-core copy at $dest. Run install-plugins.cmd, then fully quit and reopen Cursor"
+        } else {
+            $files = @(Get-WsCursorCopyFiles)
+            if (-not $files.Count) {
+                Write-Ok "Cursor: workstation-core copy present (not compared: no git clone)"
+            } else {
+                $repo = Get-WsRepoRoot
+                $diff = @()
+                foreach ($rel in $files) {
+                    $src = Join-Path $repo $rel
+                    $dst = Join-Path $dest $rel
+                    if (-not (Test-Path -LiteralPath $src -PathType Leaf)) { continue }
+                    if (-not (Test-Path -LiteralPath $dst -PathType Leaf)) { $diff += $rel; continue }
+                    $a = (Get-FileHash -LiteralPath $src -Algorithm SHA256).Hash
+                    $b = (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash
+                    if ($a -ne $b) { $diff += $rel }
+                }
+                if ($diff.Count) {
+                    Write-Warn ("Cursor: workstation-core copy differs from this clone in {0} file(s), e.g. {1}. Run install-plugins.cmd, then fully quit and reopen Cursor" -f $diff.Count, (($diff | Select-Object -First 2) -join ', '))
+                } else {
+                    Write-Ok ("Cursor: workstation-core copy matches this clone ({0} files)" -f $files.Count)
+                }
+            }
+        }
+    }
+    # claude.ai: what Claude desktop and Cowork use. A script cannot see the website; this is info only.
+    $sy = Get-SyncedWorkstationCore -UserRoot $HOME
+    if ($sy.SyncOff) {
+        Write-Off 'claude.ai copy: plugin sync is off in Claude Code settings (syncClaudeAiPlugins false); Claude desktop and Cowork still read your claude.ai account'
+    } elseif ($sy.Found) {
+        $when = 'unknown'
+        if ($sy.LastSync) { $when = $sy.LastSync.ToString('yyyy-MM-dd HH:mm') }
+        $hookTxt = 'no'; if ($sy.HasRulesHook) { $hookTxt = 'yes' }
+        $off = ''; if ($sy.TurnedOffInClaudeCode) { $off = '; turned off in Claude Code (fine: Claude Code uses the catalog copy)' }
+        Write-Off "claude.ai copy (Claude desktop and Cowork use the account copy; a script cannot see the website): synced copy on this PC last changed $when, has rules-inject: $hookTxt$off"
+    } else {
+        Write-Off 'claude.ai copy: none synced to this PC. Claude desktop and Cowork read workstation-core from your claude.ai account (Customize > Plugins); a script cannot see it'
+    }
 }
 
 function Show-DcRemote {
     Write-Host ''
     Write-Host 'Desktop Commander remote' -ForegroundColor Cyan
     $rows = @(Get-DcRemoteRows)
-    if ($rows.Count -eq 0) { Write-Ok 'Desktop Commander remote is not running (manual Start only; one copy serves all chats)' }
-    elseif ($rows.Count -eq 1) { Write-Ok "Desktop Commander remote: one copy pid $($rows[0].Pid) $($rows[0].Verdict) (one copy serves all chats)" }
+    if ($rows.Count -eq 0) { Write-Stop 'Desktop Commander remote STOPPED (manual Start only; one copy serves all chats)' }
+    elseif ($rows.Count -eq 1) {
+        if ($rows[0].Verdict -eq 'online') { Write-Run "Desktop Commander remote RUNNING: one copy, pid $($rows[0].Pid) (one copy serves all chats)" }
+        else { Write-Warn "Desktop Commander remote: one copy, pid $($rows[0].Pid), is $($rows[0].Verdict) (its window or parent is gone). Use Stop Desktop Commander, then Start" }
+    }
     else {
         $keep = Get-DcRemoteKeep $rows
-        $pidTxt = if ($keep) { "pid $($keep.Pid)" } else { 'no healthy copy' }
-        Write-Ok "Desktop Commander remote: $pidTxt; $($rows.Count - $(if($keep){1}else{0})) extra (one copy serves all chats)"
+        if ($keep) { Write-Warn "Desktop Commander remote RUNNING pid $($keep.Pid), plus $($rows.Count - 1) extra copy(ies). Start Desktop Commander stops the extras" }
+        else { Write-Warn "Desktop Commander remote: $($rows.Count) copies, none healthy. Use Stop Desktop Commander, then Start" }
     }
 }
 
@@ -161,7 +262,13 @@ function Show-CursorWorker {
     Write-Host ''
     Write-Host 'Cursor worker' -ForegroundColor Cyan
     foreach ($line in @(Get-CursorWorkerHealthLines)) {
-        if ($line.Level -eq 'WARN') { Write-Warn $line.Text } else { Write-Ok $line.Text }
+        switch ($line.Level) {
+            'RUN'  { Write-Run $line.Text }
+            'STOP' { Write-Stop $line.Text }
+            'WARN' { Write-Warn $line.Text }
+            'FAIL' { Write-Bad $line.Text }
+            default { Write-Ok $line.Text }
+        }
     }
 }
 
@@ -287,8 +394,10 @@ function Show-AppLocks {
         if (Test-LockRuleComplete $text) { Add-Item 'PASS' "$Label has acquire, check-in, and release for harness.design: $Path" }
         else { Add-Item 'FAIL' "$Label missing [$($(Get-LockRuleGaps $text) -join ', ')]: $Path" }
     }
-    # The workstation-core plugin's SessionStart hook (hooks\rules-inject.ps1) loads the lock rule in Claude Code,
-    # Cowork and Cursor, so a profile passes when its plugin copy has that hook even if no rule file has the text.
+    # The workstation-core plugin's SessionStart hook (hooks\rules-inject.ps1) loads the lock rule in Claude Code
+    # (the installed catalog copy) and Cursor (the local copy), so a profile passes when that copy has the hook even
+    # if no rule file has the text. Cowork is not checked here: its hooks run in its own sandbox, where run-ps.sh
+    # finds no PowerShell and reports WORKSTATION RULES NOT LOADED (hooks/README.md). Claude chat runs no hooks.
     function Find-RulesHook([string]$Dir) {
         if (-not (Test-Path -LiteralPath $Dir)) { return $null }
         $hit = Get-ChildItem -LiteralPath $Dir -Recurse -File -Filter 'rules-inject.ps1' -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -328,10 +437,10 @@ function Show-AppLocks {
             $claudeMd = Join-ProfilePath $profile @('.claude', 'CLAUDE.md')
             $claudeText = $null
             if (Test-Path -LiteralPath $claudeMd) { try { $claudeText = [IO.File]::ReadAllText($claudeMd) } catch { } }
-            $claudeHook = Find-RulesHook (Join-ProfilePath $profile @('.claude', 'plugins'))
+            $cc = Get-ClaudeCodeWorkstationCore -UserRoot $profile -PluginsDir (Join-ProfilePath $profile @('.claude', 'plugins'))
             if ($claudeText -and (Test-LockRuleComplete $claudeText)) { Add-Item 'PASS' "$leaf Claude Code CLAUDE.md has acquire, check-in, and release for harness.design: $claudeMd" }
-            elseif ($claudeHook) { Add-Item 'PASS' "$leaf Claude Code gets the harness.design lock rule from the workstation-core SessionStart hook: $claudeHook" }
-            else { Add-Item 'FAIL' "$leaf Claude Code: no harness.design lock rule in $claudeMd and no workstation-core plugin hook (rules-inject.ps1) under .claude\plugins. Install workstation-core from the workstation-plugins catalog (INSTALL.md, Claude Code section)." }
+            elseif ($cc.Installed -and $cc.Enabled -and $cc.HasRulesHook) { Add-Item 'PASS' "$leaf Claude Code gets the harness.design lock rule from the installed workstation-core SessionStart hook ($(Get-ShortSha $cc.Sha)): $($cc.RulesHook)" }
+            else { Add-Item 'FAIL' "$leaf Claude Code: no harness.design lock rule in $claudeMd and no enabled $WsCatalogPluginId copy with hooks\rules-inject.ps1 (installed_plugins.json). Install it from the workstation-plugins catalog (INSTALL.md, Claude Code section)." }
         }
         if ($hasCursor) {
             $rulesDir = Join-ProfilePath $profile @('.cursor', 'rules')
@@ -395,12 +504,13 @@ function Show-AppLocks {
     foreach ($scriptPath in @($scripts)) {
         if (-not (Test-Path -LiteralPath $scriptPath)) { Add-Item 'FAIL' "lock script missing: $scriptPath"; continue }
         if (-not $shell) { Add-Item 'FAIL' 'powershell not found to run the lock script'; continue }
-        foreach ($pair in @(@('harness-design', 'harness.design'))) {
+        # The leading comma keeps one (name, label) pair; @(@(a, b)) would flatten into two strings.
+        foreach ($pair in @(, @('harness-design', 'harness.design'))) {
             $arg = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath, 'status', '-Name', $pair[0])
             $out = & $shell @arg 2>&1
             $code = $LASTEXITCODE
             $text = (($out | ForEach-Object { "$_" }) -join ' ')
-            if ($code -in 0, 1) { Add-Item 'PASS' "$($pair[1]) lock script runs (status exit $code): $scriptPath" }
+            if ($code -eq 0) { Add-Item 'PASS' "$($pair[1]) lock script status runs (exit 0): $scriptPath" }
             else { Add-Item 'FAIL' "$($pair[1]) lock script status failed (exit $code): $scriptPath $text" }
         }
     }

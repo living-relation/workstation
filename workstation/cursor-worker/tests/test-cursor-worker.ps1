@@ -67,21 +67,66 @@ Check 'cursor app not listed' @($rows | Where-Object { $_.Name -eq 'Cursor' }).C
 Check 'hand-started worker not listed' @($rows | Where-Object { $_.Pid -eq 50 }).Count 0
 Check 'menu script not listed' @($rows | Where-Object { $_.Pid -eq 9 }).Count 0
 
+$env:WORKSTATION_FAKE_CURSOR_WORKER_STATE = Join-Path $root 'cursor-app-state'
 $lines = @(Get-CursorWorkerHealthLines)
-Check 'running is ok' $lines[0].Level 'OK'
+Check 'running is RUN' $lines[0].Level 'RUN'
 Check 'running line names the pid' ($lines[0].Text -match 'pid 42') True
 Check 'no autostart warn' @($lines | Where-Object { $_.Level -eq 'WARN' }).Count 0
 
 $env:WORKSTATION_FAKE_PROCS = 'none'
 $idle = @(Get-CursorWorkerHealthLines)
-Check 'not running is ok' $idle[0].Level 'OK'
+Check 'not running is STOP' $idle[0].Level 'STOP'
 Check 'not running is not a warn' @($idle | Where-Object { $_.Level -eq 'WARN' }).Count 0
-Check 'idle text' ($idle[0].Text -match 'not running') True
+Check 'idle text' ($idle[0].Text -match 'STOPPED: not running') True
+Check 'startup line is ok' @($idle | Where-Object { $_.Level -eq 'OK' -and $_.Text -match 'No Windows startup entry' }).Count 1
+Check 'no app launch claim' ((($idle | ForEach-Object { $_.Text }) -join ' ') -match 'app launch') False
+
+# The Cursor app's own worker (anysphere.cursor-agent-worker): shown, never stopped, command line never printed.
+$appCmd = 'node.exe C:\Users\x\.cursor\extensions\anysphere.cursor-agent-worker\dist\main.js worker start --worker-dir C:\projects\active\widget --label name=cursor-agent-worker-abc123 --api-key crsr_secretvalue'
+$appChild = 'node.exe C:\Users\x\.cursor\extensions\anysphere.cursor-agent-worker\dist\child.js worker start --worker-dir C:\projects\active\widget'
+Check 'app worker command detected' (Test-CursorAppWorkerCommand $appCmd) True
+Check 'our worker is not an app worker' (Test-CursorAppWorkerCommand $ours) False
+$env:WORKSTATION_FAKE_PROCS = (@(
+    @{ ProcessId = 60; ParentProcessId = 7; Name = 'node.exe'; CommandLine = $appCmd },
+    @{ ProcessId = 61; ParentProcessId = 60; Name = 'node.exe'; CommandLine = $appChild }
+) | ConvertTo-Json -Compress)
+Check 'app worker not in stop list' @(Get-CursorWorkerRows).Count 0
+$appRows = @(Get-CursorAppWorkerRows)
+Check 'one app worker after folding the child' $appRows.Count 1
+Check 'app worker name' $appRows[0].WorkerName 'cursor-agent-worker-abc123'
+$appLines = @(Get-CursorWorkerHealthLines)
+$appText = ($appLines | ForEach-Object { $_.Text }) -join "`n"
+Check 'manual worker still STOP' $appLines[0].Level 'STOP'
+Check 'app worker RUN line names pid' @($appLines | Where-Object { $_.Level -eq 'RUN' -and $_.Text -match 'pid 60' }).Count 1
+Check 'no key printed' ($appText -match 'crsr_') False
+Check 'no app launch warn without restart file' @($appLines | Where-Object { $_.Text -match 'app launch' }).Count 0
+New-Item -ItemType Directory -Path $env:WORKSTATION_FAKE_CURSOR_WORKER_STATE -Force | Out-Null
+Set-Content (Join-Path $env:WORKSTATION_FAKE_CURSOR_WORKER_STATE 'cursor-agent-worker-abc123.restart.json') '{"workerName":"cursor-agent-worker-abc123"}'
+$launch = @(Get-CursorWorkerHealthLines)
+Check 'app launch warns with restart file' @($launch | Where-Object { $_.Level -eq 'WARN' -and $_.Text -match 'starts at app launch' }).Count 1
+$env:WORKSTATION_FAKE_PROCS = 'none'
+
+# A worker that Start recorded but that exited with an error since boot shows FAIL with the reason.
+$deadData = Get-WorkerDataDir (Join-Path $active 'widget')
+New-Item -ItemType Directory -Path $deadData -Force | Out-Null
+$deadRec = @{ pid = 99999; name = 'pc-widget'; folder = (Join-Path $active 'widget'); dataDir = $deadData; startedAt = (Get-Date).ToString('o') }
+Set-Content (Join-Path $deadData 'worker.json') ($deadRec | ConvertTo-Json)
+Set-Content (Join-Path $deadData 'worker.err.log') 'Error: Authentication required for worker mode. key crsr_abcdef'
+$env:WORKSTATION_FAKE_BOOT = (Get-Date).AddHours(-1).ToString('o')
+$dead = @(Get-CursorWorkerHealthLines)
+$deadLine = @($dead | Where-Object { $_.Level -eq 'FAIL' })
+Check 'dead worker is FAIL' $deadLine.Count 1
+Check 'dead worker says agent login' ($deadLine[0].Text -match 'agent login') True
+Check 'dead worker hides key' ($deadLine[0].Text -match 'crsr_') False
+$env:WORKSTATION_FAKE_BOOT = (Get-Date).AddHours(1).ToString('o')
+Check 'dead before boot is ignored' @(Get-CursorWorkerHealthLines | Where-Object { $_.Level -eq 'FAIL' }).Count 0
+Remove-Item Env:WORKSTATION_FAKE_BOOT
+Remove-Item -LiteralPath $deadData -Recurse -Force
 
 $env:WORKSTATION_FAKE_AUTOSTART = '["Task:Cursor-Worker","Run:CursorWorker"]'
 $auto = @(Get-CursorWorkerHealthLines)
 Check 'autostart warns' @($auto | Where-Object { $_.Level -eq 'WARN' }).Count 1
-Check 'still not a missing-worker warn' ($auto[0].Level) 'OK'
+Check 'still not a missing-worker warn' ($auto[0].Level) 'STOP'
 $env:WORKSTATION_FAKE_AUTOSTART = 'none'
 $env:WORKSTATION_FAKE_PROCS = 'none'
 
@@ -125,6 +170,35 @@ $nocli = Run-Script $start @('-Folder', 'widget', '-NoPause')
 Check 'missing cli fails' $nocli.code 1
 Check 'missing cli tells login' ($nocli.out -match 'agent login') True
 $env:WORKSTATION_FAKE_AGENT = Join-Path $root 'agent.cmd'
+
+# Start watches the new worker: one that exits right away (not signed in) is a failure, not "Started".
+# Start-Process -WindowStyle works on Windows only.
+if ($env:OS -eq 'Windows_NT') {
+    $failAgent = Join-Path $root 'agent-fail.ps1'
+    Set-Content $failAgent '[Console]::Error.WriteLine("Error: Authentication required for worker mode"); exit 1'
+    $okAgent = Join-Path $root 'agent-ok.ps1'
+    Set-Content $okAgent 'Start-Sleep -Seconds 60'
+    $env:WORKSTATION_WORKER_WAIT = '3'
+    $env:WORKSTATION_FAKE_AGENT = $failAgent
+    $died = Run-Script $start @('-Folder', 'widget', '-NoPause')
+    Check 'worker that exits fails start' $died.code 1
+    Check 'start shows the reason' ($died.out -match 'Authentication required') True
+    Check 'start tells agent login' ($died.out -match 'agent login') True
+    Check 'start does not say Started' ($died.out -match '\[ OK \] Started') False
+    $env:WORKSTATION_FAKE_AGENT = $okAgent
+    $alive = Run-Script $start @('-Folder', 'other', '-NoPause')
+    Check 'live worker starts' $alive.code 0
+    Check 'live worker says Started' ($alive.out -match 'Started .+ still running') True
+    $recFile = Join-Path (Get-WorkerDataDir (Join-Path $active 'other')) 'worker.json'
+    if (Test-Path -LiteralPath $recFile) {
+        $livePid = [int]((Get-Content -LiteralPath $recFile -Raw | ConvertFrom-Json).pid)
+        Stop-Process -Id $livePid -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $recFile -Force
+    }
+    Remove-Item -LiteralPath (Get-WorkerDataDir (Join-Path $active 'widget')) -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item Env:WORKSTATION_WORKER_WAIT
+    $env:WORKSTATION_FAKE_AGENT = Join-Path $root 'agent.cmd'
+} else { 'SKIP start watch tests (Windows only)' }
 
 $env:WORKSTATION_FAKE_PROCS = (@(
     @{ ProcessId = 42; ParentProcessId = 1; Name = 'agent'; CommandLine = $ours }

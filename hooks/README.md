@@ -7,7 +7,12 @@ Every script and its test is listed in `automation.yml`.
 
 Owner decision 2026-11-22: the memory-store rules (`memory/templates/claude-global-memory-section.md`; Cursor:
 `claude-shared-memory.mdc` without its front matter) and the harness.design lock rule (`memory/templates/app-locks.md`)
-load from this hook in Claude Code, Cowork (Claude SessionStart) and Cursor (sessionStart, `additional_context`).
+load from this hook in Claude Code (SessionStart and SubagentStart) and the Cursor desktop app (sessionStart,
+`additional_context`). Cowork runs plugin hooks in its own sandbox, likely Linux with no PowerShell, so `run-ps.sh`
+loads the rules through `rules_fallback.py` when Python is there, else reports WORKSTATION RULES NOT LOADED once
+per session (unverified in Cowork; see Launcher); a cloud Cowork session may not fire
+SessionStart at all (unverified). A Cursor My Machines worker session: Cursor's docs list project `.cursor/hooks.json`
+and `~/.cursor/hooks.json`, not local plugins, so the plugin's hooks may not run there (unverified). Chat runs no hooks.
 `install.ps1` no longer creates or appends them in `~\.claude\CLAUDE.md` or `~\.cursor\rules`. If an older install
 already appended a marked block there, the hook skips that part so nothing loads twice. Placeholders come from
 `WORKSTATION_PROJECTS_ROOT` or `%LOCALAPPDATA%\Workstation\workstation.json`. No projects root: silent exit 0.

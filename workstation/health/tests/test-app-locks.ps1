@@ -64,13 +64,30 @@ try {
     Check 'doctor skips desktop when not file-based' ($firstText -like '*SKIP*danie Claude Desktop*') $true
     Check 'doctor skips Grok' ($firstText -like '*SKIP*Grok Bot*') $true
     Check 'doctor passes shared rules' ($firstText -like '*PASS*projects AGENTS.md (shared rules)*') $true
-    $hookDir = Join-Path (Join-Path (Join-Path (Join-Path $users 'Administrator') '.claude') 'plugins') 'cache-x'
+    $adminPlugins = Join-Path (Join-Path (Join-Path $users 'Administrator') '.claude') 'plugins'
+    $hookDir = Join-Path $adminPlugins 'cache-x'
     New-Item -ItemType Directory -Path $hookDir -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $hookDir 'rules-inject.ps1') -Value '# hook'
+    $stray = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1
+    $strayText = $stray -join "`n"
+    Check 'doctor fails a stray rules-inject.ps1 that is not an installed plugin' ($strayText -like '*FAIL*Administrator Claude Code*installed_plugins.json*') $true
+    Check 'doctor exit 1 with only a stray hook' $LASTEXITCODE 1
+    $install = Join-Path $adminPlugins 'cache\workstation-plugins\workstation-core\abc1234'
+    New-Item -ItemType Directory -Path (Join-Path $install 'hooks') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $install 'hooks\rules-inject.ps1') -Value '# hook'
+    $installed = @{ version = 2; plugins = @{ 'workstation-core@workstation-plugins' = @(@{ scope = 'user'; installPath = $install; version = 'abc1234'; gitCommitSha = 'abc1234def' }) } }
+    Set-Content -LiteralPath (Join-Path $adminPlugins 'installed_plugins.json') -Value ($installed | ConvertTo-Json -Depth 8)
     $viaHook = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1
     $viaHookText = $viaHook -join "`n"
-    Check 'doctor passes a profile whose plugin has the rules hook' ($viaHookText -like '*PASS*Administrator Claude Code gets the harness.design lock rule from the workstation-core SessionStart hook*') $true
-    Check 'doctor exit 0 with the plugin hook' $LASTEXITCODE 0
+    Check 'doctor passes a profile with an installed workstation-core that has the rules hook' ($viaHookText -like '*PASS*Administrator Claude Code gets the harness.design lock rule from the installed workstation-core SessionStart hook*') $true
+    Check 'doctor exit 0 with the installed plugin' $LASTEXITCODE 0
+    Check 'doctor runs the lock script once' (@($viaHook | Where-Object { "$_" -match 'lock script' }).Count) 1
+    Check 'lock script line names harness.design' ($viaHookText -like '*PASS*harness.design lock script status runs (exit 0)*') $true
+    $adminSettings = Join-Path (Join-Path (Join-Path $users 'Administrator') '.claude') 'settings.json'
+    Set-Content -LiteralPath $adminSettings -Value '{"enabledPlugins":{"workstation-core@workstation-plugins":false}}'
+    $offRun = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1
+    Check 'doctor fails when the installed plugin is turned off' $LASTEXITCODE 1
+    Remove-Item -LiteralPath $adminSettings -Force
     Remove-Item -LiteralPath $hookDir -Recurse -Force
     Set-Content -LiteralPath (Join-Path (Join-Path $users 'Administrator') '.claude\CLAUDE.md') -Value $rule
     $second = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1
