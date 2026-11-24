@@ -47,6 +47,24 @@ New-Item -ItemType Directory -Path $pstate -Force | Out-Null
 $syncedPlugin = Join-Path $userDir '.claude\plugins\synced\workstation-core\.claude-plugin'
 New-Item -ItemType Directory -Path $syncedPlugin -Force | Out-Null
 Set-Content (Join-Path $syncedPlugin 'plugin.json') '{"name":"workstation-core"}'
+# Claude Code catalog copy at the same commit as this clone's main (fake sha via WORKSTATION_FAKE_MAIN_SHA).
+$sha = '0123456789abcdef0123456789abcdef01234567'
+$install = Join-Path $userDir '.claude\plugins\cache\workstation-plugins\workstation-core\0123456789ab'
+New-Item -ItemType Directory -Path (Join-Path $install 'hooks') -Force | Out-Null
+Set-Content (Join-Path $install 'hooks\rules-inject.ps1') '# hook'
+$installed = @{ version = 2; plugins = @{ 'workstation-core@workstation-plugins' = @(@{ scope = 'user'; installPath = $install; version = '0123456789ab'; gitCommitSha = $sha }) } }
+($installed | ConvertTo-Json -Depth 8) | Set-Content (Join-Path $userDir '.claude\plugins\installed_plugins.json')
+# Cursor local copy equal to this clone's tracked plugin files.
+$cursorCopy = Join-Path $userDir '.cursor\plugins\local\workstation-core'
+New-Item -ItemType Directory -Path $cursorCopy -Force | Out-Null
+$tracked = @(& git -C $repo ls-files -- hooks skills rules memory/templates .cursor-plugin | Where-Object { $_ -and ($_ -notmatch '\.zip$') })
+foreach ($rel in $tracked) {
+    $src = Join-Path $repo $rel
+    if (-not (Test-Path -LiteralPath $src -PathType Leaf)) { continue }
+    $dst = Join-Path $cursorCopy $rel
+    New-Item -ItemType Directory -Path (Split-Path -Parent $dst) -Force | Out-Null
+    Copy-Item -LiteralPath $src -Destination $dst -Force
+}
 $dest = Join-Path $userDir '.claude\skills'
 New-Item -ItemType Directory -Path $dest | Out-Null
 $exclude = @()
@@ -63,12 +81,17 @@ $env:HOME = $userDir
 $env:USERPROFILE = $userDir
 $env:LOCALAPPDATA = $local
 $env:WORKSTATION_FAKE_PROCS = 'none'
+$env:WORKSTATION_FAKE_MAIN_SHA = $sha
+$env:WORKSTATION_FAKE_CURSOR_WORKER_STATE = Join-Path $root 'cursor-worker-state'
 $env:WORKSTATION_LOCKCHECK_USERS = $users
 $env:WORKSTATION_LOCKCHECK_SCRIPT = Join-Path $repo 'workstation\app-lock\app-lock.ps1'
 $out = & pwsh -NoProfile -ExecutionPolicy Bypass -File $status -NoPause 2>&1
 $code = $LASTEXITCODE
 $text = $out -join "`n"
 $bad = @($out | Where-Object { "$_" -match '\[(FAIL|WARN)\]' })
+foreach ($want in '[ OK ] Claude Code: workstation-core@workstation-plugins 0123456', '[ OK ] Cursor: workstation-core copy matches', '[STOP] Desktop Commander remote STOPPED', '[STOP] Cursor worker STOPPED', '[ -- ] claude.ai copy', '[ -- ] working-memory junction') {
+    if (-not ($text.Contains($want))) { "missing line: $want"; $bad += $want }
+}
 if ($bad.Count -or $code -ne 0) {
     $text
     "FAILED exit $code warnings $($bad.Count)"

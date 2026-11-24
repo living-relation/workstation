@@ -132,8 +132,30 @@ try {
         startedAt = (Get-Date).ToString('o'); command = $info.Command
     }
     Set-Content -LiteralPath (Join-Path $data 'worker.json') ($rec | ConvertTo-Json) -Encoding ASCII
+    # A worker that cannot sign in exits within a second. Watch it briefly before saying it started.
+    $waitSec = 8
+    if ($env:WORKSTATION_WORKER_WAIT) { [void][int]::TryParse($env:WORKSTATION_WORKER_WAIT, [ref]$waitSec) }
+    $exited = $false
+    for ($t = 0; $t -lt ($waitSec * 2); $t++) {
+        Start-Sleep -Milliseconds 500
+        try { $proc.Refresh() } catch { }
+        if ($proc.HasExited) { $exited = $true; break }
+    }
+    if ($exited) {
+        $why = Get-WorkerErrorLine $data
+        if (-not $why) { $why = 'no error text in the log' }
+        Write-CwLog ("start FAILED: pid {0} exited right after start: {1}" -f $proc.Id, $why)
+        Write-Bad "The worker exited right after starting (pid $($proc.Id)): $why"
+        if ($why -match '(?i)login|authenticat') {
+            Write-Host 'Sign in to the Cursor CLI, then run Start Cursor worker again:'
+            Write-Host '  agent login'
+        }
+        Write-Host "Log: $errLog"
+        Wait-Close
+        exit 1
+    }
     Write-CwLog "started pid $($proc.Id) $name $picked"
-    Write-Ok "Started $name (pid $($proc.Id))"
+    Write-Ok "Started $name (pid $($proc.Id)); still running after $waitSec s"
     Write-Host 'It keeps running in the background until you use Stop Cursor worker.'
     Write-Host 'In Cursor, pick this machine under My Machines.'
     if (-not (Test-FolderOrigin $picked)) {

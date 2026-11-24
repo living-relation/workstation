@@ -1,6 +1,6 @@
 # Cursor worker (manual)
 
-Start and Stop shortcuts only. Nothing starts at sign-in, reboot, or app launch.
+Start and Stop shortcuts only. No Windows startup entry (sign-in or reboot) starts a worker. Start waits a few seconds and fails with the error (and `agent login` advice) if the worker exits right away. The Cursor app may also run and restart its own worker (anysphere.cursor-agent-worker) when Cursor opens; Health check shows that one but Stop never touches it.
 
 Start lists the folders in `<Projects>\active` on this PC and starts one worker for the folder you pick. Run Start again to add another folder. Stop lists the workers this tool started and lets you stop one or all. The Cursor app and a worker you started by hand are left alone.
 
