@@ -22,7 +22,7 @@ Check 'claude: prints the harness.design lock rule' ($r.Out -match 'app-locks:v1
 Check 'claude: lock commands use app-lock.ps1' ($r.Out -match 'workstation\\app-lock\\app-lock\.ps1')
 Check 'claude: placeholders filled from workstation.json' ($r.Out -match [regex]::Escape('C:\Test Projects\_claude') -and $r.Out -notmatch '\{\{')
 Check 'claude: project key filled' ($r.Out -match 'C--Test-Projects')
-Check 'claude: no Fusion MCP servers rule (it lives in handbuilt-cad)' ($r.Out -notmatch 'official Fusion MCP')
+Check 'claude: no retired Fusion rule line' ($r.Out -notmatch 'official Fusion MCP')
 Check 'claude: prints the Fusion Desktop lock rule' ($r.Out -match 'acquire -Name fusion-desktop' -and $r.Out -match 'checkin -Name fusion-desktop' -and $r.Out -match 'release -Name fusion-desktop')
 
 Write-TestFile (Join-Path $home1 '.claude\CLAUDE.md') "# mine`n<!-- shared-memory:v1 -->`nold`n<!-- /shared-memory:v1 -->`n"

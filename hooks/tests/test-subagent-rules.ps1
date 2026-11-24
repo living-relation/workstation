@@ -16,7 +16,7 @@ Check 'no systemMessage when the rules loaded' (-not $d.PSObject.Properties['sys
 Check 'header is rules-inject' ($ctx.StartsWith('rules-inject:'))
 Check 'short memory-store rule' ($ctx -match 'notes only' -and $ctx -match 'STATE\.md' -and $ctx -match 'INDEX\.md' -and $ctx -match 'state-closeout')
 Check 'short harness.design lock rule' ($ctx -match 'harness\.design' -and $ctx -match 'acquire' -and $ctx -match 'check in' -and $ctx -match 'release' -and $ctx -match 'Never delete the lock file')
-Check 'short Fusion Desktop lock rule' ($ctx -match 'fusion-desktop' -and $ctx -match '27182' -and $ctx -match 'Compute and Data MCP need no lock')
+Check 'short Fusion Desktop lock rule' ($ctx -match 'fusion-desktop' -and $ctx -notmatch '27182' -and $ctx -notmatch 'Fusion[^\n]*MCP')
 Check 'short form has no unfilled placeholder' ($ctx -notmatch '\{\{')
 Check 'short form is not the full memory template' ($ctx -notmatch 'autoMemoryDirectory' -and $ctx -notmatch 'shared-memory:v1')
 

@@ -19,7 +19,7 @@
     Install no longer creates ~\.claude\CLAUDE.md or ~\.cursor\rules\claude-shared-memory.mdc and no longer
     appends to them or to repo-rules.mdc. A block an older install appended there is kept (the hook then
     skips that part). Install only fixes old paths inside such a block (fusion-lock -> app-lock,
-    agents\projects-AGENTS.md -> instructions\projects-AGENTS.md), drops its old Fusion MCP line, and adds the
+    agents\projects-AGENTS.md -> instructions\projects-AGENTS.md), drops its retired Fusion rule lines, and adds the
     Fusion Desktop lock lines when the block has none.
   - <Projects>\AGENTS.md (read by every agent, including ones with no hooks) still gets the memory section
     (marker <!-- shared-memory:v1 -->) and the lock block (<!-- app-locks:v1 -->) when missing.
@@ -63,7 +63,6 @@
     (Anthropic official marketplace). A plugin already enabled in ~\.claude\settings.json, or already
     installed at user scope, is left as is (a dry run says OK, not WOULD install). That file is the source
     of truth for plugin names. Nothing is scheduled and nothing reinstalls in the background.
-  - The Fusion add-in updater was removed (owner decision 2026-11-22).
     An existing Cursor sign-in entry is only reported (WARN), never added or removed.
     Desktop Commander is a manual shortcut only.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
@@ -321,9 +320,9 @@ function Add-AppLockBlock([string]$Path) {
   }
 }
 # Fixes old paths inside a marked app-locks block an older install wrote: fusion-lock\fusion-lock.ps1 ->
-# app-lock\app-lock.ps1, agents\projects-AGENTS.md -> instructions\projects-AGENTS.md, and drops the old
-# Fusion MCP line (that rule lives in handbuilt-cad now). Adds the Fusion Desktop lock lines from the
-# template when the block has none. Only text between the markers changes. No backup.
+# app-lock\app-lock.ps1, agents\projects-AGENTS.md -> instructions\projects-AGENTS.md, and drops retired
+# Fusion rule lines (D-2026-11-24-no-fusion-mcp). Adds the Fusion Desktop lock lines from the template when
+# the block has none, and replaces an older Fusion Desktop line with the template's. Only text between the markers changes. No backup.
 function Update-AppLockPaths([string]$Path) {
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
   $text = [IO.File]::ReadAllText($Path)
@@ -334,8 +333,16 @@ function Update-AppLockPaths([string]$Path) {
   $new = $old.Replace('\workstation\fusion-lock\fusion-lock.ps1', '\workstation\app-lock\app-lock.ps1')
   $new = $new.Replace('\workstation\agents\projects-AGENTS.md', '\workstation\instructions\projects-AGENTS.md')
   $new = [regex]::Replace($new, '(?m)^Fusion work uses Autodesk''s official[^\r\n]*\r?\n', '')
-  # Older blocks have only the harness.design lines: add the Fusion Desktop lock lines from the template.
   $what = 'update app lock paths (app-lock.ps1, instructions\projects-AGENTS.md)'
+  # A Fusion Desktop line from an older template (it named the retired Fusion MCP): use the template's line.
+  if ($new -match '(?m)^Local Fusion Desktop[^\r\n]*MCP') {
+    $tplLine = [regex]::Match((Get-Template 'app-locks.md'), '(?m)^Local Fusion Desktop[^\r\n]*').Value
+    if ($tplLine) {
+      $new = [regex]::Replace($new, '(?m)^Local Fusion Desktop[^\r\n]*MCP[^\r\n]*', $tplLine.Replace('$', '$$'))
+      $what = 'update the Fusion Desktop lock line and app lock paths'
+    }
+  }
+  # Older blocks have only the harness.design lines: add the Fusion Desktop lock lines from the template.
   if ($new -notmatch 'fusion-desktop') {
     $tpl = Get-Template 'app-locks.md'
     $k = $tpl.IndexOf('Local Fusion Desktop'); $m = $tpl.IndexOf($end)

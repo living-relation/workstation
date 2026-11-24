@@ -50,7 +50,7 @@ blocker or a reason to stop.
 
 ## 5. Fusion Desktop lock (one agent drives local Autodesk Fusion Desktop at a time)
 Its own lock, separate from the harness.design lock: `%LOCALAPPDATA%\Workstation\fusion-desktop.lock` (outside every repo); log `fusion-desktop-lock.log` beside it. Same script as 5b, with `-Name fusion-desktop`.
-Needs the lock: the Fusion Desktop MCP built into Fusion (`http://127.0.0.1:27182/mcp`), running a script in the Fusion app, or clicking the app (computer-use). No lock: Fusion Compute MCP and Fusion Data MCP (cloud).
+Needs the lock: running a script in the Fusion app, or driving or clicking the app (computer-use).
 `check` clears a lock only when the last check-in was 15+ minutes ago AND `Fusion360.exe` is not running; otherwise it says ask the owner. Save your work before release. Never delete the lock file by hand.
 - Acquire before using Fusion Desktop (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\app-lock\app-lock.ps1 acquire -Name fusion-desktop -Holder <your name> -Kind claude-code|cursor|remote -Repo <repo path> -Files <documents you will open>`
 - Check in at least every 10 min while working (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\app-lock\app-lock.ps1 checkin -Name fusion-desktop -Holder <your name>`

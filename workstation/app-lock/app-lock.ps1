@@ -1,9 +1,8 @@
 # App locks: one lock per PC, per app, so only one agent drives that desktop app at a time.
 # -Name harness-design (the default): the harness.design desktop app. Lock file %LOCALAPPDATA%\<StateFolder>\harness-design.lock,
 #   log harness-design-lock.log beside it. Rule: instructions/projects-AGENTS.md section 5b.
-# -Name fusion-desktop: local Autodesk Fusion Desktop (its built-in MCP on 127.0.0.1:27182, or clicking the app).
+# -Name fusion-desktop: local Autodesk Fusion Desktop (a script run in the app, or driving or clicking the app).
 #   Lock file fusion-desktop.lock, log fusion-desktop-lock.log beside it. Rule: section 5.
-#   Fusion Compute and Fusion Data MCP (cloud) need no lock.
 # Each name has its own lock file and mutex; holding one never blocks the other.
 # Windows PowerShell 5.1, ASCII only.
 #

@@ -35,7 +35,7 @@
   Every changed or removed file is copied first to <Projects>\_archive\automation-uninstall-backup-<time>\.
   Keeps: the memory store, Cursor's copy, all notes, the Projects layout folders, all projects.
   Install registers no task. A Workstation-UpdateFusionAddins task left by an older install is only
-  reported by preflight.ps1 (the Fusion add-in updater was removed on 2026-11-22). The older Claude-Memory-To-Cursor-Sync task still needs an admin PowerShell;
+  reported by preflight.ps1 (that updater was removed on 2026-11-22). The older Claude-Memory-To-Cursor-Sync task still needs an admin PowerShell;
   that command is printed.
 #>
 [CmdletBinding()]
