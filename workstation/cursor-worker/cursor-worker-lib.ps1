@@ -15,7 +15,8 @@ $CwPortLast = 8810
 function Get-CwProcesses {
     if ($env:WORKSTATION_FAKE_PROCS) {
         if ($env:WORKSTATION_FAKE_PROCS -eq 'none') { return @() }
-        try { return @($env:WORKSTATION_FAKE_PROCS | ConvertFrom-Json) } catch { return @() }
+        # Windows PowerShell 5.1 returns a JSON array as one object; the ForEach-Object unrolls it.
+        try { $parsed = $env:WORKSTATION_FAKE_PROCS | ConvertFrom-Json; return @($parsed | ForEach-Object { $_ }) } catch { return @() }
     }
     if (-not (Get-Command Get-CimInstance -ErrorAction SilentlyContinue)) { return @() }
     return @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
