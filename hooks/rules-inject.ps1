@@ -1,4 +1,4 @@
-# SessionStart hook. Prints the workstation memory-store rules and the harness.design lock rule from this
+# SessionStart hook. Prints the workstation memory-store rules and the app lock rules (harness.design, Fusion Desktop) from this
 # plugin's memory\templates, so they load from the workstation-core plugin instead of text appended to
 # ~\.claude\CLAUDE.md or ~\.cursor\rules\*.mdc (owner decision 2026-11-22, E3).
 # Claude Code / Cowork: claude-global-memory-section.md + app-locks.md as plain text on stdout.
@@ -78,7 +78,7 @@ function Format-RulesInjection {
     [void]$parts.Add(($block -replace "`r`n", "`n"))
   }
   if (-not $parts.Count) { return $null }
-  $head = 'rules-inject: workstation-core rules (memory store and harness.design lock). They apply to this session.'
+  $head = 'rules-inject: workstation-core rules (memory store and app locks). They apply to this session.'
   return (($head, ($parts -join "`n`n")) -join "`n")
 }
 

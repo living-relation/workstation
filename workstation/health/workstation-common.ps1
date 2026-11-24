@@ -404,7 +404,7 @@ function Show-AppLocks {
         if ($hit) { return $hit.FullName }
         return $null
     }
-    Write-Host 'App locks (read-only): harness.design' -ForegroundColor Cyan
+    Write-Host 'App locks (read-only): harness.design and Fusion Desktop' -ForegroundColor Cyan
     $selfScript = Join-Path $BridgeRoot 'app-lock\app-lock.ps1'
     if ($env:WORKSTATION_LOCKCHECK_SCRIPT) { $selfScript = $env:WORKSTATION_LOCKCHECK_SCRIPT }
     $scripts = New-Object System.Collections.Generic.List[string]
@@ -504,8 +504,7 @@ function Show-AppLocks {
     foreach ($scriptPath in @($scripts)) {
         if (-not (Test-Path -LiteralPath $scriptPath)) { Add-Item 'FAIL' "lock script missing: $scriptPath"; continue }
         if (-not $shell) { Add-Item 'FAIL' 'powershell not found to run the lock script'; continue }
-        # The leading comma keeps one (name, label) pair; @(@(a, b)) would flatten into two strings.
-        foreach ($pair in @(, @('harness-design', 'harness.design'))) {
+        foreach ($pair in @(@('harness-design', 'harness.design'), @('fusion-desktop', 'Fusion Desktop'))) {
             $arg = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath, 'status', '-Name', $pair[0])
             $out = & $shell @arg 2>&1
             $code = $LASTEXITCODE

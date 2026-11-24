@@ -14,12 +14,13 @@
   - FIRST runs preflight.ps1 (read-only). Any CONFLICT stops the install unless -AcceptConflicts is given
     (only after the user reviewed the preflight report). -WhatIf runs preflight too.
   - Never moves or deletes folders, never overwrites memory or starter files.
-  - The memory-store rules and the harness.design lock rule load from the workstation-core plugin's
+  - The memory-store rules and the app lock rules (harness.design, Fusion Desktop) load from the workstation-core plugin's
     SessionStart hook (hooks\rules-inject.ps1) in Claude Code and the Cursor desktop app (owner decision 2026-11-22). Not in Cowork (hooks/README.md).
     Install no longer creates ~\.claude\CLAUDE.md or ~\.cursor\rules\claude-shared-memory.mdc and no longer
     appends to them or to repo-rules.mdc. A block an older install appended there is kept (the hook then
     skips that part). Install only fixes old paths inside such a block (fusion-lock -> app-lock,
-    agents\projects-AGENTS.md -> instructions\projects-AGENTS.md) and drops its old Fusion MCP line.
+    agents\projects-AGENTS.md -> instructions\projects-AGENTS.md), drops its old Fusion MCP line, and adds the
+    Fusion Desktop lock lines when the block has none.
   - <Projects>\AGENTS.md (read by every agent, including ones with no hooks) still gets the memory section
     (marker <!-- shared-memory:v1 -->) and the lock block (<!-- app-locks:v1 -->) when missing.
     uninstall removes only a block this install added.
@@ -321,7 +322,8 @@ function Add-AppLockBlock([string]$Path) {
 }
 # Fixes old paths inside a marked app-locks block an older install wrote: fusion-lock\fusion-lock.ps1 ->
 # app-lock\app-lock.ps1, agents\projects-AGENTS.md -> instructions\projects-AGENTS.md, and drops the old
-# Fusion MCP line (that rule lives in handbuilt-cad now). Only text between the markers changes. No backup.
+# Fusion MCP line (that rule lives in handbuilt-cad now). Adds the Fusion Desktop lock lines from the
+# template when the block has none. Only text between the markers changes. No backup.
 function Update-AppLockPaths([string]$Path) {
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
   $text = [IO.File]::ReadAllText($Path)
@@ -332,9 +334,22 @@ function Update-AppLockPaths([string]$Path) {
   $new = $old.Replace('\workstation\fusion-lock\fusion-lock.ps1', '\workstation\app-lock\app-lock.ps1')
   $new = $new.Replace('\workstation\agents\projects-AGENTS.md', '\workstation\instructions\projects-AGENTS.md')
   $new = [regex]::Replace($new, '(?m)^Fusion work uses Autodesk''s official[^\r\n]*\r?\n', '')
+  # Older blocks have only the harness.design lines: add the Fusion Desktop lock lines from the template.
+  $what = 'update app lock paths (app-lock.ps1, instructions\projects-AGENTS.md)'
+  if ($new -notmatch 'fusion-desktop') {
+    $tpl = Get-Template 'app-locks.md'
+    $k = $tpl.IndexOf('Local Fusion Desktop'); $m = $tpl.IndexOf($end)
+    if ($k -ge 0 -and $m -gt $k) {
+      $nl = $(if ($text.Contains("`r`n")) { "`r`n" } else { "`n" })
+      $add = ConvertTo-Newline $tpl.Substring($k, $m - $k) $nl
+      if (-not $new.EndsWith("`n")) { $new += $nl }
+      $new += $add
+      $what = 'add the Fusion Desktop lock lines and update app lock paths'
+    }
+  }
   if ($new -eq $old) { Note 'OK' "app lock paths current: $Path"; return }
   $out = $text.Substring(0, $i) + $new + $text.Substring($j)
-  Invoke-Change "update app lock paths (app-lock.ps1, instructions\projects-AGENTS.md) in: $Path" {
+  Invoke-Change "${what} in: $Path" {
     [IO.File]::WriteAllText($Path, $out, $Utf8NoBom)
   }
 }

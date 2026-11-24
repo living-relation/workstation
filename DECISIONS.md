@@ -114,3 +114,16 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** applying the Windows CI job or the full-suite-before-PR rule to every repo that uses workstation.
 - **Supersedes:** none.
 - **Reopen if:** a consumer repo needs its own Windows suite (add it there, do not reuse this workflow as a template).
+
+## D-2026-11-24-fusion-desktop-lock: a separate per-PC lock for local Fusion Desktop
+- **Status:** accepted, 2026-11-24 (Dan)
+- **Source:** Dan's Grok Bot message t1393u (2026-11-24 ET): "I need a fusion lock back. Fusion compute doesn't give same functionality so agents still want fusion desktop. It can be a separate lock file from harness design."
+- **Context:** #108 retired the Fusion lock when Fusion work moved to Autodesk's official MCP servers. Fusion Compute MCP (headless cloud) cannot do everything, so agents still drive local Fusion Desktop (its built-in MCP at `127.0.0.1:27182`, scripts in the app, or the UI), and two agents must not drive it at once.
+- **Decision:**
+  - `workstation/app-lock/app-lock.ps1 -Name fusion-desktop` is a second lock, with its own file `%LOCALAPPDATA%\Workstation\fusion-desktop.lock`, log `fusion-desktop-lock.log` and mutex. Holding it never blocks the harness.design lock, and the reverse.
+  - Same commands as harness.design: acquire before use, check in at least every 10 min, release when done, never delete the lock file by hand. Rule: `instructions/projects-AGENTS.md` section 5.
+  - `check` clears a stale (15+ min) lock only when `Fusion360.exe` is not running; otherwise it says ask the owner.
+  - Fusion Compute and Fusion Data MCP need no lock.
+- **Rejected:** reusing the harness.design lock file; restoring the old AutodeskFusionMCP fork and its port 8765 open-document probe, junctions, the hourly add-in pull, and any scheduled task, startup task or background keeper.
+- **Supersedes:** the "Agents may use Fusion in parallel" part of #108 (Retire the Fusion lock), for Fusion Desktop only.
+- **Reopen if:** Fusion Compute MCP covers what agents need from Fusion Desktop, or Fusion Desktop gets a safe multi-agent mode.

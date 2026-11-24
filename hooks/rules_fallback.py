@@ -115,7 +115,7 @@ def rules_text(templates=TEMPLATES, projects_root=None, user_home=None):
         parts.append(block.replace("\r\n", "\n"))
     if not parts:
         return None
-    head = "rules-inject: workstation-core rules (memory store and harness.design lock). They apply to this session."
+    head = "rules-inject: workstation-core rules (memory store and app locks). They apply to this session."
     if not projects_root:
         head += " No projects root on this machine (cloud session): <Projects> stands for the owner's projects folder."
     return head + "\n" + "\n\n".join(parts)

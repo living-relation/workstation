@@ -214,10 +214,10 @@ automations:
     enabled: true
   - id: app-lock
     script: workstation/app-lock/app-lock.ps1
-    helpers: [workstation/app-lock/tests/test-harness-lock.ps1, workstation/paths.ps1]
+    helpers: [workstation/app-lock/tests/test-harness-lock.ps1, workstation/app-lock/tests/test-fusion-desktop-lock.ps1, workstation/paths.ps1]
     trigger: manual
-    reads: [LOCALAPPDATA Workstation harness-design.lock (-Name harness-design), harness.design.exe window titles]
-    writes: [LOCALAPPDATA Workstation harness-design.lock and harness-design-lock.log when -Name harness-design; hidden pinger process (acquire -StartPinger)]
+    reads: [LOCALAPPDATA Workstation harness-design.lock (-Name harness-design), harness.design.exe window titles, LOCALAPPDATA Workstation fusion-desktop.lock (-Name fusion-desktop), whether Fusion360.exe runs]
+    writes: [LOCALAPPDATA Workstation harness-design.lock and harness-design-lock.log when -Name harness-design; fusion-desktop.lock and fusion-desktop-lock.log when -Name fusion-desktop; hidden pinger process (acquire -StartPinger)]
     committed: no
     auto_commit: false
     enabled: true

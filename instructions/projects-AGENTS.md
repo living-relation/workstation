@@ -48,6 +48,14 @@ blocker or a reason to stop.
 - Part/model files stay out of repos unless that repo's own rules say otherwise; finished models go to the models folder (`$MODELS_DIR`), following the models folder structure (<subject>-rev<current>\rev<X>\); keep only the newest and the previous rev of anything and delete the oldest when filing a new one; CAD model / assembly / STEP-copy rules live in handbuilt-cad (see its AGENTS.md).
 - Generic content only in shared repos: project-specific notes belong in that project.
 
+## 5. Fusion Desktop lock (one agent drives local Autodesk Fusion Desktop at a time)
+Its own lock, separate from the harness.design lock: `%LOCALAPPDATA%\Workstation\fusion-desktop.lock` (outside every repo); log `fusion-desktop-lock.log` beside it. Same script as 5b, with `-Name fusion-desktop`.
+Needs the lock: the Fusion Desktop MCP built into Fusion (`http://127.0.0.1:27182/mcp`), running a script in the Fusion app, or clicking the app (computer-use). No lock: Fusion Compute MCP and Fusion Data MCP (cloud).
+`check` clears a lock only when the last check-in was 15+ minutes ago AND `Fusion360.exe` is not running; otherwise it says ask the owner. Save your work before release. Never delete the lock file by hand.
+- Acquire before using Fusion Desktop (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\app-lock\app-lock.ps1 acquire -Name fusion-desktop -Holder <your name> -Kind claude-code|cursor|remote -Repo <repo path> -Files <documents you will open>`
+- Check in at least every 10 min while working (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\app-lock\app-lock.ps1 checkin -Name fusion-desktop -Holder <your name>`
+- Release when done (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\app-lock\app-lock.ps1 release -Name fusion-desktop -Holder <your name>`
+
 ## 5b. harness.design lock (one agent drives the harness.design desktop app at a time)
 One lock per PC: `%LOCALAPPDATA%\Workstation\harness-design.lock` (outside every repo); log `harness-design-lock.log` beside it.
 Script, with `-Name harness-design`: `<Projects>\active\workstation\workstation\app-lock\app-lock.ps1` (call it with `powershell -NoProfile -ExecutionPolicy Bypass -File`).
@@ -57,5 +65,5 @@ harness.design autosaves to the cloud, so unsaved work cannot be detected. `chec
 - Acquire before using the desktop app (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\app-lock\app-lock.ps1 acquire -Name harness-design -Holder <your name> -Kind claude-code|cursor|remote -Repo <repo path> -Files rBjB,QjYZ`
 - Check in at least every 10 min while working (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\app-lock\app-lock.ps1 checkin -Name harness-design -Holder <your name>`
 - Release when done (one line): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\app-lock\app-lock.ps1 release -Name harness-design -Holder <your name>`
-- Claude Code / Cursor may add `-StartPinger` on acquire (a hidden pinger checks in every 5 min). Remote agents run the check-in line themselves.
-- To confirm the harness.design lock is installed for every account on this PC (read-only, PASS/FAIL, nonzero if anything fails): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\health\workstation-status.ps1 -Locks`
+- Claude Code / Cursor may add `-StartPinger` on acquire, for either lock (a hidden pinger checks in every 5 min and exits with the session). Remote agents run the check-in line themselves.
+- To confirm the app locks are installed for every account on this PC (read-only, PASS/FAIL, nonzero if anything fails): `powershell -NoProfile -ExecutionPolicy Bypass -File <Projects>\active\workstation\workstation\health\workstation-status.ps1 -Locks`
