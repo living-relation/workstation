@@ -1,0 +1,76 @@
+# Full Python and PowerShell test suite for living-relation/workstation only.
+# Do not copy this workflow into other repos, state-init, or git-checker templates.
+# Repos that only use workstation should keep their own CI.
+name: repo-tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: repo-tests-${{ github.head_ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version-file: .python-version
+      - name: Install PowerShell
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https software-properties-common
+          wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb" -O packages-microsoft-prod.deb
+          sudo dpkg -i packages-microsoft-prod.deb
+          sudo apt-get update
+          sudo apt-get install -y powershell
+          rm -f packages-microsoft-prod.deb
+          pwsh -NoProfile -Command '$PSVersionTable.PSVersion'
+      - name: Install pytest
+        run: python -m pip install --quiet pytest==9.1.1 pyyaml==6.0.3
+      - name: Run repo tests
+        env:
+          CI: "true"
+          WORKSTATION_PASTE_SIDE_EFFECT_LOG: ${{ runner.temp }}/paste-side-effects.log
+        run: python scripts/run_repo_tests.py
+
+  windows:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version-file: .python-version
+      - name: Confirm bash and pwsh
+        shell: pwsh
+        run: |
+          $bash = @(
+            (Get-Command bash -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source),
+            'C:\Program Files\Git\usr\bin\bash.exe',
+            'C:\Program Files\Git\bin\bash.exe'
+          ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+          if (-not $bash) { throw 'bash is required for state-files-gate tests (Git for Windows)' }
+          Write-Output "bash: $bash"
+          if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) { throw 'pwsh is required' }
+          pwsh -NoProfile -Command '$PSVersionTable.PSVersion'
+      - name: Install pytest
+        run: python -m pip install --quiet pytest==9.1.1 pyyaml==6.0.3
+      - name: Run repo tests
+        env:
+          CI: "true"
+          WORKSTATION_PASTE_SIDE_EFFECT_LOG: ${{ runner.temp }}\paste-side-effects.log
+        run: python scripts/run_repo_tests.py

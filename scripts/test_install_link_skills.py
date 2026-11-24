@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 
 INSTALL = Path(__file__).resolve().parent.parent / "install.ps1"
-PS = shutil.which("powershell") or shutil.which("pwsh")
+PS = shutil.which("pwsh") or shutil.which("powershell")
 MISSING = (
     "workstation-core plugin not added on claude.ai yet: "
     "add catalog living-relation/workstation and turn on workstation-core"

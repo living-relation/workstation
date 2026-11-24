@@ -177,11 +177,13 @@ try {
   $cwd = $null
   if ($hookIn -and $hookIn.PSObject.Properties['cwd'] -and $hookIn.cwd) { $cwd = [string]$hookIn.cwd }
   if (-not $cwd) { $cwd = (Get-Location).ProviderPath }
+  $sep = [IO.Path]::DirectorySeparatorChar
   $active = Join-Path $projRoot 'active'
-  $full = [IO.Path]::GetFullPath($cwd).TrimEnd('\')
-  if ($full.ToLower().StartsWith($active.ToLower() + '\')) {
-    $rel = $full.Substring($active.Length + 1)
-    $top = Join-Path $active ($rel.Split('\')[0])
+  $full = [IO.Path]::GetFullPath(($cwd -replace '[\\/]', $sep)).TrimEnd('\', '/')
+  $activeFull = [IO.Path]::GetFullPath(($active -replace '[\\/]', $sep)).TrimEnd('\', '/')
+  if ($full.ToLower().StartsWith($activeFull.ToLower() + $sep)) {
+    $rel = $full.Substring($activeFull.Length).TrimStart('\', '/')
+    $top = Join-Path $activeFull ($rel.Split([char[]]@('\', '/'))[0])
     $proj = $top
     # git root wins if it is inside the project folder
     $d = $full
@@ -189,15 +191,16 @@ try {
       $g = Join-Path $d '.git'
       if (Test-Path -LiteralPath $g) {
         $proj = $d
-        # A git worktree has a .git FILE ("gitdir: <main repo>\.git\worktrees\<name>").
+        # A git worktree has a .git FILE ("gitdir: <main repo>/.git/worktrees/<name>").
         # Use the main repo, so worktree sessions share the parent's memory folder
         # (matches Claude Code: all worktrees of a repo share one auto memory directory).
         if (Test-Path -LiteralPath $g -PathType Leaf) {
           $gd = ((Get-Content -LiteralPath $g -TotalCount 1) -replace '^gitdir:\s*', '').Trim()
           if ($gd) {
             if (-not [IO.Path]::IsPathRooted($gd)) { $gd = Join-Path $d $gd }
-            $gd = [IO.Path]::GetFullPath(($gd -replace '/', '\'))
-            $k = $gd.ToLower().IndexOf('\.git\worktrees\')
+            $gd = [IO.Path]::GetFullPath(($gd -replace '[\\/]', $sep))
+            $needle = ($sep + '.git' + $sep + 'worktrees' + $sep)
+            $k = $gd.ToLower().IndexOf($needle.ToLower())
             if ($k -gt 0) { $proj = $gd.Substring(0, $k) }
           }
         }
@@ -207,12 +210,12 @@ try {
     }
     $name = Split-Path $proj -Leaf
     $slug = ($name.ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
-    if ($slug -and -not (Test-Path -LiteralPath (Join-Path $home_ $slug)) -and -not (Test-Path -LiteralPath (Join-Path $home_ "_archive\$slug"))) {
+    if ($slug -and -not (Test-Path -LiteralPath (Join-Path $home_ $slug)) -and -not (Test-Path -LiteralPath (Join-Path (Join-Path $home_ '_archive') $slug))) {
       $enc = New-Object Text.UTF8Encoding $false
       $today = Get-Date -Format yyyy-MM-dd
       $sig = "-- memory-link-guard, $today"
       New-Item -ItemType Directory -Path (Join-Path $home_ $slug) | Out-Null
-      [IO.File]::WriteAllText((Join-Path $home_ "$slug\INDEX.md"), "# $name - memory index`r`n`r`nProject folder: ``$proj```r`n`r`n(No notes yet.)`r`n`r`nIndex created. $sig`r`n", $enc)
+      [IO.File]::WriteAllText((Join-Path (Join-Path $home_ $slug) 'INDEX.md'), "# $name - memory index`r`n`r`nProject folder: ``$proj```r`n`r`n(No notes yet.)`r`n`r`nIndex created. $sig`r`n", $enc)
       $mem = Join-Path $home_ 'MEMORY.md'
       $mt = [IO.File]::ReadAllText($mem, $enc)
       if (-not $mt.Contains("($slug/INDEX.md)")) {

@@ -15,10 +15,18 @@ git init -q $repo; git -C $repo -c user.name=t -c user.email=t@t commit -q --all
 git -C $repo worktree add -q (Join-Path $repo '.claude\worktrees\wt-a') -b wt-a 2>$null
 git -C $repo worktree add -q (Join-Path $active 'my-repo-wt-b') -b wt-b 2>$null
 New-Item -ItemType Directory -Force (Join-Path $active 'plain\sub') | Out-Null
+$shell = $null
+foreach ($name in @('pwsh', 'powershell')) {
+  $shell = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+  if ($shell) { break }
+}
+if (-not $shell) { throw 'pwsh or powershell is required for this test' }
 function Run($cwd) {
-  $psi = New-Object Diagnostics.ProcessStartInfo 'powershell', "-NoProfile -ExecutionPolicy Bypass -File `"$hook`""
-  $psi.UseShellExecute = $false; $psi.RedirectStandardInput = $true; $psi.RedirectStandardOutput = $true
+  $psi = New-Object Diagnostics.ProcessStartInfo $shell.Source, "-NoProfile -ExecutionPolicy Bypass -File `"$hook`""
+  $psi.UseShellExecute = $false; $psi.RedirectStandardInput = $true; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true
   $psi.EnvironmentVariables['USERPROFILE'] = $t
+  $psi.EnvironmentVariables['HOME'] = $t
   $p = [Diagnostics.Process]::Start($psi)
   $p.StandardInput.Write((@{ cwd = $cwd } | ConvertTo-Json -Compress)); $p.StandardInput.Close()
   $null = $p.StandardOutput.ReadToEnd(); $p.WaitForExit()

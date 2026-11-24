@@ -102,3 +102,15 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** a hand-kept code map (it drifts); narrowing the plugin to fewer files (AR, not approved).
 - **Supersedes:** none.
 - **Reopen if:** the index gets too long to be useful, or the CI check blocks unrelated PRs often.
+
+## D-2026-11-23-workstation-repo-tests: full suite on Windows and Linux, this repo only
+- **Status:** accepted, 2026-11-23 (Dan)
+- **Source:** Dan's Grok Bot answers t1390s6026 (fix the installer test leak), t1391u (catch failures before a last-minute PR), t1391s6035 (save the full-suite-before-PR rule), and t1392u (workstation PRs only, not repos that only use workstation).
+- **Context:** `scripts/test_install_catalog.py` (from #120) ran the paste helper unsealed. On Linux CI that only asserted "Sublime Text and notepad were not found," so the test passed. On DansPC it opened Sublime Text and wrote the real clipboard. Python tests were only partly run in CI, and only on Ubuntu, so Windows-only failures were missed until after the fact.
+- **Decision:**
+  - Before opening a PR in `living-relation/workstation`, run the full Python test suite and the PowerShell/launcher tests on Linux and on Windows.
+  - This repo's `.github/workflows/repo-tests.yml` runs that suite on `ubuntu-latest` and `windows-latest`, and fails if the paste helper writes a real clipboard or opens an editor. The helper is sealed by `WORKSTATION_PASTE_HOOK_DIR` (logs only; no `Set-Clipboard` / `Start-Process` / `subl` / notepad / `clip.exe` / `pbcopy` / `xclip`). Under CI or pytest, a missing hook directory is a hard refusal.
+  - This job, runner, and rule apply only to this repo. Do not copy them into state-init, git-checker templates, the plugin install path, or repos that only use workstation.
+- **Rejected:** applying the Windows CI job or the full-suite-before-PR rule to every repo that uses workstation.
+- **Supersedes:** none.
+- **Reopen if:** a consumer repo needs its own Windows suite (add it there, do not reuse this workflow as a template).
