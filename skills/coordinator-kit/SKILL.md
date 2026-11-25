@@ -51,7 +51,9 @@ If a tool is missing, say which one and carry on with the rest. Do not write new
 ## Rules that keep a new session from asking again
 
 - Record every user answer in its home in the same turn it is given, with the date: a decision in DECISIONS, a how-to in rules, a value in data or SPEC (after the yes).
-- Question IDs come from one counter, the root STATE Pointers line `- Question_Counter: <last ID>`. Cite the date when an ID could repeat.
+- Question IDs come from one counter, the root STATE Pointers line `- Question_Counter: <last ID>`. An ID is one capital letter and one digit (A1 to A9, then B1, ...), never longer; cite the date when an ID could repeat.
+- List questions by ID only, never as a numbered list. Choices are one lower-case letter (a, b, c), with your recommendation.
+- When only one choice really moves the work forward, take it (your recommendation) and say so; do not ask.
 - Never ask what the repo or STATE already answers. Re-ask only questions the user has not answered.
 - After compaction or a restart: read the root STATE, then every STATE-<slug> (`state_manager.py branches --show`). Check PRs and worktrees, then continue. Resume stopped agents from their transcripts and STATE files; never restart a job without checking what it already did.
 - Only one agent at a time drives a shared desktop app. Use the app's lock if the project has one.

@@ -140,3 +140,15 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** dropping the Fusion Desktop lock with the MCP (agents still use Fusion Desktop).
 - **Supersedes:** the Fusion MCP parts of D-2026-11-24-fusion-desktop-lock (its built-in MCP wording, "Fusion Compute and Fusion Data MCP need no lock", and its Reopen-if line).
 - **Reopen if:** Dan starts using a Fusion MCP again.
+
+## D-2026-11-25-question-ids: two-character question IDs, listed by ID only
+- **Status:** accepted, 2026-11-25 (Dan)
+- **Source:** Dan in a claude.ai coordinator chat (2026-11-24/25): question IDs are one letter and one digit; "All questions must be one letter and number question id. Not numbered also."; "Moving forward if there's only one 'real' choice to move project forward, use your recommendation. No reason to ask me everything"; B2a: put the rule in workstation-core as its own PR.
+- **Context:** coordinator-kit only said IDs come from `Question_Counter`; counters had grown past 2 characters (H55), and the end-of-turn line in the paste files asked for a numbered list, so questions got both a number and an ID.
+- **Decision:**
+  - A question ID is one capital letter and one digit (A1 to A9, then B1, ...); choices are one lower-case letter with a recommendation.
+  - Questions are listed by ID only, never as a numbered list (coordinator-kit, `instructions/instructions-for-claude.md`, `instructions/cursor-user-rules.md`, repo-cleanup's fallback).
+  - When only one choice really moves the work forward, the agent takes its recommendation and says so instead of asking.
+- **Rejected:** keeping the rule per repo only.
+- **Supersedes:** the "numbered list" wording of the end-of-turn line.
+- **Reopen if:** more than 26 x 9 open questions are ever needed in one counter.
