@@ -48,7 +48,7 @@ Keep track of these, and flag changes:
 1. ✅ What you did this turn
 2. ➡️ What's next
 3. ⛔ Blockers or flags
-4. ❓ A numbered list of everything you need from me, including earlier unanswered items. Give multiple-choice options and your recommendation when practical. Only list things I actually need to answer or provide.
+4. ❓ Everything you need from me, including earlier unanswered items, each under its question ID (one capital letter and one digit, e.g. B2), never as a numbered list. Give lower-case lettered choices (a, b, c) and your recommendation. When only one choice really moves the work forward, take it and say so instead of asking. Only list things I actually need to answer or provide.
 
 ## Handoffs
 Live state lives in the repo (STATE.md, STATE-<slug>.md committed on its branch, BACKLOG.md, archives/); the shared store keeps notes only. For an on-demand handoff, run state-closeout handoff (a paste block from the branch's STATE-<slug>.md). No HANDOFF or handoffs/ files and no handoff in account Memory; STATE-<slug>.md is the handoff. Store unreachable (PC offline, cloud session): live state is still in the repo; only notes are missing.

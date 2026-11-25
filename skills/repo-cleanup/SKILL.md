@@ -87,7 +87,7 @@ Date = decision date if stated, else the file's last-commit date (`git log -1 --
 
 ### 6. Ask only what the agent can't settle
 **Re-check before asking.** For every Ask-list item, look for a newer clear decision on the same subject in the newest decision sources: the decisions doc, answered items in the tracker (OPEN-ITEMS / state file), bodies and review comments of PRs merged since the fact's date, and any decision log or memory the agent's app provides (recent chats included, if the app exposes them). If one exists and is dated after both sides, resolve it automatically (it moves to **Superseded (auto)** with the source and date) and write it into the decisions doc if it lives only in chat or memory. Ask only what is still open after this check.
-Ask list = true conflicts + important single-source facts. Order by importance; batch them (grouped or multi-select) with the app's question tool: Grok → choice widget · Claude Code → `AskUserQuestion` · Cursor → ask-question; else a numbered list.
+Ask list = true conflicts + important single-source facts. Order by importance; batch them (grouped or multi-select) with the app's question tool: Grok → choice widget · Claude Code → `AskUserQuestion` · Cursor → ask-question; else a list by question ID (coordinator-kit).
 - Conflict: **A** (quote, date, source) · **B** (quote, date, source) · **something else** (type it) · **skip for now**.
 - Single-source: **confirm** · **change** (type it) · **drop** · **skip for now**.
 Skipped items stay on the list and keep their current wording in the output, marked `(unconfirmed)`. Log each answer as a dated DECISIONS entry. Also show the **Superseded (auto)** list for spot-checking; any line the user flips becomes an answer.
