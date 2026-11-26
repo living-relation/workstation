@@ -80,13 +80,14 @@ function Show-MemoryAndHooks {
         @{ Leaf = 'pr-closeout-nudge.ps1'; File = (Join-Path $claudeDir 'hooks\pr-closeout-nudge.ps1') },
         @{ Leaf = 'context-guard.ps1'; File = (Join-Path $claudeDir 'hooks\context-guard.ps1') }
     )) {
+        # Since D-2026-11-26-hooks-in-plugin these run from the workstation-core plugin (hooks/hooks.json).
+        # An older install's copy in settings.json still runs; the plugin copy stays quiet for that event.
         $refs = @($hookCmds | Where-Object { $_.Command -match [regex]::Escape($pair.Leaf) })
-        if (-not (Test-Path -LiteralPath $pair.File)) { Write-Warn "$($pair.Leaf) missing: $($pair.File)" }
-        elseif (-not $refs) { Write-Warn "$($pair.Leaf) is not wired in settings.json" }
+        if (-not $refs) { Write-Ok "$($pair.Leaf) hook: from the workstation-core plugin" }
         else {
             $bad = @($refs | Where-Object { $p = Get-PathFromCommand $_.Command; $p -and -not (Test-Path -LiteralPath $p) })
-            if ($bad) { Write-Bad "$($pair.Leaf) points at a missing script" }
-            else { Write-Ok "$($pair.Leaf) hook: $(($refs | ForEach-Object Event | Sort-Object -Unique) -join ', ')" }
+            if ($bad) { Write-Bad "$($pair.Leaf): settings.json wires an older copy that is missing ($($pair.File)); the plugin copy stays quiet while that entry is there" }
+            else { Write-Ok "$($pair.Leaf) hook: older copy wired in settings.json ($(($refs | ForEach-Object Event | Sort-Object -Unique) -join ', ')); the plugin copy stays quiet for those events" }
         }
     }
     if ($settings) {

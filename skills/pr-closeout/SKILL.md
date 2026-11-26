@@ -72,9 +72,8 @@ hygiene, and reports in a few lines. Any repo.
    - anything left for the user (a conflict between rules, a decision, a SPEC/data yes)
 
 ## Where it runs
-One skill file for every agent. Workstation `install.ps1` copies `handoff/claude/pr-closeout-nudge.ps1`
-into `~\.claude\hooks` and wires it in `~\.claude\settings.json` PostToolUse (merge; other hook
-entries stay). Cursor on the PC also runs those user Claude hooks, so the same script fires there.
+One skill file for every agent. The workstation-core plugin runs `handoff/claude/pr-closeout-nudge.ps1`
+as a PostToolUse hook in Claude Code (`hooks/hooks.json`) and Cursor (`hooks/cursor-hooks.json`).
 Skills get in from the workstation-core plugin in the workstation-plugins catalog (`INSTALL.md`): turned on at claude.ai
 for Claude desktop and Cowork (Sync automatically on, so updates arrive after merges to main), and installed with
 `claude plugin install workstation-core@workstation-plugins` for Claude Code. Do not copy skills into `~\.claude\skills` and do not upload a skill zip. Where no hook runs (Grok, cloud, Cowork), the description

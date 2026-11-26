@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Arm the state-closeout (closeout mode) run when chat context is at or above 80%."""
+"""Arm the state-closeout (closeout mode) run when chat context is at or above 80%.
+
+Delivery: the workstation-core Cursor plugin runs this file through handoff/cursor/run-handoff-at-80.ps1
+with --from-plugin (hooks/cursor-hooks.json preCompact and stop). Install no longer copies it into
+~/.cursor/hooks or wires ~/.cursor/hooks.json (decision D-2026-11-26-hooks-in-plugin).
+With --from-plugin:
+- it does nothing when ~/.cursor/hooks.json still wires an older copy (that copy runs instead, so the
+  handoff never fires twice);
+- it is armed unless ~/.cursor/hooks/state/handoff-at-80/disarmed exists. Without --from-plugin (an older
+  wired copy) it is armed only when ~/.cursor/hooks/state/handoff-at-80/armed exists, as before.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +21,8 @@ from pathlib import Path
 THRESHOLD = 80
 STATE_DIR = Path.home() / ".cursor" / "hooks" / "state" / "handoff-at-80"
 ARMED_PATH = STATE_DIR / "armed"
+DISARMED_PATH = STATE_DIR / "disarmed"
+USER_HOOKS_JSON = Path.home() / ".cursor" / "hooks.json"
 FOLLOWUP = (
     "CONTEXT PRESSURE: chat context is at or above 80%. "
     "Run the state-closeout skill in closeout mode immediately. "
@@ -54,8 +66,18 @@ def _percent(payload: dict) -> float | None:
         return None
 
 
-def _armed() -> bool:
+def _armed(from_plugin: bool = False) -> bool:
+    if from_plugin:
+        return not DISARMED_PATH.exists()
     return ARMED_PATH.exists()
+
+
+def _older_copy_wired() -> bool:
+    """True when ~/.cursor/hooks.json still runs a copy of this script (an install before the plugin did)."""
+    try:
+        return "handoff-at-80.py" in USER_HOOKS_JSON.read_text(encoding="utf-8")
+    except OSError:
+        return False
 
 
 def handle_precompact(payload: dict) -> dict:
@@ -116,15 +138,19 @@ def handle_stop(payload: dict) -> dict:
     return {"followup_message": FOLLOWUP}
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    from_plugin = "--from-plugin" in (sys.argv[1:] if argv is None else argv)
     try:
-        raw = sys.stdin.read()
+        raw = sys.stdin.read().lstrip("\ufeff")  # Windows PowerShell pipes add a BOM
         payload = json.loads(raw) if raw.strip() else {}
     except json.JSONDecodeError:
         _emit({})
         return 0
 
-    if not _armed():
+    if from_plugin and _older_copy_wired():
+        _emit({})
+        return 0
+    if not _armed(from_plugin):
         _emit({})
         return 0
 

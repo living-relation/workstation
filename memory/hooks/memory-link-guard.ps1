@@ -17,6 +17,13 @@
 # no folder is ever made per worktree.
 # Does not create, check or remove ~\.claude\working-memory. That alias only served Cowork / Chat
 # pointer lines. A leftover junction there is harmless and is left alone.
+# Delivery: the workstation-core plugin runs this script (-FromPlugin) on SessionStart and on PreToolUse
+# Write/Edit, in Claude Code (hooks/hooks.json) and Cursor (hooks/cursor-hooks.json). Install no longer
+# copies it into ~\.claude\hooks (decision D-2026-11-26-hooks-in-plugin). With -FromPlugin it does nothing
+# (a) when ~\.claude\settings.json still wires an older copy for the same event (that copy runs instead,
+# so the hook never runs twice), or (b) when this PC has no shared memory setup: no
+# WORKSTATION_MEMORY_STORE, no memory-link-guard.config.json and no autoMemoryDirectory.
+param([switch]$FromPlugin)
 $ErrorActionPreference = 'SilentlyContinue'
 $userHome = $env:USERPROFILE
 if (-not $userHome) { $userHome = $HOME }
@@ -91,7 +98,23 @@ function Test-ProgressNote([string]$NotePath, [string]$Text) {
 
 # Link: the folder Claude Code reads for auto memory.
 $link = $null
-try { $link = Expand-UserPath ((Get-Content -LiteralPath (Join-Path $userHome '.claude\settings.json') -Raw | ConvertFrom-Json).autoMemoryDirectory) } catch { }
+$userSettings = $null
+try { $userSettings = Get-Content -LiteralPath (Join-Path $userHome '.claude\settings.json') -Raw | ConvertFrom-Json } catch { }
+if ($userSettings) { try { $link = Expand-UserPath ([string]$userSettings.autoMemoryDirectory) } catch { } }
+
+# Plugin copy: stay out of the way of an older wired copy, and stay silent on a PC with no memory setup.
+if ($FromPlugin) {
+  $ev = "$($hookIn.hook_event_name)"; if (-not $ev) { $ev = $(if ($hookIn -and $hookIn.tool_name) { 'PreToolUse' } else { 'SessionStart' }) }
+  $wired = $false
+  if ($userSettings -and $userSettings.hooks) {
+    $evHooks = $null
+    foreach ($pp in $userSettings.hooks.PSObject.Properties) { if ($pp.Name -ieq $ev) { $evHooks = $pp.Value } }
+    if ($evHooks) { $wired = (($evHooks | ConvertTo-Json -Depth 20 -Compress) -match 'memory-link-guard\.ps1') }
+  }
+  if ($wired) { Exit-Hook }
+  $hasSetup = [bool]("$env:WORKSTATION_MEMORY_STORE".Trim() -or $link -or (Test-Path -LiteralPath (Join-Path $userHome '.claude\hooks\memory-link-guard.config.json')))
+  if (-not $hasSetup) { Exit-Hook }
+}
 
 # Store: WORKSTATION_MEMORY_STORE, then explicit config, then wherever the junction already points, then the default.
 $home_ = $null

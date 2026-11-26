@@ -1,13 +1,30 @@
-# PostToolUse nudge (Dan, 2026-10-28): after a shell call that ran `gh pr create` and printed a
+# PostToolUse nudge (2026-10-28): after a shell call that ran `gh pr create` and printed a
 # PR URL, or a GitHub-MCP create_pull_request, tell the agent to run the pr-closeout skill
 # (state file on the same PR branch; memory only for preferences, rules and
 # cross-project facts; hygiene). One script for Claude Code
-# (~\.claude\settings.json, tools Bash / PowerShell) and Cursor (~\.cursor\hooks.json
-# postToolUse, tool Shell). Never blocks. Prints "{}" when it has nothing to say, because
+# (tools Bash / PowerShell) and Cursor (postToolUse, tool Shell). Never blocks. Prints "{}" when it has nothing to say, because
 # Cursor treats an empty reply as invalid JSON. -- Claude Code, 2026-10-28
+# Delivery: the workstation-core plugin runs it with -FromPlugin (hooks/hooks.json PostToolUse, and
+# hooks/cursor-hooks.json postToolUse). Install no longer copies or wires it (decision
+# D-2026-11-26-hooks-in-plugin). With -FromPlugin it prints {} when ~\.claude\settings.json still wires an
+# older copy for PostToolUse (that copy runs instead; Cursor also runs those hooks), so it never nudges twice.
+param([switch]$FromPlugin)
 $ErrorActionPreference = 'Stop'
 function Exit-Quiet { [Console]::Out.WriteLine('{}'); exit 0 }
 try { $in = [Console]::In.ReadToEnd() | ConvertFrom-Json } catch { Exit-Quiet }
+if ($FromPlugin) {
+  $wired = $false
+  try {
+    $h = $env:USERPROFILE; if (-not $h) { $h = $HOME }
+    $us = Get-Content -LiteralPath (Join-Path (Join-Path $h '.claude') 'settings.json') -Raw -ErrorAction Stop | ConvertFrom-Json
+    if ($us.hooks) {
+      foreach ($pp in $us.hooks.PSObject.Properties) {
+        if ($pp.Name -ieq 'PostToolUse' -and (($pp.Value | ConvertTo-Json -Depth 20 -Compress) -match 'pr-closeout-nudge\.ps1')) { $wired = $true }
+      }
+    }
+  } catch { }
+  if ($wired) { Exit-Quiet }
+}
 $tool = "$($in.tool_name)"
 $cursor = ($in.PSObject.Properties.Name -contains 'cursor_version') -or ($tool -eq 'Shell')
 # Claude sends tool_response (object); Cursor sends tool_output (a JSON string).

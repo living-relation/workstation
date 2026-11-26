@@ -92,7 +92,7 @@ PHASES = (
             "toolkit files (the toolkit runs from the clone's workstation\\ folder); it writes "
             "%LOCALAPPDATA%\\Workstation\\workstation.json (the Projects root), creates the manual Desktop "
             "Commander shortcuts (Start, Stop, status) and the orphan tool in the package's shortcuts\\ "
-            "folder, installs the 80% handoff hooks and the pr-closeout-nudge hook, merges Claude Code MCP "
+            "folder, installs no hooks (the workstation-core plugin carries them), merges Claude Code MCP "
             "connectors into ~\\.claude.json and installs official-marketplace plugins from "
             "claude\\plugins.json, and does not copy skills into ~\\.claude\\skills (the workstation-core "
             "plugin delivers them). On a real run it opens https://claude.ai/customize/plugins and prints "

@@ -9,6 +9,9 @@
   Removes ONLY what <Projects>\_claude\automation-installed-files.txt (the manifest install.ps1 writes) lists as
   added by install. Anything else, even if it looks like ours, is listed as "not installed by this package, left
   alone" and never touched. With no manifest, nothing is removed. There is no override.
+  Since D-2026-11-26-hooks-in-plugin, install.ps1 no longer copies or wires the guard, context-guard,
+  pr-closeout-nudge or handoff-at-80 hooks, a statusLine, or ~\.cursor\hooks.json (they ship in the
+  workstation-core plugin). The hook, statusLine and hook-file items below are only what an OLDER install recorded.
   From the manifest:
   - memory sections (between <!-- shared-memory:v1 --> markers) install created or appended; a file install created
     that holds nothing else is removed. A marked section that was already there stays, markers included,

@@ -46,16 +46,19 @@
     pointer lines find the store. Claude desktop no longer writes local memory files (personal account
     verified 2026-11-03, Store app 4.4212.0.0, Unified Claude; work account unverified). A leftover
     junction is left as it is and is harmless. Claude Code still uses the autoMemoryDirectory junction.
-  - Installs the 80% handoff hooks (handoff\): context-guard.ps1 (Claude Code statusLine + Stop + PreCompact),
-    pr-closeout-nudge.ps1 (Claude Code PostToolUse, after a PR is opened), handoff-at-80.py (Cursor preCompact +
-    stop, needs py -3); the skill the handoff hooks trigger, agent-handoff-pack, comes from the workstation-core
-    plugin. Skills get in from workstation-core: claude.ai for Claude desktop and Cowork, the workstation-plugins
+  - Installs no hooks and copies no hook files. memory-link-guard.ps1 (SessionStart + PreToolUse Write|Edit),
+    context-guard.ps1 (Stop + PreCompact), pr-closeout-nudge.ps1 (PostToolUse) and, for Cursor, handoff-at-80.py
+    (preCompact + stop) run from the workstation-core plugin: hooks\hooks.json for Claude Code and
+    hooks\cursor-hooks.json for the Cursor plugin (decision D-2026-11-26-hooks-in-plugin). Install does not write
+    ~\.claude\hooks, hook entries or a statusLine in ~\.claude\settings.json, or ~\.cursor\hooks.json. Copies and
+    entries an older install added stay until the owner removes them (uninstall.ps1 removes only what it recorded);
+    the plugin copy stays quiet for an event an older copy still handles. The skill the handoff triggers,
+    state-closeout (agent-handoff-pack forwards to it), also comes from the plugin. Skills get in from workstation-core: claude.ai for Claude desktop and Cowork, the workstation-plugins
     catalog for Claude Code (INSTALL.md). On a real run this script runs
     `claude plugin marketplace add living-relation/workstation` and
     `claude plugin install workstation-core@workstation-plugins` (skipped if the claude CLI is missing;
     it never uninstalls or disables a plugin). This script does not
-    copy skills into ~\.claude\skills. No zip upload. On a real run it opens the Plugins page and prints the clicks. Entries are merged by script name (never duplicated); an unrelated
-    statusLine is never overwritten; other hook entries are left alone.
+    copy skills into ~\.claude\skills. No zip upload. On a real run it opens the Plugins page and prints the clicks.
   - Merges Claude Code MCP connectors into ~\.claude.json (user-scope) from claude\mcp-servers.json.
     Existing servers of the same name are left alone. API keys come from env (or a
     prompt unless -Quiet / CI / -WhatIf / -UserHome); a server that still lacks a required key is skipped with a
@@ -157,14 +160,8 @@ $ClaudeDir   = Join-Path $ProjectsRoot '_claude'
 $WorkingMem  = Join-Path $ClaudeDir 'Claude Projects\Working Memory'
 $Store       = Join-Path $WorkingMem 'memory'
 $DotClaude   = Join-Path $UserHome '.claude'
-$HooksDir    = Join-Path $DotClaude 'hooks'
 $LinkPath    = Join-Path $DotClaude ("projects\$ProjectKey\memory")
 $SettingsPath = Join-Path $DotClaude 'settings.json'
-$GuardDest   = Join-Path $HooksDir 'memory-link-guard.ps1'
-$GuardCfg    = Join-Path $HooksDir 'memory-link-guard.config.json'
-# what was there before this run (recorded on a first install so uninstall keeps it)
-$GuardScriptPre = Test-Path -LiteralPath $GuardDest
-$GuardCfgPre    = Test-Path -LiteralPath $GuardCfg
 $CursorRule  = Join-Path $UserHome '.cursor\rules\claude-shared-memory.mdc'
 $BackupDir   = Join-Path $ProjectsRoot ("_archive\automation-install-backup-$Stamp")
 # The toolkit runs straight from this package (no copy under <Projects>).
@@ -177,14 +174,6 @@ $AddedFiles  = New-Object System.Collections.Generic.List[string]
 # Junctions this install created outside <Projects> (manifest lines 'junction|<full path>'; uninstall removes the link only).
 $AddedLinks  = New-Object System.Collections.Generic.List[string]
 $Templates   = Join-Path $PkgRoot 'memory\templates'
-# 80% handoff hooks + skill
-$HandoffPkg  = Join-Path $PkgRoot 'handoff'
-$CtxDest     = Join-Path $HooksDir 'context-guard.ps1'
-$NudgeDest   = Join-Path $HooksDir 'pr-closeout-nudge.ps1'
-$DotCursor   = Join-Path $UserHome '.cursor'
-$CursorHookDest = Join-Path $DotCursor 'hooks\handoff-at-80.py'
-$CursorHooksJson = Join-Path $DotCursor 'hooks.json'
-$ArmedPath   = Join-Path $DotCursor 'hooks\state\handoff-at-80\armed'
 if (-not $StartupFolder) {
   if ($testMode) { $StartupFolder = Join-Path $UserHome 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup' }
   else { $StartupFolder = [Environment]::GetFolderPath('Startup') }
@@ -195,12 +184,6 @@ $AddedJson   = New-Object System.Collections.Generic.List[string]
 
 # autoMemoryDirectory = the junction path (resolves to the store). Same Projects path as the junction name.
 if ($testMode) { $AutoMemValue = ($LinkPath -replace '\\', '/') } else { $AutoMemValue = "~/.claude/projects/$ProjectKey/memory" }
-$GuardCommand = 'powershell -NoProfile -ExecutionPolicy Bypass -File "' + ($GuardDest -replace '\\', '/') + '"'
-# Same command shapes as the hand-made originals, built from this user's real profile path (forward slashes).
-function Get-CtxCommand([string]$Mode) { return ('powershell -NoProfile -ExecutionPolicy Bypass -File "' + ($CtxDest -replace '\\', '/') + '" ' + $Mode) }
-function Get-NudgeCommand { return ('powershell -NoProfile -ExecutionPolicy Bypass -File "' + ($NudgeDest -replace '\\', '/') + '"') }
-$CursorHookFwd = ($CursorHookDest -replace '\\', '/')
-$CursorCommand = 'py -3 ' + $(if ($CursorHookFwd -match '\s') { '"' + $CursorHookFwd + '"' } else { $CursorHookFwd })
 
 $Placeholders = [ordered]@{
   '{{USERPROFILE_FWD}}'   = ($UserHome -replace '\\', '/')
@@ -411,24 +394,6 @@ function New-RecordedDir([string]$Dir) {
   while ($d -and -not (Test-Path -LiteralPath $d)) { $missing = @($d) + $missing; $d = Split-Path $d -Parent }
   foreach ($m in $missing) { New-Item -ItemType Directory -Path $m -Force | Out-Null; Add-ManifestJson @{ kind = 'dir'; path = $m } }
 }
-# Copies one package file outside <Projects>. A new file is recorded with its hash (uninstall removes it only
-# while unchanged); a changed existing file is kept as .bak-<time> and replaced (not recorded: it was there before).
-function Copy-HomeFile([string]$Source, [string]$Dest) {
-  if (-not (Test-Path -LiteralPath $Source)) { Note 'ERROR' "package file missing: $Source"; return }
-  if (Test-Path -LiteralPath $Dest) {
-    if ((Get-Sha $Dest) -eq (Get-Sha $Source)) { Note 'OK' "up to date: $Dest"; return }
-    Invoke-Change "update $Dest (old copy kept as .bak-$Stamp)" {
-      Copy-Item -LiteralPath $Dest -Destination (Get-FreePath "$Dest.bak-$Stamp")
-      Copy-Item -LiteralPath $Source -Destination $Dest -Force
-    }
-    return
-  }
-  Invoke-Change "install $Dest" {
-    New-RecordedDir (Split-Path $Dest -Parent)
-    Copy-Item -LiteralPath $Source -Destination $Dest
-    Add-ManifestJson @{ kind = 'file'; path = $Dest; sha256 = (Get-Sha $Dest) }
-  }
-}
 # pluginConfigs.<Plugin>.options.instructionFiles from a parsed settings object, or $null.
 function Get-InstructionFiles($S, [string]$Plugin) {
   if (-not $S -or -not $S.PSObject.Properties['pluginConfigs'] -or -not $S.pluginConfigs) { return $null }
@@ -436,15 +401,6 @@ function Get-InstructionFiles($S, [string]$Plugin) {
   $o = $p.Value.PSObject.Properties['options']; if (-not $o -or -not $o.Value) { return $null }
   $f = $o.Value.PSObject.Properties['instructionFiles']; if (-not $f) { return $null }
   return [string]$f.Value
-}
-# Full path of the script named $Leaf inside a hook command (quoted or not), or $null.
-function Get-ScriptPath([string]$Cmd, [string]$Leaf) {
-  if (-not $Cmd) { return $null }
-  $e = [regex]::Escape($Leaf)
-  $m = [regex]::Match($Cmd, '(?i)"([^"]*?' + $e + ')"')
-  if (-not $m.Success) { $m = [regex]::Match($Cmd, '(?i)(\S*' + $e + ')') }
-  if ($m.Success) { return (Resolve-UserPath $m.Groups[1].Value) }
-  return $null
 }
 # Writes JSON, checks it parses, restores the backup if not. Keeps the file's newline style and final newline.
 function Write-JsonChecked([string]$Path, $Obj, [string]$Raw, [bool]$Existed, [string]$Bak) {
@@ -457,33 +413,6 @@ function Write-JsonChecked([string]$Path, $Obj, [string]$Raw, [bool]$Existed, [s
   try { [IO.File]::ReadAllText($Path) | ConvertFrom-Json | Out-Null }
   catch { if ($Existed) { Copy-Item -LiteralPath $Bak -Destination $Path -Force } else { Remove-Item -LiteralPath $Path -Force }; throw "written JSON did not parse; restored the original" }
 }
-# Merges one hook command into a list of hook objects. Match by script file name: same path = keep,
-# other path = re-point that entry, none = append. $Pending gets the manifest entries (written only on success).
-function Merge-HookCommand($Container, [string]$Event, [string]$Leaf, [string]$Command, $NewItem, [string]$Target, [System.Collections.Generic.List[object]]$Pending, [ref]$Changes, [switch]$Nested) {
-  $found = @()
-  if ($Container.PSObject.Properties[$Event]) {
-    foreach ($entry in @($Container.$Event)) {
-      if (-not $entry) { continue }
-      if ($Nested) { foreach ($h in @($entry.hooks)) { if ($h -and $h.PSObject.Properties['command'] -and ([string]$h.command) -match [regex]::Escape($Leaf)) { $found += $h } } }
-      elseif ($entry.PSObject.Properties['command'] -and ([string]$entry.command) -match [regex]::Escape($Leaf)) { $found += $entry }
-    }
-  }
-  $want = Resolve-UserPath (Get-ScriptPath $Command $Leaf)
-  if ($found.Count) {
-    if ($found.Count -gt 1) { Note 'WARN' "$Target $Event has $($found.Count) entries for $Leaf (duplicate); none added. Remove the extra one by hand." }
-    if (@($found | Where-Object { (Get-ScriptPath ([string]$_.command) $Leaf) -ieq $want }).Count) { Note 'OK' "$Target $Event already runs $Leaf"; return }
-    $h = $found[0]; $old = [string]$h.command
-    $h.command = $Command
-    $Pending.Add(@{ kind = 'hook-updated'; target = $Target; event = $Event; script = $Leaf; old = $old; new = $Command })
-    $Changes.Value += "$Event`: re-point $Leaf"
-    return
-  }
-  if ($Container.PSObject.Properties[$Event]) { $Container.$Event = @(@($Container.$Event) + $NewItem) }
-  else { $Container | Add-Member -NotePropertyName $Event -NotePropertyValue @($NewItem) }
-  $Pending.Add(@{ kind = 'hook'; target = $Target; event = $Event; script = $Leaf; command = $Command })
-  $Changes.Value += "$Event += $Leaf"
-}
-
 # ---------------------------------------------------------------- final Health check
 # Runs Health check -NoPause (read-only, never prompts) and reports the FAIL / WARN counts.
 # The manual steps are the phases printed by scripts\setup_guide.py (SETUP-PROMPT.txt is only a pointer).
@@ -587,22 +516,8 @@ if ($AutoMemAtStore) {
   Note 'WARN' "REFUSED: autoMemoryDirectory in $SettingsPath points straight at the store ($Store), not at the junction path. Older guard versions could delete the store in that setup, so as a safety net the guard is not installed or wired and settings.json is not changed. Fix it by hand (README.md > Troubleshooting), then re-run install.ps1."
 }
 
-# 5. Guard hook script + its config (the guard reads storePath from memory-link-guard.config.json)
-if ($AutoMemAtStore) { Note 'SKIP' "guard hook not installed (see the REFUSED warning): $GuardDest" }
-else { Copy-HomeFile (Join-Path $PkgRoot 'memory\hooks\memory-link-guard.ps1') $GuardDest }   # recorded only when this run adds it
-if (Test-Path -LiteralPath $GuardCfg) {
-  $cur = $null
-  try { $cur = (Get-Content -LiteralPath $GuardCfg -Raw | ConvertFrom-Json).storePath } catch { }
-  if ($cur -and ([IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($cur)).TrimEnd('\') -ieq $Store)) { Note 'OK' "guard config points at the store: $GuardCfg" }
-  else { Note 'WARN' "guard config exists but points somewhere else ($cur). Left alone: $GuardCfg" }
-} else {
-  $cfgJson = (@{ storePath = $Store } | ConvertTo-Json)
-  Invoke-Change "create guard config: $GuardCfg" {
-    New-RecordedDir $HooksDir
-    [IO.File]::WriteAllText($GuardCfg, $cfgJson, $Utf8NoBom)
-    Add-ManifestJson @{ kind = 'file'; path = $GuardCfg; sha256 = (Get-Sha $GuardCfg) }
-  }
-}
+# 5. No guard script or guard config is written. memory-link-guard.ps1 runs from the workstation-core plugin and finds
+#    the store through the junction below (an existing ~\.claude\hooks\memory-link-guard.config.json is still read).
 
 # 6. Junction ~\.claude\projects\<key>\memory -> store
 $DeferHook = $false
@@ -627,7 +542,7 @@ if (-not $link) {
     }
   } else {
     $DeferHook = $true
-    Note 'WARN' "$LinkPath is a real folder with $n item(s). NOT replaced. Do MIGRATION.md first, then move that folder aside and re-run install.ps1. The SessionStart guard hook is not wired until then (it would otherwise move those notes on its own)."
+    Note 'WARN' "$LinkPath is a real folder with $n item(s). NOT replaced. Do MIGRATION.md first, then move that folder aside and re-run install.ps1. autoMemoryDirectory is not set until then, so the plugin's memory-link guard stays inactive on this PC (it would otherwise move those notes on its own)."
   }
 }
 
@@ -635,15 +550,10 @@ if (-not $link) {
 #     junction there for Cowork / Chat. Leave it. It is harmless. Claude Code uses $LinkPath (section 6).
 Note 'OK' '~\.claude\working-memory is not created or checked. A leftover junction is harmless and was left as it is.'
 
-# 6c. 80% handoff files: context-guard.ps1, pr-closeout-nudge.ps1, handoff-at-80.py (only with py -3), the skill (never overwritten)
-Copy-HomeFile (Join-Path $HandoffPkg 'claude\context-guard.ps1') $CtxDest
-Copy-HomeFile (Join-Path $HandoffPkg 'claude\pr-closeout-nudge.ps1') $NudgeDest
-$CursorHookOk = [bool]$Preflight.PyOk
-if ($CursorHookOk) { Copy-HomeFile (Join-Path $HandoffPkg 'cursor\handoff-at-80.py') $CursorHookDest }
-else { Note 'WARN' "py -3 (Python 3.7+) not available: Cursor 80% handoff hook skipped ($CursorHookDest, $CursorHooksJson unchanged). Install Python 3, then re-run install.ps1." }
-# The skill the hooks trigger is agent-handoff-pack (skills\), linked by default in section 9b.
+# 6c. No hook files are copied into ~\.claude\hooks or ~\.cursor\hooks. context-guard.ps1, pr-closeout-nudge.ps1,
+#     memory-link-guard.ps1 and handoff-at-80.py run from the workstation-core plugin (decision D-2026-11-26-hooks-in-plugin).
 
-# 7. ~\.claude\settings.json: merge (autoMemoryDirectory + SessionStart/PreToolUse guard hook + handoff hooks/statusLine + PostToolUse pr-closeout-nudge), keep everything else. Does not change autoMode or a remote-control startup flag.
+# 7. ~\.claude\settings.json: merge autoMemoryDirectory and the Project instructions option, keep everything else. No hooks and no statusLine (they come from the workstation-core plugin). Does not change autoMode or a remote-control startup flag.
 $settings = $null; $settingsOk = $true; $settingsExisted = Test-Path -LiteralPath $SettingsPath
 if ($AutoMemAtStore) {
   $settingsOk = $false
@@ -662,7 +572,9 @@ if ($settingsOk) {
   $firstInstall = -not (Test-Path -LiteralPath $ManifestPath)
   $oldAuto = $null; $hadAuto = [bool]$settings.PSObject.Properties['autoMemoryDirectory']
   if ($hadAuto) { $oldAuto = [string]$settings.autoMemoryDirectory }
-  if ($oldAuto -ne $AutoMemValue) {
+  if ($DeferHook -and $oldAuto -ne $AutoMemValue) {
+    Note 'WARN' "autoMemoryDirectory NOT set yet ($LinkPath is a real folder with notes). Re-run install.ps1 after the migration."
+  } elseif ($oldAuto -ne $AutoMemValue) {
     if ($oldAuto) { Note 'WARN' "autoMemoryDirectory was '$oldAuto'. Include that folder in MIGRATION.md (uninstall.ps1 puts that value back; it is also in the settings .bak)." }
     if ($hadAuto) { $settings.autoMemoryDirectory = $AutoMemValue }
     else { $settings | Add-Member -NotePropertyName autoMemoryDirectory -NotePropertyValue $AutoMemValue }
@@ -671,69 +583,15 @@ if ($settingsOk) {
     Add-ManifestJson @{ kind = 'automem'; target = 'claude'; value = $AutoMemValue; hadPrior = $hadAuto; prior = $(if ($hadAuto) { $oldAuto } else { $null }) }
   } else {
     Note 'OK' "autoMemoryDirectory already $AutoMemValue"
+    if ($DeferHook) { Note 'WARN' "autoMemoryDirectory is already set while $LinkPath is a real folder: the plugin's memory-link guard will move those notes into the store at the next Claude Code session. Do MIGRATION.md first." }
     if ($firstInstall) { Add-ManifestJson @{ kind = 'automem-preexisting'; target = 'claude'; value = $AutoMemValue } }
   }
 
-  $hasGuard = $false
-  if ($settings.PSObject.Properties['hooks'] -and $settings.hooks -and $settings.hooks.PSObject.Properties['SessionStart']) {
-    foreach ($entry in @($settings.hooks.SessionStart)) {
-      foreach ($h in @($entry.hooks)) { if ($h -and ([string]$h.command) -match 'memory-link-guard\.ps1') { $hasGuard = $true } }
-    }
-  }
-  if ($hasGuard) {
-    Note 'OK' 'SessionStart guard hook already in settings.json'
-    if ($firstInstall) { Add-ManifestJson @{ kind = 'guard-hook-preexisting'; target = 'claude'; guardScript = $GuardScriptPre; guardConfig = $GuardCfgPre } }
-    if ($DeferHook) { Note 'WARN' 'the guard hook is already wired while the junction path is a real folder: start no Claude Code session until MIGRATION.md is done.' }
-  } elseif ($DeferHook) {
-    Note 'WARN' 'SessionStart guard hook NOT added yet (junction path is a real folder with notes). Re-run install.ps1 after the migration.'
-  } else {
-    if (-not $settings.PSObject.Properties['hooks'] -or -not $settings.hooks) {
-      if ($settings.PSObject.Properties['hooks']) { $settings.hooks = New-Object psobject } else { $settings | Add-Member -NotePropertyName hooks -NotePropertyValue (New-Object psobject) }
-    }
-    $newEntry = [pscustomobject]@{ hooks = @([pscustomobject]@{ type = 'command'; command = $GuardCommand; timeout = 20 }) }
-    if ($settings.hooks.PSObject.Properties['SessionStart']) { $settings.hooks.SessionStart = @(@($settings.hooks.SessionStart) + $newEntry) }
-    else { $settings.hooks | Add-Member -NotePropertyName SessionStart -NotePropertyValue @($newEntry) }
-    $changes += 'hooks.SessionStart += memory-link-guard.ps1'
-    Add-ManifestJson @{ kind = 'guard-hook'; target = 'claude'; command = $GuardCommand }
-  }
-
-  # PreToolUse: same script warns (never blocks) when a Write/Edit puts project progress in a store note (INDEX.md);
-  # STATE, STATE-<slug>, BACKLOG and archives written in the store warn too: live state lives in the repo (decision 2026-11-22).
-  if (-not $DeferHook) {
-    if (-not $settings.PSObject.Properties['hooks'] -or -not $settings.hooks) {
-      if ($settings.PSObject.Properties['hooks']) { $settings.hooks = New-Object psobject } else { $settings | Add-Member -NotePropertyName hooks -NotePropertyValue (New-Object psobject) }
-    }
-    $pendingG = New-Object System.Collections.Generic.List[object]
-    $writeEntry = [pscustomobject]@{ matcher = 'Write|Edit'; hooks = @([pscustomobject]@{ type = 'command'; command = $GuardCommand; timeout = 20 }) }
-    Merge-HookCommand $settings.hooks 'PreToolUse' 'memory-link-guard.ps1' $GuardCommand $writeEntry 'claude' $pendingG ([ref]$changes) -Nested
-    foreach ($p in $pendingG) { Add-ManifestJson $p }
-  }
-
-  # 80% handoff: Stop + PreCompact hooks and the statusLine (context-guard.ps1)
+  # Hooks: memory-link-guard (SessionStart, PreToolUse Write|Edit), context-guard (Stop, PreCompact) and pr-closeout-nudge
+  # (PostToolUse) come from the workstation-core plugin (hooks\hooks.json; decision D-2026-11-26-hooks-in-plugin).
+  # Install adds no hook entries and no statusLine here. Entries and a statusLine an older install added stay; the
+  # plugin copy of each script stays quiet for an event an older copy still handles, so nothing runs twice.
   $pendingS = New-Object System.Collections.Generic.List[object]
-  if (-not $settings.PSObject.Properties['hooks'] -or -not $settings.hooks) {
-    if ($settings.PSObject.Properties['hooks']) { $settings.hooks = New-Object psobject } else { $settings | Add-Member -NotePropertyName hooks -NotePropertyValue (New-Object psobject) }
-  }
-  $stopCmd = Get-CtxCommand 'stop'; $preCmd = Get-CtxCommand 'precompact'
-  Merge-HookCommand $settings.hooks 'PreCompact' 'context-guard.ps1' $preCmd ([pscustomobject]@{ hooks = @([pscustomobject]@{ type = 'command'; command = $preCmd; timeout = 60; statusMessage = 'Backing up before compaction...' }) }) 'claude' $pendingS ([ref]$changes) -Nested
-  Merge-HookCommand $settings.hooks 'Stop' 'context-guard.ps1' $stopCmd ([pscustomobject]@{ hooks = @([pscustomobject]@{ type = 'command'; command = $stopCmd; timeout = 15 }) }) 'claude' $pendingS ([ref]$changes) -Nested
-  $nudgeCmd = Get-NudgeCommand
-  Merge-HookCommand $settings.hooks 'PostToolUse' 'pr-closeout-nudge.ps1' $nudgeCmd ([pscustomobject]@{ matcher = '*'; hooks = @([pscustomobject]@{ type = 'command'; command = $nudgeCmd; timeout = 15 }) }) 'claude' $pendingS ([ref]$changes) -Nested
-  $slCmd = Get-CtxCommand 'statusline'
-  $curSl = $null; if ($settings.PSObject.Properties['statusLine']) { $curSl = $settings.statusLine }
-  $curSlCmd = ''; if ($curSl -and $curSl.PSObject.Properties['command']) { $curSlCmd = [string]$curSl.command }
-  if (-not $curSl) {
-    $newSl = [pscustomobject]@{ type = 'command'; command = $slCmd }
-    if ($settings.PSObject.Properties['statusLine']) { $settings.statusLine = $newSl } else { $settings | Add-Member -NotePropertyName statusLine -NotePropertyValue $newSl }
-    $pendingS.Add(@{ kind = 'statusline'; target = 'claude'; command = $slCmd }); $changes += 'statusLine = context-guard.ps1 statusline'
-  } elseif ($curSlCmd -match 'context-guard\.ps1') {
-    if ((Get-ScriptPath $curSlCmd 'context-guard.ps1') -ieq $CtxDest) { Note 'OK' 'statusLine already runs context-guard.ps1' }
-    else { $curSl.command = $slCmd; $pendingS.Add(@{ kind = 'statusline-updated'; target = 'claude'; old = $curSlCmd; new = $slCmd }); $changes += 'statusLine: re-point context-guard.ps1' }
-  } else {
-    $shown = if ($curSlCmd) { $curSlCmd } else { ($curSl | ConvertTo-Json -Compress) }
-    Note 'WARN' "an unrelated statusLine is set and was NOT overwritten: $shown. The Claude Code 80% handoff cannot measure context without the context-guard statusLine, so it will not fire. Decide which one to keep."
-    Add-ManifestJson @{ kind = 'note'; what = 'statusline-kept'; existing = $shown }
-  }
 
   # Project instructions: read CLAUDE.md AND AGENTS.md so a leftover CLAUDE.md or CLAUDE.local.md does not
   # hide AGENTS.md. This does not create those files. Repo and Projects-root guides are AGENTS.md.
@@ -799,41 +657,9 @@ else {
   } catch { Note 'ERROR' ("claude setup -- " + $_.Exception.Message) }
 }
 
-# 7b. ~\.cursor\hooks.json: preCompact + stop run handoff-at-80.py (only with py -3); armed flag
-if ($CursorHookOk) {
-  $hjExisted = Test-Path -LiteralPath $CursorHooksJson
-  $hj = $null; $hjRaw = $null; $hjOk = $true
-  if ($hjExisted) {
-    try { $hjRaw = [IO.File]::ReadAllText($CursorHooksJson); if ($hjRaw.Trim()) { $hj = $hjRaw | ConvertFrom-Json } else { $hj = New-Object psobject } }
-    catch { $hjOk = $false; Note 'ERROR' "could not parse $CursorHooksJson (left unchanged): $($_.Exception.Message)" }
-  } else { $hj = [pscustomobject]@{ version = 1; hooks = (New-Object psobject) } }
-  if ($hjOk) {
-    if (-not $hj.PSObject.Properties['version']) { $hj | Add-Member -NotePropertyName version -NotePropertyValue 1 }
-    if (-not $hj.PSObject.Properties['hooks'] -or -not $hj.hooks) {
-      if ($hj.PSObject.Properties['hooks']) { $hj.hooks = New-Object psobject } else { $hj | Add-Member -NotePropertyName hooks -NotePropertyValue (New-Object psobject) }
-    }
-    $hjChanges = @(); $pendingC = New-Object System.Collections.Generic.List[object]
-    Merge-HookCommand $hj.hooks 'preCompact' 'handoff-at-80.py' $CursorCommand ([pscustomobject]@{ command = $CursorCommand; timeout = 10 }) 'cursor' $pendingC ([ref]$hjChanges)
-    Merge-HookCommand $hj.hooks 'stop' 'handoff-at-80.py' $CursorCommand ([pscustomobject]@{ command = $CursorCommand; timeout = 10; loop_limit = 1 }) 'cursor' $pendingC ([ref]$hjChanges)
-    if ($hjChanges.Count) {
-      $hbak = Get-FreePath "$CursorHooksJson.bak-$Stamp"
-      Invoke-Change ("update $CursorHooksJson (" + ($hjChanges -join '; ') + ')' + $(if ($hjExisted) { "; backup $hbak" } else { '; new file' })) {
-        if (-not $hjExisted) { New-RecordedDir (Split-Path $CursorHooksJson -Parent) }
-        Write-JsonChecked $CursorHooksJson $hj $hjRaw $hjExisted $hbak
-        if (-not $hjExisted) { Add-ManifestJson @{ kind = 'file-created'; target = 'cursor'; path = $CursorHooksJson } }
-        foreach ($p in $pendingC) { Add-ManifestJson $p }
-      }
-    }
-    if (Test-Path -LiteralPath $ArmedPath) { Note 'OK' "Cursor handoff hook armed: $ArmedPath" }
-    elseif ($pendingC.Count -and @($pendingC | Where-Object { $_.kind -eq 'hook' }).Count -eq $pendingC.Count) {
-      Invoke-Change "arm the Cursor handoff hook: $ArmedPath" {
-        New-RecordedDir (Split-Path $ArmedPath -Parent)
-        [IO.File]::WriteAllText($ArmedPath, 'armed', $Utf8NoBom)
-        Add-ManifestJson @{ kind = 'file'; path = $ArmedPath; sha256 = (Get-Sha $ArmedPath) }
-      }
-    } else { Note 'WARN' "Cursor handoff hook was already wired but is disarmed (no $ArmedPath). Left as is; create that file to arm it." }
-  }
-}
+# 7b. ~\.cursor\hooks.json is not changed. The Cursor 80% handoff (handoff-at-80.py), the memory-link guard and the
+#     pr-closeout nudge come from the workstation-core Cursor plugin (hooks\cursor-hooks.json; decision
+#     D-2026-11-26-hooks-in-plugin). Entries an older install added stay until the owner removes them (uninstall.ps1).
 
 # 8. Rule files. Claude Code and the Cursor desktop app (not Cowork; hooks/README.md) get the memory and lock rules from the workstation-core plugin's
 #    SessionStart hook (hooks\rules-inject.ps1), so ~\.claude\CLAUDE.md and ~\.cursor\rules\*.mdc are not

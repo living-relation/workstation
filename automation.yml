@@ -141,16 +141,16 @@ automations:
   - id: memory-link-guard
     script: memory/hooks/memory-link-guard.ps1
     helpers: [memory/hooks/tests/test-memory-link-guard-progress.ps1, memory/hooks/tests/test-memory-link-guard-worktree.ps1, memory/hooks/tests/test-memory-link-guard-cursor.ps1, hooks/tests/test-state-memory-link-guard.ps1]
-    trigger: agent-hook:SessionStart+PreToolUse (installed copy, by install)
+    trigger: agent-hook:SessionStart+PreToolUse (workstation-core plugin hooks/hooks.json and hooks/cursor-hooks.json)
     reads: [WORKSTATION_MEMORY_STORE, user .claude settings, autoMemoryDirectory junction]
     writes: [autoMemoryDirectory junction and project memory folders (outside the repo)]
     committed: no
     auto_commit: false
     enabled: true
   - id: handoff-hooks
-    script: [handoff/claude/context-guard.ps1, handoff/claude/pr-closeout-nudge.ps1, handoff/cursor/handoff-at-80.py]
-    helpers: [handoff/claude/tests/test-pr-closeout-nudge.ps1, handoff/claude/tests/test-state-closeout-trigger.ps1]
-    trigger: agent-hook:statusLine+Stop+PreCompact+PostToolUse (installed copies, by install)
+    script: [handoff/claude/context-guard.ps1, handoff/claude/pr-closeout-nudge.ps1, handoff/cursor/handoff-at-80.py, handoff/cursor/run-handoff-at-80.ps1]
+    helpers: [handoff/claude/tests/test-pr-closeout-nudge.ps1, handoff/claude/tests/test-state-closeout-trigger.ps1, handoff/claude/tests/test-hooks-from-plugin.ps1, scripts/test_hooks_in_plugin.py]
+    trigger: agent-hook:Stop+PreCompact+PostToolUse (workstation-core plugin hooks/hooks.json and hooks/cursor-hooks.json)
     reads: [agent session context usage; PostToolUse payload for pr-closeout-nudge]
     writes: [handoff backups outside the repo (inferred); no files for pr-closeout-nudge]
     committed: no

@@ -40,7 +40,9 @@ treated as deny. `hooks/cursor-hooks.json` does not wire this script.
 
 ## Launcher
 
-Every Claude command is `sh "${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh" "${CLAUDE_PLUGIN_ROOT}/hooks/<script>.ps1"`.
+Every Claude command is `sh "${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh" "${CLAUDE_PLUGIN_ROOT}/<path>/<script>.ps1" [args]`
+(most scripts are in `hooks/`; memory-link-guard, context-guard and pr-closeout-nudge run from `memory/hooks/` and
+`handoff/claude/` with `-FromPlugin`, see `handoff/README.md`).
 `run-ps.sh` runs the script with `powershell`, else `pwsh`; stdin, stdout and the exit code pass
 through (exit 2 still blocks). With neither on PATH (Linux cloud sessions such as Claude Code web and
 mobile, containers, WSL) it always exits 0:

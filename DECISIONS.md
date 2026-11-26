@@ -152,3 +152,17 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** keeping the rule per repo only.
 - **Supersedes:** the "numbered list" wording of the end-of-turn line.
 - **Reopen if:** more than 26 x 9 open questions are ever needed in one counter.
+
+## D-2026-11-26-hooks-in-plugin: the three workstation hooks ship in the workstation-core plugin
+- **Status:** accepted, 2026-11-26 (Dan)
+- **Source:** Dan's Grok Bot chat answers t1414u ("Yes", move the hooks into the plugin) and t1416u ("They work. Put them in the package"), 2026-11-26 ET.
+- **Context:** `install.ps1` copied memory-link-guard, context-guard and pr-closeout-nudge into `~\.claude\hooks`, wired them (and a context-guard `statusLine`) in `~\.claude\settings.json`, and copied `handoff-at-80.py` into `~\.cursor\hooks` with `~\.cursor\hooks.json` entries and an `armed` flag. A plugin user who never ran install got none of them.
+- **Decision:**
+  - `hooks/hooks.json` runs memory-link-guard (SessionStart, PreToolUse `Write|Edit`), context-guard (Stop, PreCompact) and pr-closeout-nudge (PostToolUse) with `-FromPlugin`. `hooks/cursor-hooks.json` runs memory-link-guard, pr-closeout-nudge and `handoff/cursor/run-handoff-at-80.ps1` (preCompact, stop).
+  - `install.ps1` copies no hook files and writes no hook entries, no `statusLine`, no `~\.cursor\hooks.json` and no armed flag. It still sets `autoMemoryDirectory` (not when that folder is a real folder holding notes) and `pluginConfigs`. It no longer writes `memory-link-guard.config.json`; the guard finds the store through the junction target, and an existing config is still read.
+  - A plugin copy stays quiet for an event while the user's settings (or `~\.cursor\hooks.json`) still wire an older installed copy of the same script for that event, so nothing runs twice. Older copies stay until the owner says to remove them; `uninstall.ps1` still removes what an older install recorded.
+  - A plugin cannot set a `statusLine`, so context-guard stop mode reads the transcript's last `usage` when no statusline file exists. The compaction point is `CLAUDE_CODE_AUTO_COMPACT_WINDOW` or `autoCompactWindow`, else 200K (1M once usage passes 200K; unverified on 1M-context models).
+  - In plugin mode memory-link-guard does nothing on a PC with no memory setup (no `WORKSTATION_MEMORY_STORE`, no guard config, no `autoMemoryDirectory`). The Cursor handoff is armed by default from the plugin; the file `~\.cursor\hooks\state\handoff-at-80\disarmed` turns it off.
+- **Rejected:** keeping install-time copies; installing a `statusLine` from the plugin (not supported); removing the existing PC copies in this change.
+- **Supersedes:** install.ps1 steps 5 (guard script and config), 6c (hook copies), 7 (hook and statusLine wiring) and 7b (Cursor hooks.json and armed flag).
+- **Reopen if:** a client runs plugin hooks differently from its docs (Cowork, Cursor My Machines workers), or the transcript usage reading proves wrong on a 1M-context model.
