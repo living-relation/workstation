@@ -7,6 +7,9 @@
       },
       {
         "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/hooks/rules-inject.ps1\""
+      },
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/memory/hooks/memory-link-guard.ps1\" -FromPlugin"
       }
     ],
     "preToolUse": [
@@ -17,12 +20,19 @@
       {
         "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/hooks/protected-files-guard.ps1\"",
         "matcher": "Write|Edit|Delete|NotebookEdit|Bash|PowerShell|Shell"
+      },
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/memory/hooks/memory-link-guard.ps1\" -FromPlugin",
+        "matcher": "Write|Edit"
       }
     ],
     "postToolUse": [
       {
         "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/hooks/sot-after-edit.ps1\"",
         "matcher": "Write|Edit"
+      },
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/handoff/claude/pr-closeout-nudge.ps1\" -FromPlugin"
       }
     ],
     "beforeShellExecution": [
@@ -39,6 +49,17 @@
       {
         "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/hooks/state-lint-stop.ps1\"",
         "loop_limit": 1
+      },
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/handoff/cursor/run-handoff-at-80.ps1\"",
+        "timeout": 10,
+        "loop_limit": 1
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CURSOR_PLUGIN_ROOT}/handoff/cursor/run-handoff-at-80.ps1\"",
+        "timeout": 10
       }
     ]
   }

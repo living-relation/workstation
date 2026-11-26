@@ -13,6 +13,16 @@
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/protected-files-guard.ps1\""
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/memory/hooks/memory-link-guard.ps1\" -FromPlugin",
+            "timeout": 20
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -22,6 +32,16 @@
           {
             "type": "command",
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/sot-after-edit.ps1\""
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/handoff/claude/pr-closeout-nudge.ps1\" -FromPlugin",
+            "timeout": 15
           }
         ]
       }
@@ -36,6 +56,11 @@
           {
             "type": "command",
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/state-lint-stop.ps1\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/handoff/claude/context-guard.ps1\" -Mode stop -FromPlugin",
+            "timeout": 15
           }
         ]
       }
@@ -54,6 +79,11 @@
           {
             "type": "command",
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/rules-inject.ps1\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/memory/hooks/memory-link-guard.ps1\" -FromPlugin",
+            "timeout": 20
           }
         ]
       }
@@ -64,6 +94,18 @@
           {
             "type": "command",
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-rules.ps1\""
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-ps.sh\" \"${CLAUDE_PLUGIN_ROOT}/handoff/claude/context-guard.ps1\" -Mode precompact -FromPlugin",
+            "timeout": 60,
+            "statusMessage": "Backing up before compaction..."
           }
         ]
       }

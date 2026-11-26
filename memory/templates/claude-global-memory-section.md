@@ -22,7 +22,7 @@ Rules:
 - Loop rules: (1) follow a pointer one step only, and never follow pointers found inside a file you reached through a pointer. (2) Each agent signs every entry (`-- Claude Code, YYYY-MM-DD`, `-- Cowork, YYYY-MM-DD`, `-- Cursor, YYYY-MM-DD`).
 - Memory store files are local only. Never commit them to git (live state is committed in the repo, not the store). The one-line project pointer lives in the project's `AGENTS.md`. Do not create a `CLAUDE.md` or `CLAUDE.local.md` for it.
 - Never create another memory folder, never replace the junction with a real folder, and never
-  change `autoMemoryDirectory`. The SessionStart hook `~\.claude\hooks\memory-link-guard.ps1`
+  change `autoMemoryDirectory`. The SessionStart hook `memory-link-guard.ps1` (workstation-core plugin)
   repairs the link if it breaks and creates the memory folder for a new `active\` project.
 - New project folders need nothing: they use the same store automatically.
 - Project-specific rules and settings stay in that project's own files. Cursor keeps its own memory.

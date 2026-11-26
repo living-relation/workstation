@@ -103,7 +103,7 @@ Say which notes you will skip as duplicates or stale. Wait for Dan's OK.
 - Keep all originals where they are until Dan OKs cleanup.
 - If `~\.claude\projects\<key>\memory` was a real folder (install.ps1 warned about it): after its notes are
   merged and Dan agrees, rename it to `memory.pre-migration-<yyyy-MM-dd>` (do not delete), then re-run
-  `install.ps1` to create the junction and wire the guard hook.
+  `install.ps1` to create the junction (the guard hook comes from the workstation-core plugin).
 - Add a pointer line to each `active\` project (template: `memory\templates\project-pointer-line.txt`,
   `{{PROJECT_SLUG}}` = the project's slug). The line names the store
   `<Projects>\_claude\Claude Projects\Working Memory\memory\<slug>\INDEX.md`. It does not use

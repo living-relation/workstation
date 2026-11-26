@@ -79,12 +79,6 @@ $DotCursor  = Join-Path $UserHome '.cursor'
 $LinkPath   = Join-Path $DotClaude "projects\$ProjectKey\memory"
 $SettingsPath = Join-Path $DotClaude 'settings.json'
 $CursorHooksJson = Join-Path $DotCursor 'hooks.json'
-$Expected = @{
-  'context-guard.ps1'      = (Join-Path $DotClaude 'hooks\context-guard.ps1')
-  'memory-link-guard.ps1'  = (Join-Path $DotClaude 'hooks\memory-link-guard.ps1')
-  'pr-closeout-nudge.ps1'  = (Join-Path $DotClaude 'hooks\pr-closeout-nudge.ps1')
-  'handoff-at-80.py'       = (Join-Path $DotCursor 'hooks\handoff-at-80.py')
-}
 $ArmedPath = Join-Path $DotCursor 'hooks\state\handoff-at-80\armed'
 if ($testMode) { $AutoMemValue = ($LinkPath -replace '\\', '/') } else { $AutoMemValue = "~/.claude/projects/$ProjectKey/memory" }
 
@@ -119,15 +113,6 @@ function Test-Under([string]$Path, [string]$Root) {
   if (-not $Path -or -not $Root) { return $false }
   $p = $Path.TrimEnd('\').ToLower(); $r = $Root.TrimEnd('\').ToLower()
   return ($p -eq $r -or $p.StartsWith($r + '\'))
-}
-# Full path of the first file in a command line whose leaf is $Leaf (quoted or not); $null if none.
-function Get-ScriptPath([string]$Cmd, [string]$Leaf) {
-  if (-not $Cmd) { return $null }
-  $e = [regex]::Escape($Leaf)
-  $m = [regex]::Match($Cmd, '(?i)"([^"]*?' + $e + ')"')
-  if (-not $m.Success) { $m = [regex]::Match($Cmd, '(?i)(\S*' + $e + ')') }
-  if ($m.Success) { return (Expand-UserPath $m.Groups[1].Value) }
-  return $null
 }
 function Get-ExePath([string]$Cmd) {
   if (-not $Cmd) { return $null }
@@ -390,12 +375,10 @@ function Test-ClaudeSettings([string]$Path, [bool]$IsUser) {
       if (-not $IsUser) { Add-Finding 'CONFLICT' 'claude' $tag "project settings also run $leaf; with the user-level hook it runs twice. Remove it from the project file."; continue }
       if ($inEv.Count -gt 1) { Add-Finding 'CONFLICT' 'claude' $tag "$($inEv.Count) entries run the same script (runs twice). Keep one." ; continue }
       if ($wantEvents[$leaf] -notcontains $ev) { Add-Finding 'WARN' 'claude' $tag "unexpected event for this script: $($inEv[0].Command)"; continue }
-      $sp = Get-ScriptPath $inEv[0].Command $leaf
-      if ($sp -ieq $Expected[$leaf]) { Add-Finding 'ALREADY-INSTALLED' 'claude' $tag $inEv[0].Command }
-      else { Add-Finding 'WARN' 'claude' $tag "points at $sp; install.ps1 re-points it to $($Expected[$leaf])" }
+      Add-Finding 'OK' 'claude' $tag "older copy wired by a previous install ($($inEv[0].Command)); the workstation-core plugin copy stays quiet for this event while it is here. install.ps1 neither changes nor removes it (uninstall.ps1 removes only what install recorded)."
     }
     if ($IsUser) {
-      foreach ($ev in $wantEvents[$leaf]) { if (-not @($mine | Where-Object Event -eq $ev).Count) { Add-Finding 'OK' 'claude' "$Path > hooks.$ev > $leaf" 'not wired yet; install.ps1 adds it' } }
+      foreach ($ev in $wantEvents[$leaf]) { if (-not @($mine | Where-Object Event -eq $ev).Count) { Add-Finding 'OK' 'claude' "$Path > hooks.$ev > $leaf" 'not wired here; the workstation-core plugin runs it (hooks/hooks.json)' } }
     }
   }
   foreach ($h in $hooks) {
@@ -407,15 +390,13 @@ function Test-ClaudeSettings([string]$Path, [bool]$IsUser) {
   if ($s.PSObject.Properties['statusLine'] -and $s.statusLine) {
     $cmd = ''; if ($s.statusLine.PSObject.Properties['command']) { $cmd = [string]$s.statusLine.command }
     if ($cmd -match 'context-guard\.ps1') {
-      $sp = Get-ScriptPath $cmd 'context-guard.ps1'
       if (-not $IsUser) { Add-Finding 'WARN' 'claude' "$Path > statusLine" 'project statusLine overrides the user one (runs context-guard from the project file)' }
-      elseif ($sp -ieq $Expected['context-guard.ps1']) { Add-Finding 'ALREADY-INSTALLED' 'claude' "$Path > statusLine" $cmd }
-      else { Add-Finding 'WARN' 'claude' "$Path > statusLine" "context-guard statusLine points at $sp; install.ps1 re-points it" }
+      else { Add-Finding 'OK' 'claude' "$Path > statusLine" "set by a previous install ($cmd); context-guard uses its numbers. install.ps1 no longer sets or changes a statusLine." }
     } else {
-      $why = if ($IsUser) { 'install.ps1 will NOT overwrite it, so the Claude Code 80% handoff cannot measure context and will not fire. Decide which statusLine to keep.' } else { 'it overrides the user statusLine in that project, so the Claude Code 80% handoff will not fire there.' }
-      Add-Finding 'WARN' 'claude' "$Path > statusLine" "another statusLine is set ($cmd); $why"
+      if ($IsUser) { Add-Finding 'OK' 'claude' "$Path > statusLine" "another statusLine is set ($cmd); install.ps1 leaves it. context-guard reads the transcript instead." }
+      else { Add-Finding 'WARN' 'claude' "$Path > statusLine" "project statusLine overrides the user one ($cmd)" }
     }
-  } elseif ($IsUser) { Add-Finding 'OK' 'claude' "$Path > statusLine" 'not set; install.ps1 adds the context-guard statusLine' }
+  } elseif ($IsUser) { Add-Finding 'OK' 'claude' "$Path > statusLine" 'not set; install.ps1 does not set one (a plugin cannot). context-guard reads the transcript instead.' }
   if ($s.PSObject.Properties['autoMemoryDirectory'] -and $s.autoMemoryDirectory) {
     $am = [string]$s.autoMemoryDirectory; $amFull = Expand-UserPath $am
     if (-not $IsUser) { Add-Finding 'WARN' 'claude' "$Path > autoMemoryDirectory" "project file sets its own memory folder ($am); it overrides the shared store in that project" }
@@ -488,8 +469,8 @@ if (Test-Path -LiteralPath $pluginListPath) {
 # ---------------------------------------------------------------- 7. Cursor hooks.json (user + project)
 function Test-CursorHooks([string]$Path, [bool]$IsUser) {
   $j = Read-JsonFile $Path
-  if (-not $j.Exists) { if ($IsUser) { Add-Finding 'OK' 'cursor' $Path 'not found; install.ps1 creates it (needs py -3)' }; return }
-  if (-not $j.Ok) { Add-Finding 'CONFLICT' 'cursor' $Path "does not parse as JSON ($($j.Err)); install.ps1 cannot merge into it."; return }
+  if (-not $j.Exists) { if ($IsUser) { Add-Finding 'OK' 'cursor' $Path 'not found; install.ps1 does not create it (the Cursor 80% handoff comes from the workstation-core plugin)' }; return }
+  if (-not $j.Ok) { Add-Finding 'WARN' 'cursor' $Path "does not parse as JSON ($($j.Err)); Cursor may ignore it. install.ps1 does not edit it."; return }
   $hooks = @(Get-CursorHooks $j.Obj)
   $leaf = 'handoff-at-80.py'
   $mine = @($hooks | Where-Object { $_.Command -match [regex]::Escape($leaf) })
@@ -497,13 +478,11 @@ function Test-CursorHooks([string]$Path, [bool]$IsUser) {
     $inEv = @($mine | Where-Object Event -eq $ev); $tag = "$Path > hooks.$ev > $leaf"
     if (-not $IsUser) { Add-Finding 'CONFLICT' 'cursor' $tag 'project hooks.json also runs it; with the user hook it fires twice. Remove it from the project file.'; continue }
     if ($inEv.Count -gt 1) { Add-Finding 'CONFLICT' 'cursor' $tag "$($inEv.Count) entries run the same script. Keep one."; continue }
-    $sp = Get-ScriptPath $inEv[0].Command $leaf
-    if ($sp -ieq $Expected[$leaf]) { Add-Finding 'ALREADY-INSTALLED' 'cursor' $tag $inEv[0].Command }
-    else { Add-Finding 'WARN' 'cursor' $tag "points at $sp; install.ps1 re-points it to $($Expected[$leaf])" }
+    Add-Finding 'OK' 'cursor' $tag "older copy wired by a previous install ($($inEv[0].Command)); the plugin copy stays quiet while it is here. install.ps1 neither changes nor removes it."
   }
   if ($IsUser) {
-    foreach ($ev in 'preCompact', 'stop') { if (-not @($mine | Where-Object Event -eq $ev).Count) { Add-Finding 'OK' 'cursor' "$Path > hooks.$ev > $leaf" 'not wired yet; install.ps1 adds it' } }
-    if ($mine.Count -and -not (Test-Path -LiteralPath $ArmedPath)) { Add-Finding 'WARN' 'cursor' $ArmedPath 'armed flag missing: the Cursor handoff hook is wired but disarmed (install.ps1 creates the flag only on a fresh install of the hook)' }
+    foreach ($ev in 'preCompact', 'stop') { if (-not @($mine | Where-Object Event -eq $ev).Count) { Add-Finding 'OK' 'cursor' "$Path > hooks.$ev > $leaf" 'not wired here; the workstation-core Cursor plugin runs it (hooks/cursor-hooks.json)' } }
+    if ($mine.Count -and -not (Test-Path -LiteralPath $ArmedPath)) { Add-Finding 'WARN' 'cursor' $ArmedPath 'armed flag missing: the older wired copy is disarmed, and the plugin copy stays quiet while that copy is wired, so the Cursor handoff does not fire' }
   }
   foreach ($h in $hooks) {
     if ($h.Command -match [regex]::Escape($leaf)) { continue }
@@ -514,7 +493,7 @@ function Test-CursorHooks([string]$Path, [bool]$IsUser) {
 }
 Test-CursorHooks $CursorHooksJson $true
 foreach ($f in @(@(Get-ChildItem -Path "$ProjectsRoot\.cursor\hooks.json", "$ProjectsRoot\active\*\.cursor\hooks.json" -File -Force -ErrorAction SilentlyContinue) | Sort-Object FullName -Unique)) { Test-CursorHooks $f.FullName $false }
-Add-Finding 'OK' 'cursor' 'Claude hooks inside Cursor' 'Cursor also runs ~/.claude/settings.json hooks; context-guard.ps1 ignores Cursor payloads (conversation_id), so only handoff-at-80.py fires in Cursor.'
+Add-Finding 'OK' 'cursor' 'Claude hooks inside Cursor' 'Cursor also runs ~/.claude/settings.json hooks; context-guard.ps1 ignores Cursor payloads (conversation_id), so only handoff-at-80.py (from the workstation-core Cursor plugin, or an older wired copy) fires in Cursor.'
 
 # ---------------------------------------------------------------- 8. skills and rules
 $skillRoots = New-Object System.Collections.Generic.List[object]   # {Path; Owner = cursor|claude}

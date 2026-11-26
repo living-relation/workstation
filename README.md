@@ -171,8 +171,9 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
   into `~/.claude.json` (kapture, github, githits, fetch, windows-mcp, context7). Required
   API keys are read from env or prompted; a server that still lacks a key is skipped with a message.
   `plugins.json` is the source of truth for plugins installed from Anthropic's
-  official marketplace at user scope. `handoff/claude/pr-closeout-nudge.ps1` is copied into `~/.claude/hooks` and
-  wired as a PostToolUse hook in `~/.claude/settings.json` next to context-guard and memory-link-guard.
+  official marketplace at user scope. memory-link-guard, context-guard and pr-closeout-nudge ship in the
+  workstation-core plugin (`hooks/hooks.json`, `hooks/cursor-hooks.json`); install.ps1 copies no hook files and writes
+  no hook entries or statusLine (decision D-2026-11-26-hooks-in-plugin).
   **Memory split:** Claude Code's shared store is `<Projects>\_claude\Claude Projects\Working Memory\memory\`
   (the `autoMemoryDirectory` junction plus `memory-link-guard.ps1`). Tiers (decision 2026-11-22): the repo (git) holds the router
   `AGENTS.md`, SPEC, DECISIONS, rules, data and live state (`STATE.md`, `STATE-<slug>.md`, `BACKLOG.md`,
