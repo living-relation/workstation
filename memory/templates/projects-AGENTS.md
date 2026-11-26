@@ -2,7 +2,7 @@
 
 **Root:** `{{PROJECTS_ROOT}}`
 
-This is the one guide for the Projects root, for Claude Code, Cursor and any other agent that reads `AGENTS.md`. There is no root `CLAUDE.md`: Claude Code reads this file because Project instructions is set to `claude-md-and-agents-md` in `~\.claude\settings.json`. If any `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` is found in a repo, fold its content into that repo's `AGENTS.md` (keep every rule, drop exact duplicates), then delete the CLAUDE file, in the same PR. That fold-and-delete is pre-approved by Dan.
+This is the one guide for the Projects root, for Claude Code, Cursor and any other agent that reads `AGENTS.md`. There is no root `CLAUDE.md`: Claude Code (2.1.281 or newer) reads this file, and a `CLAUDE.md` or `CLAUDE.local.md` could hide it. If any `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` is found in a repo, fold its content into that repo's `AGENTS.md` (keep every rule, drop exact duplicates), then delete the CLAUDE file, in the same PR. That fold-and-delete is pre-approved by Dan.
 
 All durable work for this PC lives under this root. Prefer paths here over Downloads, Desktop or ad-hoc temp folders.
 
@@ -56,7 +56,7 @@ Inside the store, `MEMORY.md` is the no-project index (general notes, one line p
 
 ## Workstation toolkit (`{{TOOLKIT_PATH}}\`)
 
-Operator scripts for this PC. **Git is the primary bridge** (commit + push remotely, then `git pull --ff-only` in that one repo on this PC). The scripts run straight from the workstation repo clone (keep that clone on `main`); there is no installed copy under the Projects root. Health check: `{{TOOLKIT_PATH}}\health\workstation-status.ps1`. Desktop Commander is manual only (one phone remote per PC, no sign-in item): Start, Stop, and status links in the clone's `shortcuts\` folder. Runtime files live in `%LOCALAPPDATA%\Workstation\`, never in the clone. Nothing auto-starts. See `{{TOOLKIT_PATH}}\README.md`.
+Operator scripts for this PC. **Git is the primary bridge** (commit + push remotely, then `git pull --ff-only` in that one repo on this PC). The scripts run straight from the workstation repo clone (keep that clone on `main`); there is no installed copy under the Projects root. Health check: `{{TOOLKIT_PATH}}\health\workstation-status.ps1`. Runtime files live in `%LOCALAPPDATA%\Workstation\`, never in the clone. Nothing auto-starts. See `{{TOOLKIT_PATH}}\README.md`.
 
 ```powershell
 powershell -File "{{TOOLKIT_PATH}}\{{TOOLKIT_STATUS}}"

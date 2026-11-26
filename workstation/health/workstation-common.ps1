@@ -98,13 +98,6 @@ function Show-MemoryAndHooks {
             if (Test-Path -LiteralPath $amdPath) { Write-Ok "autoMemoryDirectory -> $amdPath" }
             else { Write-Bad "autoMemoryDirectory points at a missing folder: $amdPath" }
         }
-        $ifv = $null
-        foreach ($pn in 'cc-plugin-agents-md@builtin','agents-md@builtin') {
-            $pc = $null; if ($settings.pluginConfigs) { $pc = $settings.pluginConfigs.$pn }
-            if ($pc -and $pc.options -and $pc.options.instructionFiles) { $ifv = "$($pc.options.instructionFiles)"; break }
-        }
-        if ($ifv -eq 'claude-md-and-agents-md') { Write-Ok "Claude reads both CLAUDE.md and AGENTS.md ($ifv)" }
-        else { Write-Warn "Claude read-both setting is off (instructionFiles=$(if($ifv){$ifv}else{'unset'}))" }
     }
     Write-Off 'working-memory junction is not checked (a leftover is harmless)'
     $rootClaude = Join-Path $BridgeProjects 'CLAUDE.md'
@@ -216,47 +209,6 @@ function Show-Plugins {
     } else {
         Write-Off 'claude.ai copy: none synced to this PC. Claude desktop and Cowork read workstation-core from your claude.ai account (Customize > Plugins); a script cannot see it'
     }
-}
-
-function Show-DcRemote {
-    Write-Host ''
-    Write-Host 'Desktop Commander remote' -ForegroundColor Cyan
-    $rows = @(Get-DcRemoteRows)
-    if ($rows.Count -eq 0) { Write-Stop 'Desktop Commander remote STOPPED (manual Start only; one copy serves all chats)' }
-    elseif ($rows.Count -eq 1) {
-        if ($rows[0].Verdict -eq 'online') { Write-Run "Desktop Commander remote RUNNING: one copy, pid $($rows[0].Pid) (one copy serves all chats)" }
-        else { Write-Warn "Desktop Commander remote: one copy, pid $($rows[0].Pid), is $($rows[0].Verdict) (its window or parent is gone). Use Stop Desktop Commander, then Start" }
-    }
-    else {
-        $keep = Get-DcRemoteKeep $rows
-        if ($keep) { Write-Warn "Desktop Commander remote RUNNING pid $($keep.Pid), plus $($rows.Count - 1) extra copy(ies). Start Desktop Commander stops the extras" }
-        else { Write-Warn "Desktop Commander remote: $($rows.Count) copies, none healthy. Use Stop Desktop Commander, then Start" }
-    }
-}
-
-function Show-DcAutostart {
-    $hits = @()
-    $startup = [Environment]::GetFolderPath('Startup')
-    if ($startup -and (Test-Path -LiteralPath $startup)) {
-        $wsh = $null
-        try { $wsh = New-Object -ComObject WScript.Shell } catch { $wsh = $null }
-        foreach ($l in @(Get-ChildItem -LiteralPath $startup -Filter *.lnk -ErrorAction SilentlyContinue)) {
-            $cmd = ''
-            if ($wsh) { try { $s = $wsh.CreateShortcut($l.FullName); $cmd = "$($s.TargetPath) $($s.Arguments)" } catch { $cmd = '' } }
-            if ($cmd -match 'start-dc-remote\.ps1') { $hits += $l.FullName }
-        }
-    }
-    foreach ($run in @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Run')) {
-        if (-not (Test-Path -LiteralPath $run)) { continue }
-        try { $props = Get-ItemProperty -LiteralPath $run -ErrorAction Stop } catch { continue }
-        foreach ($p in $props.PSObject.Properties) {
-            if ($p.Name -like 'PS*') { continue }
-            $v = [string]$p.Value
-            if ($v -match 'start-dc-remote\.ps1') { $hits += "Run:$($p.Name)" }
-        }
-    }
-    if ($hits) { Write-Warn ("Desktop Commander remote starts at sign-in: " + ($hits -join ', ')) }
-    else { Write-Ok 'Desktop Commander remote does not start at sign-in' }
 }
 
 function Show-CursorWorker {

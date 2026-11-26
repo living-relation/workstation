@@ -126,9 +126,9 @@ are not a letter or digit becomes `-` (for example `My Project.v2` -> `my-projec
 ## Step 5: one AGENTS.md (CLAUDE.md merged into it)
 
 Every agent uses `AGENTS.md`. Wherever a `CLAUDE.md`, an `AGENTS.md`, or both exist, they become one
-`AGENTS.md`. Claude Code (2.1.281 or newer) reads it next to any `CLAUDE.local.md` only because install.ps1
-sets Project instructions to `claude-md-and-agents-md` in `%USERPROFILE%\.claude\settings.json`
-(preflight shows it). Without that, a `CLAUDE.md` or `CLAUDE.local.md` hides `AGENTS.md`.
+`AGENTS.md`. Claude Code (2.1.281 or newer) reads `AGENTS.md`; a leftover `CLAUDE.md` or `CLAUDE.local.md` can
+hide it, which is why the CLAUDE files are folded in and deleted. install.ps1 does not change Claude Code's
+Project instructions setting (D-2026-11-26-no-third-party-installs).
 
 1. Projects root (do this yourself, no approval needed, because the root is not a git repo):
    - First check that the root is not a git repo (`git -C <Projects> rev-parse --is-inside-work-tree`

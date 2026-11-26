@@ -1,7 +1,6 @@
 # Workstation helpers
 
-- `health/` - Health check (`workstation-status.ps1`). Read-only: memory, hooks, plugins (Claude Code, Cursor, claude.ai), app locks, the Desktop Commander phone remote, and the Cursor worker. Marks: `[ OK ]` fine, `[ RUN ]` running, `[STOP]` off (normal for a manual tool), `[ -- ]` not checked or info only, `[WARN]` / `[FAIL]` needs a fix. `-Locks` checks only the locks. install also makes a manual Health check shortcut. No sign-in item.
-- `desktop-commander-remote/` - manual Start, Stop, and status. One phone remote per PC. No sign-in item. Start does not launch the desktop app.
+- `health/` - Health check (`workstation-status.ps1`). Read-only: memory, hooks, plugins (Claude Code, Cursor, claude.ai), app locks, and the Cursor worker. Marks: `[ OK ]` fine, `[ RUN ]` running, `[STOP]` off (normal for a manual tool), `[ -- ]` not checked or info only, `[WARN]` / `[FAIL]` needs a fix. `-Locks` checks only the locks. install also makes a manual Health check shortcut. No sign-in item.
 - `cursor-worker/` - manual Start and Stop for a Cursor self-hosted worker. Start lists folders in the detected `<Projects>\active` and starts the one you pick. Run it again for another folder. Stop lists workers this tool started. No sign-in item, no scheduled task, no hourly check.
 - `kill-orphans.ps1` - lists leftover processes and asks before stopping each one.
 - `check-upstream.ps1` - manual. Merges upstream into a skill that has `metadata.upstream` and opens a PR. No schedule.

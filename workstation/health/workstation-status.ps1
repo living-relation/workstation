@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-# Health check (read-only): memory, hooks, skills, app locks, the phone remote,
+# Health check (read-only): memory, hooks, skills, app locks,
 # and the manual Cursor worker. [ RUN ] = running, [STOP] = off (normal for a manual tool),
 # [ -- ] = not checked or info only, [WARN] / [FAIL] = needs a fix.
 # -NoPause never prompts. -Locks runs only the app-lock check.
@@ -17,8 +17,6 @@ if ($Locks) {
 Write-Title 'Health check'
 Show-MemoryAndHooks
 Show-Plugins
-Show-DcRemote
-Show-DcAutostart
 Show-CursorWorker
 Show-Orphans
 Write-Host ''

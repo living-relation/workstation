@@ -126,29 +126,25 @@ New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cursor\plugins\loca
 
 5. Fully quit and reopen Cursor.
 
-The Workstation toolkit (`workstation\`: Health check, app locks, the manual Cursor worker, and the manual Desktop Commander shortcuts) runs
+The Workstation toolkit (`workstation\`: Health check, app locks and the manual Cursor worker) runs
 straight from this clone; install.ps1 copies nothing under the Projects root. Keep the clone on `main`.
 Runtime files live in `%LOCALAPPDATA%\Workstation\`, never in the clone.
-**Desktop Commander and the Cursor worker do not start on their own.** No Startup item, no Run key, and no scheduled task.
+**The Cursor worker does not start on its own.** No Startup item, no Run key, and no scheduled task.
 
-**Desktop Commander (manual, one phone remote per PC).** It serves every chat and project. The MCP plugin that
-Claude starts is separate and is not changed here. `install.ps1` creates these manual links in `shortcuts\` (gitignored). Nothing starts at sign-in:
+`install.ps1` creates these manual links in `shortcuts\` (gitignored). Nothing starts at sign-in:
 
 - **Health check** runs `workstation\health\workstation-status.ps1`. Marks: `[ OK ]` checked and fine, `[ RUN ]` running, `[STOP]` off (normal for a manual tool), `[ -- ]` not checked or info only, `[WARN]` / `[FAIL]` needs a fix. The Plugins section compares the Claude Code workstation-core copy with this clone's `origin/main` (as of the last pull) and the Cursor copy with this clone's files.
-- **Start Desktop Commander** runs `workstation\desktop-commander-remote\start-dc-remote.ps1 -Show`. It stops stale or duplicate phone-remote copies, then starts exactly one with `npx.cmd @wonderwhy-er/desktop-commander@latest remote`, or says the healthy copy is already online. It does not launch or remove the Desktop Commander desktop app. The MCP plugin is separate and starts with Claude.
-- **Stop Desktop Commander** stops the phone remote.
-- **DC remote status** lists each copy: PID, start time, whether its parent and console are alive, and an online / stale / duplicate verdict, plus the line `one copy serves all chats`.
 - **Kill orphaned remote processes** lists leftovers and asks once per item.
 
-On Windows one phone remote is a chain: cmd, then npx's node, then cmd, then the node remote. That chain is one copy. A healthy copy has a live parent and a live console. Leave that copy alone. Kill orphaned remote processes offers a copy whose terminal is gone, and extra copies when more than one remote is running (it keeps the newest and asks first). `-WhatIf` only lists. `-Force` stops the listed copies but never stops the newest remote unless you also pass `-IncludeActiveRemote`. Stopping uses taskkill /T on that copy's own chain, so a yes does not take down the healthy remote. The single healthy copy is never listed. Claude's Desktop Commander plugin is not listed. Health check says `[STOP]` when no remote is running (normal: it is manual), `[ RUN ]` when one healthy copy is running, and warns when that copy is stale or extra copies or other leftovers are present. It also checks that the remote does not start at sign-in.
+Kill orphaned remote processes offers leftovers (the old local web server, the old watcher, a Claude remote-control session whose parent is gone) and asks first. `-WhatIf` only lists. `-Force` stops the listed items without asking. Health check warns when such leftovers are present.
 
 **Cursor worker (manual, one per folder you pick).** `install.ps1` adds **Start Cursor worker** and **Stop Cursor worker** in `shortcuts\`. No Windows startup entry (sign-in or reboot) starts it; the Cursor app can restart its own worker when Cursor opens, and Health check warns about that. Start lists the folders in `<Projects>\active` on this PC (the root is detected, not hard-coded) and starts one worker for the folder you pick. Run Start again to add another folder. Stop lists the workers this tool started and stops one or all. The command is `agent worker --name <pc>-<folder> --worker-dir <folder> --data-dir <local instance dir> --management-addr 127.0.0.1:<port> --idle-release-timeout 0 --label workstation=manual start`. Details and the doc links are in `workstation\cursor-worker\README.md`. Start waits a few seconds and reports a failure (with the error and `agent login` advice) when the worker exits right away. Health check shows `[STOP]` when no worker is running (normal), `[ RUN ]` for each running worker, including one the Cursor app started by itself, and `[FAIL]` for a worker that Start recorded but that exited with an error since the last boot. It warns if a sign-in item, Run key, or scheduled task would start the worker, or if the Cursor app restarts its own worker at app launch. A folder with no git origin can still be started; Cursor may not match it to a repo.
 
 `install.ps1` removes `shortcuts\rc` only when that folder is empty. A folder that still has files, or that is a link, is left alone.
 
-Logs: `%LOCALAPPDATA%\Workstation\desktop-commander-remote\`. No token is stored in this repo.
+No token is stored in this repo.
 
-On a PC that still has the old local setup, run `cleanup-legacy.ps1 -WhatIf`, then without `-WhatIf`. It backs up with SHA256 hashes first. A log the old server still has open is skipped instead of aborting the run. It says it would stop the old web server only when that process is actually running. It does not stop the phone remote and does not archive that state folder. Then run `install.ps1` so the manual links, including Health check, exist again.
+On a PC that still has the old local setup, run `cleanup-legacy.ps1 -WhatIf`, then without `-WhatIf`. It backs up with SHA256 hashes first. A log the old server still has open is skipped instead of aborting the run. It says it would stop the old web server only when that process is actually running. Then run `install.ps1` so the manual links, including Health check, exist again.
 WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `bash setup.sh`.
 
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).
@@ -166,12 +162,9 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
 - Ownership notes: `install.ps1` runs `ownership-notes.ps1`, which adds a README.md/AGENTS.md ("owned by the workstation repo")
   to each folder it creates (`%LOCALAPPDATA%\Workstation` and its subfolders, `<Projects>\_claude`). In the shared
   skill folders it adds only `README-workstation.md`, which lists the links this repo owns. Existing files are never changed.
-- `claude/` - Claude Code user-scope setup that `install.ps1` applies on each PC (merge; backup first; never
-  removes or overwrites servers/plugins/hooks it did not add). `mcp-servers.json` is the connector list merged
-  into `~/.claude.json` (kapture, github, githits, fetch, windows-mcp, context7). Required
-  API keys are read from env or prompted; a server that still lacks a key is skipped with a message.
-  `plugins.json` is the source of truth for plugins installed from Anthropic's
-  official marketplace at user scope. memory-link-guard, context-guard and pr-closeout-nudge ship in the
+- Third-party installs: none (decision D-2026-11-26-no-third-party-installs). `install.ps1` installs only workstation-core
+  items. It adds no MCP servers to `~/.claude.json`, installs no other Claude plugins, installs no Desktop Commander
+  and does not set `pluginConfigs`; which plugins and MCP servers a PC has is the user's choice. memory-link-guard, context-guard and pr-closeout-nudge ship in the
   workstation-core plugin (`hooks/hooks.json`, `hooks/cursor-hooks.json`); install.ps1 copies no hook files and writes
   no hook entries or statusLine (decision D-2026-11-26-hooks-in-plugin).
   **Memory split:** Claude Code's shared store is `<Projects>\_claude\Claude Projects\Working Memory\memory\`

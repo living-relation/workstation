@@ -24,11 +24,10 @@
   - <Projects>\AGENTS.md (read by every agent, including ones with no hooks) still gets the memory section
     (marker <!-- shared-memory:v1 -->) and the lock block (<!-- app-locks:v1 -->) when missing.
     uninstall removes only a block this install added.
-  - Backs up ~\.claude\settings.json and ~\.claude.json (timestamped .bak next to each) before changing them.
-  - Sets Claude Code's Project instructions to claude-md-and-agents-md (read CLAUDE.md AND AGENTS.md) in
-    ~\.claude\settings.json > pluginConfigs (plugin cc-plugin-agents-md@builtin, or agents-md@builtin before
-    Claude Code 2.1.285). This does not create a CLAUDE.md. It keeps AGENTS.md visible if a leftover
-    CLAUDE file would hide it. WARN if Claude Code is older than 2.1.281. uninstall.ps1 reverts only that key.
+  - Backs up ~\.claude\settings.json (timestamped .bak next to it) before changing it.
+  - Installs nothing third-party (decision D-2026-11-26-no-third-party-installs): no MCP servers in ~\.claude.json,
+    no other Claude Code plugins, no Desktop Commander, and no pluginConfigs in ~\.claude\settings.json. Which
+    plugins and MCP servers a PC has is the user's choice. Anything an older install added stays as it is.
   - Does not change Claude Code autoMode, and does not write a remote-control startup flag.
   - The Projects root guide is AGENTS.md (memory section appended there). Install does not create a root
     CLAUDE.md and does not edit one. A leftover root CLAUDE.md is only warned: fold it into AGENTS.md
@@ -37,7 +36,7 @@
     e.g. <clone>\workstation\). Writes %LOCALAPPDATA%\<StateFolder>\<ConfigFile> (projectsRoot) so the scripts find
     the Projects root; runtime files (worker logs and instance notes) also go under %LOCALAPPDATA%\<StateFolder>\,
     never into the clone. Then creates manual shortcuts (Health check, Start and Stop Cursor worker,
-    Start, Stop, and status for Desktop Commander, and the orphan tool) in this
+    and the orphan tool) in this
     package's shortcuts\ folder. Those links are gitignored.
     An empty shortcuts\rc folder left by the old per-project links is removed. A folder that still has
     files, or that is a link, is left alone. No Startup item and no Run key.
@@ -59,15 +58,8 @@
     `claude plugin install workstation-core@workstation-plugins` (skipped if the claude CLI is missing;
     it never uninstalls or disables a plugin). This script does not
     copy skills into ~\.claude\skills. No zip upload. On a real run it opens the Plugins page and prints the clicks.
-  - Merges Claude Code MCP connectors into ~\.claude.json (user-scope) from claude\mcp-servers.json.
-    Existing servers of the same name are left alone. API keys come from env (or a
-    prompt unless -Quiet / CI / -WhatIf / -UserHome); a server that still lacks a required key is skipped with a
-    message, not a failed install. Then installs Claude Code plugins at user scope from claude\plugins.json
-    (Anthropic official marketplace). A plugin already enabled in ~\.claude\settings.json, or already
-    installed at user scope, is left as is (a dry run says OK, not WOULD install). That file is the source
-    of truth for plugin names. Nothing is scheduled and nothing reinstalls in the background.
+    Nothing is scheduled and nothing reinstalls in the background.
     An existing Cursor sign-in entry is only reported (WARN), never added or removed.
-    Desktop Commander is a manual shortcut only.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
   - Does NOT migrate old memory. See MIGRATION.md.
   - Ends by running Health check (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts.
@@ -94,7 +86,7 @@
   (test mode: under -UserHome).
 
 .PARAMETER NoPopup
-  Quiet run: passed to claude\claude-setup.ps1 as -Quiet (no API key prompts). Alias: Quiet.
+  Quiet run: skips the instruction paste helper at the end. Alias: Quiet.
 
 .PARAMETER ReportDir
   Folder for the preflight report. Default: %TEMP% (never the package/repo folder).
@@ -394,14 +386,6 @@ function New-RecordedDir([string]$Dir) {
   while ($d -and -not (Test-Path -LiteralPath $d)) { $missing = @($d) + $missing; $d = Split-Path $d -Parent }
   foreach ($m in $missing) { New-Item -ItemType Directory -Path $m -Force | Out-Null; Add-ManifestJson @{ kind = 'dir'; path = $m } }
 }
-# pluginConfigs.<Plugin>.options.instructionFiles from a parsed settings object, or $null.
-function Get-InstructionFiles($S, [string]$Plugin) {
-  if (-not $S -or -not $S.PSObject.Properties['pluginConfigs'] -or -not $S.pluginConfigs) { return $null }
-  $p = $S.pluginConfigs.PSObject.Properties[$Plugin]; if (-not $p -or -not $p.Value) { return $null }
-  $o = $p.Value.PSObject.Properties['options']; if (-not $o -or -not $o.Value) { return $null }
-  $f = $o.Value.PSObject.Properties['instructionFiles']; if (-not $f) { return $null }
-  return [string]$f.Value
-}
 # Writes JSON, checks it parses, restores the backup if not. Keeps the file's newline style and final newline.
 function Write-JsonChecked([string]$Path, $Obj, [string]$Raw, [bool]$Existed, [string]$Bak) {
   $nl = "`r`n"; if ($Existed -and $Raw -and $Raw.Contains("`n") -and -not $Raw.Contains("`r`n")) { $nl = "`n" }
@@ -553,7 +537,7 @@ Note 'OK' '~\.claude\working-memory is not created or checked. A leftover juncti
 # 6c. No hook files are copied into ~\.claude\hooks or ~\.cursor\hooks. context-guard.ps1, pr-closeout-nudge.ps1,
 #     memory-link-guard.ps1 and handoff-at-80.py run from the workstation-core plugin (decision D-2026-11-26-hooks-in-plugin).
 
-# 7. ~\.claude\settings.json: merge autoMemoryDirectory and the Project instructions option, keep everything else. No hooks and no statusLine (they come from the workstation-core plugin). Does not change autoMode or a remote-control startup flag.
+# 7. ~\.claude\settings.json: merge autoMemoryDirectory, keep everything else. No hooks and no statusLine (they come from the workstation-core plugin). Does not change autoMode or a remote-control startup flag.
 $settings = $null; $settingsOk = $true; $settingsExisted = Test-Path -LiteralPath $SettingsPath
 if ($AutoMemAtStore) {
   $settingsOk = $false
@@ -593,43 +577,6 @@ if ($settingsOk) {
   # plugin copy of each script stays quiet for an event an older copy still handles, so nothing runs twice.
   $pendingS = New-Object System.Collections.Generic.List[object]
 
-  # Project instructions: read CLAUDE.md AND AGENTS.md so a leftover CLAUDE.md or CLAUDE.local.md does not
-  # hide AGENTS.md. This does not create those files. Repo and Projects-root guides are AGENTS.md.
-  # Honored only in the user settings file.
-  $ReadBoth = 'claude-md-and-agents-md'
-  $cv = $Preflight.ClaudeVer
-  $ap = [string]$Preflight.AgentsPlugin; if (-not $ap) { $ap = 'cc-plugin-agents-md@builtin' }
-  if (-not $cv) { Note 'WARN' "Claude Code not found (claude --version). AGENTS.md loading needs Claude Code 2.1.281 or newer; the read-both option is still set (under $ap)." }
-  elseif ($cv -lt [version]'2.1.281') { Note 'WARN' "Claude Code $cv is older than 2.1.281: it may not load AGENTS.md. Update Claude Code. The read-both option is set under $ap (newer versions read it too)." }
-  else { Note 'OK' "Claude Code $cv (AGENTS.md loading needs 2.1.281+); plugin id $ap" }
-  $otherId = if ($ap -eq 'agents-md@builtin') { 'cc-plugin-agents-md@builtin' } else { 'agents-md@builtin' }
-  $curIF = Get-InstructionFiles $settings $ap
-  $otherOk = ($cv -and $cv -ge [version]'2.1.285' -and (Get-InstructionFiles $settings $otherId) -eq $ReadBoth)
-  if ($curIF -eq $ReadBoth -or $otherOk) {
-    Note 'OK' "Project instructions already $ReadBoth (pluginConfigs > $(if ($curIF -eq $ReadBoth) { $ap } else { $otherId }))"
-    if ($firstInstall) { Add-ManifestJson @{ kind = 'plugin-config-preexisting'; target = 'claude'; plugin = $ap; value = $ReadBoth } }
-  } else {
-    $hadPC = [bool]($settings.PSObject.Properties['pluginConfigs'] -and $settings.pluginConfigs)
-    if (-not $hadPC) {
-      if ($settings.PSObject.Properties['pluginConfigs']) { $settings.pluginConfigs = New-Object psobject } else { $settings | Add-Member -NotePropertyName pluginConfigs -NotePropertyValue (New-Object psobject) }
-    }
-    $hadP = [bool]($settings.pluginConfigs.PSObject.Properties[$ap] -and $settings.pluginConfigs.$ap)
-    if (-not $hadP) {
-      if ($settings.pluginConfigs.PSObject.Properties[$ap]) { $settings.pluginConfigs.$ap = New-Object psobject } else { $settings.pluginConfigs | Add-Member -NotePropertyName $ap -NotePropertyValue (New-Object psobject) }
-    }
-    $pobj = $settings.pluginConfigs.$ap
-    $hadO = [bool]($pobj.PSObject.Properties['options'] -and $pobj.options)
-    if (-not $hadO) {
-      if ($pobj.PSObject.Properties['options']) { $pobj.options = New-Object psobject } else { $pobj | Add-Member -NotePropertyName options -NotePropertyValue (New-Object psobject) }
-    }
-    $hadIF = [bool]$pobj.options.PSObject.Properties['instructionFiles']
-    if ($hadIF) { Note 'WARN' "Project instructions was '$curIF'; set to $ReadBoth (uninstall.ps1 puts '$curIF' back)."; $pobj.options.instructionFiles = $ReadBoth }
-    else { $pobj.options | Add-Member -NotePropertyName instructionFiles -NotePropertyValue $ReadBoth }
-    $changes += "pluginConfigs.$ap.options.instructionFiles = $ReadBoth"
-    # uninstall reverts exactly this key (prior value, or no key, plus the parent objects install created)
-    $pendingS.Add(@{ kind = 'plugin-config'; target = 'claude'; plugin = $ap; value = $ReadBoth; hadPrior = $hadIF; prior = $(if ($hadIF) { $curIF } else { $null }); createdPluginConfigs = (-not $hadPC); createdPlugin = (-not $hadP); createdOptions = (-not $hadO) })
-  }
-
   if ($changes.Count -gt 0) {
     $bak = Get-FreePath "$SettingsPath.bak-$Stamp"
     $what = "update $SettingsPath (" + ($changes -join '; ') + ')' + $(if ($settingsExisted) { "; backup $bak" } else { '' })
@@ -640,22 +587,8 @@ if ($settingsOk) {
   }
 }
 
-# 7c. Claude Code MCP connectors (~/.claude.json) and official-marketplace plugins (claude\)
-$ccSetup = Join-Path $PkgRoot 'claude\claude-setup.ps1'
-if (-not (Test-Path -LiteralPath $ccSetup)) { Note 'ERROR' "claude-setup.ps1 not found: $ccSetup" }
-else {
-  $ccArgs = @{ ProjectsRoot = $ProjectsRoot }
-  if ($testMode) { $ccArgs.UserHome = $UserHome }
-  if ($WhatIf) { $ccArgs.WhatIf = $true }
-  if ($NoPopup) { $ccArgs.Quiet = $true }
-  try {
-    foreach ($r in @(& $ccSetup @ccArgs)) {
-      if (-not $r -or -not $r.PSObject.Properties['Status']) { continue }
-      Note $r.Status $r.Item
-      if ($r.Manifest -and -not $WhatIf) { Add-ManifestJson $r.Manifest }
-    }
-  } catch { Note 'ERROR' ("claude setup -- " + $_.Exception.Message) }
-}
+# 7c. No third-party installs (decision D-2026-11-26-no-third-party-installs): no MCP servers, no other Claude Code
+#     plugins, no Desktop Commander and no pluginConfigs. What an older install added stays as it is.
 
 # 7b. ~\.cursor\hooks.json is not changed. The Cursor 80% handoff (handoff-at-80.py), the memory-link guard and the
 #     pr-closeout nudge come from the workstation-core Cursor plugin (hooks\cursor-hooks.json; decision
@@ -827,7 +760,7 @@ if ($attention.Count) {
 }
 Write-Host ''
 if ($WhatIf) { Write-Host 'Dry run only. Nothing was changed. Run again without -WhatIf to apply.' -ForegroundColor Cyan }
-else { Write-Host 'Desktop Commander and the Cursor worker run only from their manual shortcuts. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
+else { Write-Host 'The Cursor worker runs only from its manual shortcuts. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
 Invoke-StatusCheck
 
 # Paste helper: one instruction file at a time. -Quiet skips it. A dry run and -UserHome only print the plan.

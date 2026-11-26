@@ -166,3 +166,16 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** keeping install-time copies; installing a `statusLine` from the plugin (not supported); removing the existing PC copies in this change.
 - **Supersedes:** install.ps1 steps 5 (guard script and config), 6c (hook copies), 7 (hook and statusLine wiring) and 7b (Cursor hooks.json and armed flag).
 - **Reopen if:** a client runs plugin hooks differently from its docs (Cowork, Cursor My Machines workers), or the transcript usage reading proves wrong on a 1M-context model.
+
+## D-2026-11-26-no-third-party-installs: workstation installs only workstation-core items
+- **Status:** accepted, 2026-11-26 (Dan)
+- **Source:** Dan's Grok Bot chat, 2026-11-26 ET: "Any plugins that are not managed by us are none of our business and should not be included in an install... The only things we should install are those items related to the workstation core repo package"; card answer t1416s6192 ("Remove claude/, Desktop Commander and the CLAUDE.md+AGENTS.md setting from workstation").
+- **Context:** `install.ps1` step 7c ran `claude/claude-setup.ps1`, which merged 6 MCP servers from `claude/mcp-servers.json` into `~\.claude.json` (prompting for API keys) and installed the official-marketplace plugins listed in `claude/plugins.json`. The toolkit also shipped Desktop Commander phone-remote scripts, shortcuts and health checks, and install set `pluginConfigs` (Project instructions = claude-md-and-agents-md) in `~\.claude\settings.json`. None of these are workstation-core items.
+- **Decision:**
+  - `install.ps1` installs only workstation-core items. It adds no MCP servers, installs no other Claude Code plugins, installs no Desktop Commander and does not set `pluginConfigs`. Which plugins and MCP servers a PC has is the user's choice.
+  - Removed from the repo: `claude/` (`mcp-servers.json`, `plugins.json`, `claude-setup.ps1` and its test), `workstation/desktop-commander-remote/`, its shortcuts and Health check sections, the Desktop Commander pin in `workstation.lock.yaml`, and the `pluginConfigs` code in install, preflight and the Health check.
+  - Nothing already installed is removed. `uninstall.ps1` lists MCP servers, plugins and `pluginConfigs` an older install recorded and leaves them as they are. No cleanup step is added.
+  - The orphan tool and Health check still list the old web server, the old watcher and a Claude remote-control session whose parent is gone; they no longer know about Desktop Commander.
+- **Rejected:** keeping a curated MCP server and plugin list; keeping Desktop Commander as a manual toolkit shortcut; removing what older installs added (that stays the user's call).
+- **Supersedes:** the 2026-10-29 rule (BACKLOG.md, 2026-10-29) that install makes Claude Code MCP connectors and official-marketplace plugins match `claude\mcp-servers.json` and `claude\plugins.json`; the Desktop Commander parts of D-2026-11-23-health-indicators; the `pluginConfigs` part of D-2026-11-26-hooks-in-plugin (install no longer sets Project instructions to claude-md-and-agents-md).
+- **Reopen if:** workstation-core itself needs an MCP server or another plugin to work.
