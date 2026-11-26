@@ -5,7 +5,7 @@ Last_Verified_SHA: f30e405
 Updated: 2026-11-22 -- Grok Bot (state-in-repo PR)
 
 ## Current Goal
-- Objective: Live state lives in each repo (STATE.md, STATE-<slug>.md, BACKLOG.md, archives/); the memory store keeps notes only. Roll it out to workstation and handbuilt-cad first.
+- Objective: Live state lives in each repo (STATE.md, STATE-<slug>.md, BACKLOG.md, archives/); the memory store keeps notes only. Roll it out to workstation first, then the other project repos.
 - Spec_Ref: DECISIONS.md#d-2026-11-22-state-in-repo
 
 ## Active Blocker
@@ -13,7 +13,7 @@ Updated: 2026-11-22 -- Grok Bot (state-in-repo PR)
 - Detail: none
 
 ## Next Single Step
-- [NEXT] After the state-in-repo PR merges: ff-pull workstation on each PC, then open the handbuilt-cad state PR (STATE.md to schema v1, AGENTS.md store pointer and handoff rule).
+- [NEXT] After the state-in-repo PR merges: ff-pull workstation on each PC, then open the state PR in each other project repo (STATE.md to schema v1, AGENTS.md store pointer and handoff rule).
 
 ## Pointers
 - Branch_States: none

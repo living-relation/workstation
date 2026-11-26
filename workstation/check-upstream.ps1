@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # Manual. For each skill whose SKILL.md has metadata.upstream:
-#   fetch upstream, show commits base..HEAD, three-way merge into Dan's copy
+#   fetch upstream, show commits base..HEAD, three-way merge into this repo's copy
 #   (git merge-file: keep his edits, mark conflicts), bump upstream-base,
 #   and open a PR on a new branch.
 # No schedule. No sign-in item. -WhatIf prints the plan and writes nothing.
@@ -128,7 +128,7 @@ function Merge-OneFile([string]$OursPath, [string]$BasePath, [string]$TheirsPath
     Normalize-File $OursPath
     Normalize-File $BasePath
     Normalize-File $TheirsPath
-    $r = Invoke-Git $RepoRoot @('merge-file', '-p', '--diff3', '-L', 'Dan', '-L', 'base', '-L', 'upstream', '--', $OursPath, $BasePath, $TheirsPath)
+    $r = Invoke-Git $RepoRoot @('merge-file', '-p', '--diff3', '-L', 'ours', '-L', 'base', '-L', 'upstream', '--', $OursPath, $BasePath, $TheirsPath)
     $text = $r.Text
     if ($null -eq $text) { $text = '' }
     if ($text -and -not $text.EndsWith("`n")) { $text += "`n" }
@@ -220,7 +220,7 @@ $branch = "chore/upstream-$stamp"
 $title = "Update skills from upstream"
 $body = "Manual check-upstream run.`n`n" + (($changed | ForEach-Object { "- $_" }) -join "`n")
 if ($conflictNotes.Count) { $body += "`n`nConflicts to resolve:`n" + (($conflictNotes | ForEach-Object { "- $_" }) -join "`n") }
-$body += "`n`nDan merges."
+$body += "`n`nThe repo owner merges."
 if ($WhatIf) {
     Say ''
     Say "WOULD branch $branch"

@@ -26,7 +26,7 @@ $env:LOCALAPPDATA = $local
 
 . $lib
 Check 'active dir is detected' (Get-ActiveProjectsDir) $active
-Check 'not the hard-coded DansPC root' ($active -eq 'C:\projects\active') False
+Check 'not the hard-coded C:\projects root' ($active -eq 'C:\projects\active') False
 Check 'two folders' @(Get-ActiveFolders).Count 2
 Check 'plain folder has no origin' (Test-FolderOrigin (Join-Path $active 'widget')) False
 $line = Format-FolderChoice 1 (Get-Item (Join-Path $active 'widget')) ''

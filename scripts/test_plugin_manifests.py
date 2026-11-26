@@ -188,7 +188,7 @@ def test_coordinator_kit_is_picked_up_with_the_other_skills():
     assert "debug-root-cause" in folders
     assert "review-feedback" in folders
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert f"all {len(folders)} are his" in readme
+    assert f"(all {len(folders)})" in readme
     assert "| debug-root-cause |" in readme
     assert "| review-feedback |" in readme
     contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")

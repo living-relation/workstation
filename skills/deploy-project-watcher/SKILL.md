@@ -13,7 +13,7 @@ The engine is shared and already installed in `<projects>\_tools\` (`watcher.py`
 
 Follow `<projects>\AGENTS.md`: no new root folders, never commit watcher data.
 
-`<projects>` is this PC's projects root (the folder that holds `active\`), for example `C:\projects`.
+`<projects>` is this PC's projects root (the folder that holds `active\`), for example `%USERPROFILE%\Projects`.
 
 ## Deploy a project
 

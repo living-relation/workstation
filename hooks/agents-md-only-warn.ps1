@@ -185,7 +185,7 @@ function Find-InstructionFiles {
 
 function Format-AgentsMdWarning {
   param([string[]]$Paths)
-  $rule = "Dan's rule: AGENTS.md is the only instruction file. Fold this file's content into AGENTS.md, then delete it (in a PR for repo files; files outside a repo: tell Dan)."
+  $rule = "Rule: AGENTS.md is the only instruction file. Fold this file's content into AGENTS.md, then delete it (in a PR for repo files; files outside a repo: tell the user)."
   $lines = New-Object 'System.Collections.Generic.List[string]'
   [void]$lines.Add('agents-md-only-warn: instruction files found. This hook only warns. It did not delete, edit, or block anything.')
   [void]$lines.Add($rule)

@@ -65,7 +65,7 @@ function FileSnap([string[]]$Paths) {
   return ($rows -join "`n")
 }
 
-$rule = "Dan's rule: AGENTS.md is the only instruction file. Fold this file's content into AGENTS.md, then delete it (in a PR for repo files; files outside a repo: tell Dan)."
+$rule = "Rule: AGENTS.md is the only instruction file. Fold this file's content into AGENTS.md, then delete it (in a PR for repo files; files outside a repo: tell the user)."
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ("agents-md-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
 $profileHome = Join-Path $tmp 'home'
 $proj = Join-Path $profileHome 'proj'
@@ -112,14 +112,14 @@ $cursorText = Get-Content -LiteralPath $cursorJson -Raw
 Check 'cursor hooks have no agents-md-only-warn' ($cursorText -notmatch 'agents-md-only-warn')
 
 $set = @{}
-Add-HomeIgnoreKeys $set 'C:\Users\Dan'
-Check 'windows home ignores C:\ form' (Test-InstructionIgnored 'C:\Users\Dan\.claude\CLAUDE.md' $set)
-Check 'windows home ignores /mnt/c form' (Test-InstructionIgnored '/mnt/c/Users/Dan/.claude/CLAUDE.md' $set)
-Check 'windows home ignores /c form' (Test-InstructionIgnored '/c/Users/Dan/.claude/CLAUDE.md' $set)
-Check 'home CLAUDE.md is not the ignored file' (-not (Test-InstructionIgnored 'C:\Users\Dan\CLAUDE.md' $set))
-Check 'home CLAUDE.local.md is not ignored' (-not (Test-InstructionIgnored 'C:\Users\Dan\CLAUDE.local.md' $set))
+Add-HomeIgnoreKeys $set 'C:\Users\alice'
+Check 'windows home ignores C:\ form' (Test-InstructionIgnored 'C:\Users\alice\.claude\CLAUDE.md' $set)
+Check 'windows home ignores /mnt/c form' (Test-InstructionIgnored '/mnt/c/Users/alice/.claude/CLAUDE.md' $set)
+Check 'windows home ignores /c form' (Test-InstructionIgnored '/c/Users/alice/.claude/CLAUDE.md' $set)
+Check 'home CLAUDE.md is not the ignored file' (-not (Test-InstructionIgnored 'C:\Users\alice\CLAUDE.md' $set))
+Check 'home CLAUDE.local.md is not ignored' (-not (Test-InstructionIgnored 'C:\Users\alice\CLAUDE.local.md' $set))
 Check 'another profile is not ignored' (-not (Test-InstructionIgnored 'C:\Users\Other\.claude\CLAUDE.md' $set))
-Check 'project .claude/CLAUDE.md is not ignored' (-not (Test-InstructionIgnored 'C:\Users\Dan\proj\.claude\CLAUDE.md' $set))
+Check 'project .claude/CLAUDE.md is not ignored' (-not (Test-InstructionIgnored 'C:\Users\alice\proj\.claude\CLAUDE.md' $set))
 
 $chain = @(Get-DirectoryChain -Start $sub)
 Check 'chain starts at the session directory' ($chain[0] -eq (Get-FullPathSafe $sub))

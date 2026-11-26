@@ -36,17 +36,17 @@ class LinkSkillsGuard(unittest.TestCase):
             src, tgt, backup = t / "src", t / "tgt", t / "bak"
             _skill(src / "harness-design", "harness-design")
             _skill(src / "marked-skill", "marked-skill", "source: harness-design-app\n")
-            (src / "EXCLUDE.txt").write_text("harness-design\nst185-pick-parts\n", encoding="utf-8")
+            (src / "EXCLUDE.txt").write_text("harness-design\napp-skill-two\n", encoding="utf-8")
             # Real app-owned folders in the target: must survive link, retire and prune.
             _skill(tgt / "harness-design", "harness-design")
             (tgt / "harness-design" / "today.md").write_text("app edit\n", encoding="utf-8")
-            _skill(tgt / "st185-pick-parts", "st185-pick-parts")
+            _skill(tgt / "app-skill-two", "app-skill-two")
             _skill(tgt / "app-only", "app-only", "source: harness-design-app\n")
-            r = self.run_link(src, tgt, backup, "'harness-design','st185-pick-parts','app-only'")
+            r = self.run_link(src, tgt, backup, "'harness-design','app-skill-two','app-only'")
             out = r.stdout + r.stderr
             self.assertEqual(r.returncode, 0, out)
             self.assertIn("SKIP harness app skill", out)
-            for n in ("harness-design", "st185-pick-parts", "app-only"):
+            for n in ("harness-design", "app-skill-two", "app-only"):
                 self.assertTrue((tgt / n / "SKILL.md").is_file(), f"{n} touched\n{out}")
             self.assertEqual((tgt / "harness-design" / "today.md").read_text(encoding="utf-8"), "app edit\n")
             self.assertFalse((tgt / "marked-skill").exists(), out)
@@ -58,14 +58,14 @@ class LinkSkillsGuard(unittest.TestCase):
             t = Path(tmp)
             src, tgt, backup = t / "src", t / "tgt", t / "bak"
             (src).mkdir()
-            (src / "EXCLUDE.txt").write_text("harness-design\nst185-pick-parts\n", encoding="utf-8")
+            (src / "EXCLUDE.txt").write_text("harness-design\napp-skill-two\n", encoding="utf-8")
             gone = src / "harness-design"
             gone.mkdir()
-            live = src / "st185-pick-parts"
+            live = src / "app-skill-two"
             live.mkdir()
             (live / "notes.md").write_text("x\n", encoding="utf-8")
             tgt.mkdir()
-            for name, target in (("harness-design", gone), ("st185-pick-parts", live)):
+            for name, target in (("harness-design", gone), ("app-skill-two", live)):
                 subprocess.check_call(["cmd", "/c", "mklink", "/J", str(tgt / name), str(target)],
                                       stdout=subprocess.DEVNULL)
             gone.rmdir()  # broken junction now
@@ -73,7 +73,7 @@ class LinkSkillsGuard(unittest.TestCase):
             out = r.stdout + r.stderr
             self.assertEqual(r.returncode, 0, out)
             self.assertFalse(os.path.lexists(tgt / "harness-design"), f"broken link kept\n{out}")
-            self.assertTrue((tgt / "st185-pick-parts" / "notes.md").is_file(), f"live link touched\n{out}")
+            self.assertTrue((tgt / "app-skill-two" / "notes.md").is_file(), f"live link touched\n{out}")
             self.assertTrue((live / "notes.md").is_file())
 
     def test_synced_copy_skips_junction_and_keeps_synced_files(self):

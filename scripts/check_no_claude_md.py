@@ -3,14 +3,14 @@
 
 Looks at `git ls-tree HEAD` (the commit that is checked out). A path that
 only appears in an older commit, in the diff, or as an untracked file is
-not a failure. Dan's rule is the error text.
+not a failure. The rule is the error text.
 """
 import subprocess
 import sys
 from pathlib import Path
 
 RULE = (
-    "Dan's rule: fold the content into AGENTS.md (keep every rule, "
+    "Rule: fold the content into AGENTS.md (keep every rule, "
     "drop exact duplicates), then delete the CLAUDE file, in a PR."
 )
 BANNED_NAMES = {"CLAUDE.md", "CLAUDE.local.md"}
