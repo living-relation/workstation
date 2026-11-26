@@ -159,7 +159,7 @@ If you use Claude, do the Claude section at the top of this file. If you use Cur
 
 - Does not turn the plugin on at claude.ai. A script cannot. It opens the page and prints the clicks only when you run it.
 - `install-plugins.ps1` does not run the Claude Code commands. `install.ps1` and `install.cmd` run the add and install commands in the Claude Code section. They skip both if the claude CLI is missing, and they never uninstall or disable a plugin. Refresh and update stay manual.
-- Does not change how `install.ps1` skips an official plugin that is already enabled or already installed at user scope.
+- Does not install other plugins or MCP servers. `install.ps1` installs only workstation-core items (D-2026-11-26-no-third-party-installs).
 - Does not copy skills into `~\.claude\skills`.
 - Does not upload skill zips.
 - Does not add a scheduled task, a Startup item, or a Run key.

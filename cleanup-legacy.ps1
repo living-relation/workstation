@@ -2,10 +2,9 @@
 # One-time cleanup for a PC that still has the old local web UI, watcher, or shortcut links.
 # -WhatIf prints every step and changes nothing.
 # Backs up first and writes SHA256 hashes, then archives (does not delete) the old runtime folders.
-# Does not stop the Desktop Commander phone remote and does not archive its state folder.
 # An old cursor-worker folder (no instances directory) is still archived.
 # A folder that has instances\ is the manual Cursor worker and is left in place.
-# Does not touch MCP servers, plugins, handoff or memory hooks, statusLine, Desktop Commander's
+# Does not touch MCP servers, plugins, handoff or memory hooks, statusLine, other apps'
 # own config folders, or the PowerShell profile.
 param(
     [switch]$WhatIf,
@@ -61,7 +60,7 @@ Say "  clone: $CloneRoot"
 Say "  state: $StateDir"
 if ($WhatIf) { Say '  mode: WhatIf (no changes)' }
 
-# 1. Stop the old local web server from this clone only. Never the phone remote.
+# 1. Stop the old local web server from this clone only.
 # Windows PowerShell 5.1: Join-Path takes only two path arguments.
 $dashScript = Join-Path $CloneRoot 'workstation\dashboard\server.py'
 Say 'stop old local web server (this clone only)'
@@ -140,7 +139,7 @@ elseif (-not (Test-Path -LiteralPath $reg)) { Say '  key not present' }
 elseif ($WhatIf) { Say "  WOULD delete $reg" }
 else { Remove-Item -LiteralPath $reg -Recurse -Force; Say "  deleted $reg" }
 
-# 6. Archive old runtime data. Never the phone-remote state folder.
+# 6. Archive old runtime data.
 $moves = @(
     (Join-Path $StateDir 'dashboard'),
     (Join-Path $StateDir 'tracker'),
@@ -162,8 +161,6 @@ foreach ($p in $moves) {
     Move-Item -LiteralPath $p -Destination $dest -Force
     Say "  archived $p"
 }
-$dcState = Join-Path $StateDir 'desktop-commander-remote'
-if (Test-Path -LiteralPath $dcState) { Say "  left in place (phone remote state): $dcState" }
 
 # 7. Claude settings: one flag and one allow rule. Hooks, statusLine, and other keys stay.
 $settingsPath = Join-Path $UserHome '.claude\settings.json'

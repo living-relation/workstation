@@ -90,11 +90,10 @@ PHASES = (
             "Run install.ps1 for real (same parameters as the dry run). install.cmd runs that same script. "
             "Add -AcceptConflicts only if the remaining conflicts in phase 2 were accepted. It copies no "
             "toolkit files (the toolkit runs from the clone's workstation\\ folder); it writes "
-            "%LOCALAPPDATA%\\Workstation\\workstation.json (the Projects root), creates the manual Desktop "
-            "Commander shortcuts (Start, Stop, status) and the orphan tool in the package's shortcuts\\ "
-            "folder, installs no hooks (the workstation-core plugin carries them), merges Claude Code MCP "
-            "connectors into ~\\.claude.json and installs official-marketplace plugins from "
-            "claude\\plugins.json, and does not copy skills into ~\\.claude\\skills (the workstation-core "
+            "%LOCALAPPDATA%\\Workstation\\workstation.json (the Projects root), creates the manual Health check, "
+            "Cursor worker and orphan tool shortcuts in the package's shortcuts\\ folder, installs no hooks "
+            "(the workstation-core plugin carries them), installs no third-party MCP servers or plugins and "
+            "does not set pluginConfigs (D-2026-11-26-no-third-party-installs), and does not copy skills into ~\\.claude\\skills (the workstation-core "
             "plugin delivers them). On a real run it opens https://claude.ai/customize/plugins and prints "
             "the clicks for Claude desktop and Cowork: Customize, Plugins, Add, Add marketplace, Add from "
             "a repository, paste living-relation/workstation, turn Sync automatically on, turn on "
@@ -215,7 +214,7 @@ PHASES = (
 
 ALWAYS = """\
 Notes:
-- App startup switches belong to the owner: never turn one on or off. Report them only. Desktop Commander must not start at sign-in.
+- App startup switches belong to the owner: never turn one on or off. Report them only.
 - Say which active projects have no git remote (pull/push is one repo at a time, by hand).
 
 Always:

@@ -11,14 +11,12 @@
 |---|---|
 | uv | 0.13.0 |
 | gitleaks | 8.30.1 |
-| desktop_commander | 0.3.0 |
 | python_wsl | 3.13.16 |
 
 ## Outside dependencies (listed only; not installed or copied)
 
 | Item | Where | Version | How to enable |
 |---|---|---|---|
-| windows-mcp | windows-mcp | 0.8.8 |  |
 
 ## Skills sources
 
@@ -27,7 +25,3 @@
 CAD tools, CAD skills and CAD repos: none (this repo does not install, pin or link any).
 
 CAD models included: none. Patches: 0.
-
-## Open items
-
-- windows-mcp installed version

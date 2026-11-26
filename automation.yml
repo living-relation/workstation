@@ -92,7 +92,7 @@ automations:
     check_cmd: python3 scripts/test_gen_code_index.py
   - id: install
     script: install.ps1
-    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/make-shortcuts.ps1, install.cmd, claude/claude-setup.ps1, claude/mcp-servers.json, claude/plugins.json, cleanup-legacy.ps1, scripts/test_install_link_skills.py, workstation/health/claude-ai-plugin.ps1, scripts/install-catalog-plugin.ps1, scripts/paste-instructions.ps1, scripts/test_install_catalog.py]
+    helpers: [preflight.ps1, ownership-notes.ps1, link-skills.ps1, workstation/make-shortcuts.ps1, install.cmd, cleanup-legacy.ps1, scripts/test_install_link_skills.py, workstation/health/claude-ai-plugin.ps1, scripts/install-catalog-plugin.ps1, scripts/paste-instructions.ps1, scripts/test_install_catalog.py]
     trigger: manual
     reads: [toolkit.psd1, memory/templates/**, instructions/**, handoff/**, memory/hooks/**, skills/**, claude/**]
     writes: [outside the repo (inferred) - LOCALAPPDATA Workstation folder, user .claude settings and hooks, user .claude.json MCP servers, Projects _claude store, manual shortcuts/*.lnk]
@@ -156,19 +156,9 @@ automations:
     committed: no
     auto_commit: false
     enabled: true
-  - id: claude-setup
-    script: claude/claude-setup.ps1
-    helpers: [claude/mcp-servers.json, claude/plugins.json, claude/tests/test-claude-setup.ps1]
-    trigger: called-by:install
-    reads: [claude/mcp-servers.json, claude/plugins.json, user .claude.json, user .claude/settings.json, user .claude/plugins/installed_plugins.json]
-    writes: [user .claude.json MCP servers (merge); Claude Code plugins via claude plugin install only when that plugin is not already enabled or installed at user scope]
-    committed: no
-    auto_commit: false
-    enabled: true
-    run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File claude/tests/test-claude-setup.ps1
   - id: health-check
     script: workstation/health/workstation-status.ps1
-    helpers: [workstation/health/workstation-common.ps1, workstation/health/claude-auth-status.ps1, workstation/health/orphans.ps1, workstation/health/tests/test-claude-auth-status.ps1, workstation/health/tests/test-app-locks.ps1, workstation/health/tests/test-health-clean.ps1, workstation/cursor-worker/cursor-worker-lib.ps1, workstation/paths.ps1, workstation/repo-status.ps1, workstation/repo-branch.ps1]
+    helpers: [workstation/health/workstation-common.ps1, workstation/health/claude-auth-status.ps1, workstation/health/orphans.ps1, workstation/health/tests/test-orphans.ps1, workstation/kill-orphans.ps1, workstation/health/tests/test-claude-auth-status.ps1, workstation/health/tests/test-app-locks.ps1, workstation/health/tests/test-health-clean.ps1, workstation/cursor-worker/cursor-worker-lib.ps1, workstation/paths.ps1, workstation/repo-status.ps1, workstation/repo-branch.ps1]
     trigger: manual
     reads: [LOCALAPPDATA Workstation workstation.json, user .claude settings, skill links, app-lock rule files]
     writes: []
@@ -176,15 +166,6 @@ automations:
     auto_commit: false
     enabled: true
     run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File workstation/health/workstation-status.ps1 -NoPause
-  - id: dc-remote
-    script: [workstation/desktop-commander-remote/start-dc-remote.ps1, workstation/desktop-commander-remote/stop-dc-remote.ps1, workstation/desktop-commander-remote/dc-remote-status.ps1]
-    helpers: [workstation/desktop-commander-remote/dc-remote-lib.ps1, workstation/desktop-commander-remote/tests/test-dc-remote.ps1, workstation/kill-orphans.ps1]
-    trigger: manual
-    reads: [running Desktop Commander remote processes]
-    writes: [LOCALAPPDATA Workstation desktop-commander-remote logs, LOCALAPPDATA Workstation kill-orphans.log]
-    committed: no
-    auto_commit: false
-    enabled: true
   - id: cursor-worker
     script: [workstation/cursor-worker/start-cursor-worker.ps1, workstation/cursor-worker/stop-cursor-worker.ps1]
     helpers: [workstation/cursor-worker/cursor-worker-lib.ps1, workstation/cursor-worker/tests/test-cursor-worker.ps1]

@@ -1,6 +1,5 @@
 #Requires -Version 5.1
 # Creates the manual shortcuts in -LinkDir. No Startup item, no Run key, no scheduled task.
-# Also removes an old "Desktop Commander Remote" Startup link when it still runs start-dc-remote.ps1.
 param([Parameter(Mandatory = $true)][string]$LinkDir, [string]$StartupDir, [switch]$NoPause)
 $ErrorActionPreference = 'Continue'
 $toolkit = $PSScriptRoot

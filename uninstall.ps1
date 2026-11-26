@@ -12,6 +12,9 @@
   Since D-2026-11-26-hooks-in-plugin, install.ps1 no longer copies or wires the guard, context-guard,
   pr-closeout-nudge or handoff-at-80 hooks, a statusLine, or ~\.cursor\hooks.json (they ship in the
   workstation-core plugin). The hook, statusLine and hook-file items below are only what an OLDER install recorded.
+  Never removed (D-2026-11-26-no-third-party-installs): MCP servers in ~\.claude.json, other Claude Code plugins,
+  Desktop Commander, and pluginConfigs in ~\.claude\settings.json, even when an older install recorded adding
+  them. Which plugins and MCP servers a PC has is the user's choice; uninstall only lists those records.
   From the manifest:
   - memory sections (between <!-- shared-memory:v1 --> markers) install created or appended; a file install created
     that holds nothing else is removed. A marked section that was already there stays, markers included,
@@ -19,12 +22,7 @@
   - in ~\.claude\settings.json: the SessionStart guard hook install added; autoMemoryDirectory put back to the value
     it had before install (or removed if there was none; left alone if it changed since); the 80% handoff hook
     entries (a re-pointed entry gets its old command back); the statusLine while it is still the one install set;
-    pluginConfigs > <agents-md plugin> > options.instructionFiles put back to its value before install (or removed,
-    with the empty parent objects install created; left alone if it changed since); the PostToolUse pr-closeout-nudge
-    hook install added,
-  - in ~\.claude.json: MCP servers install added, only while they still match the fingerprint install recorded
-    (a server the user changed is left alone); servers install did not add stay,
-  - Claude Code plugins install newly installed (claude plugin uninstall); ones that were already there stay,
+    the PostToolUse pr-closeout-nudge hook install added,
   - in ~\.cursor\hooks.json: the handoff-at-80.py entries install added; the file if install created it and it is
     empty again,
   - files install created (guard script and config, context-guard.ps1, pr-closeout-nudge.ps1, handoff-at-80.py, the armed flag, the
@@ -71,7 +69,6 @@ $SettingsPath = Join-Path $DotClaude 'settings.json'
 $BackupDir  = Join-Path $ProjectsRoot ("_archive\automation-uninstall-backup-$Stamp")
 $ManifestPath = Join-Path $ClaudeDir 'automation-installed-files.txt'
 $CursorHooksJson = Join-Path $UserHome '.cursor\hooks.json'
-$ClaudeJson = Join-Path $UserHome '.claude.json'
 # 'json|{...}' manifest entries written by install.ps1 (hooks, statusLine, files outside <Projects>, startup link).
 $ManifestJson = @()
 if (Test-Path -LiteralPath $ManifestPath) {
@@ -274,21 +271,7 @@ if (Test-Path -LiteralPath $SettingsPath) {
       elseif ($amRec.hadPrior) { $s.autoMemoryDirectory = [string]$amRec.prior; $changes += "restore autoMemoryDirectory = $($amRec.prior)" }
       else { $s.PSObject.Properties.Remove('autoMemoryDirectory'); $changes += 'remove autoMemoryDirectory (there was none before install)' }
     } elseif ($null -ne $curAm) { Note 'OK' "autoMemoryDirectory: not installed by this package, left alone ($curAm)" }
-    # Project instructions (pluginConfigs > <plugin> > options.instructionFiles): revert only what install set.
-    foreach ($pc in @($ManifestJson | Where-Object { $_.kind -eq 'plugin-config' })) {
-      $pn = [string]$pc.plugin; $cur = $null; $po = $null; $oo = $null
-      if ($s.PSObject.Properties['pluginConfigs'] -and $s.pluginConfigs -and $s.pluginConfigs.PSObject.Properties[$pn]) { $po = $s.pluginConfigs.PSObject.Properties[$pn].Value }
-      if ($po -and $po.PSObject.Properties['options'] -and $po.options) { $oo = $po.options }
-      if ($oo -and $oo.PSObject.Properties['instructionFiles']) { $cur = [string]$oo.instructionFiles }
-      if ($null -eq $cur) { Note 'INFO' "pluginConfigs.$pn instructionFiles already removed"; continue }
-      if ($cur -ne [string]$pc.value) { Note 'WARN' "pluginConfigs.$pn instructionFiles changed since install ($cur); left alone"; continue }
-      if ($pc.hadPrior) { $oo.instructionFiles = [string]$pc.prior; $changes += "restore pluginConfigs.$pn instructionFiles = $($pc.prior)"; continue }
-      $oo.PSObject.Properties.Remove('instructionFiles'); $changes += "remove pluginConfigs.$pn instructionFiles (there was none before install)"
-      if ($pc.createdOptions -and @($oo.PSObject.Properties).Count -eq 0) { $po.PSObject.Properties.Remove('options') }
-      if ($pc.createdPlugin -and @($po.PSObject.Properties).Count -eq 0) { $s.pluginConfigs.PSObject.Properties.Remove($pn) }
-      if ($pc.createdPluginConfigs -and @($s.pluginConfigs.PSObject.Properties).Count -eq 0) { $s.PSObject.Properties.Remove('pluginConfigs') }
-    }
-    if (@($ManifestJson | Where-Object { $_.kind -eq 'plugin-config-preexisting' }).Count -and -not @($ManifestJson | Where-Object { $_.kind -eq 'plugin-config' }).Count) { Note 'OK' 'Project instructions (read CLAUDE.md and AGENTS.md) was already set before install; left as is' }
+    if (@($ManifestJson | Where-Object { $_.kind -like 'plugin-config*' }).Count) { Note 'OK' 'pluginConfigs (an older install recorded it): left as is; not managed by this package any more (D-2026-11-26-no-third-party-installs)' }
     $hasGuardHook = $false
     if ($s.PSObject.Properties['hooks'] -and $s.hooks -and $s.hooks.PSObject.Properties['SessionStart']) { $hasGuardHook = ([string](@($s.hooks.SessionStart) | ConvertTo-Json -Depth 10 -Compress)) -match 'memory-link-guard\.ps1' }
     if ($hasGuardHook -and -not $GuardAdded) { Note 'OK' 'SessionStart memory-link-guard hook: not installed by this package, left alone' }
@@ -324,60 +307,9 @@ if (Test-Path -LiteralPath $SettingsPath) {
   }
 }
 
-# 2a. ~\.claude.json: MCP servers install added (fingerprint must still match)
-function Get-McpFingerprint($Entry) {
-  if (-not $Entry) { return '' }
-  if ($Entry.PSObject.Properties['url'] -and $Entry.url) { return "http|$($Entry.url)" }
-  $cmd = ''; if ($Entry.PSObject.Properties['command']) { $cmd = [string]$Entry.command }
-  $argl = @(); if ($Entry.PSObject.Properties['args'] -and $Entry.args) { $argl = @($Entry.args) }
-  return "stdio|$cmd|$($argl -join ' ')"
-}
-$mcpRecs = @($ManifestJson | Where-Object { $_.kind -eq 'mcp-server' })
-if ($mcpRecs.Count -and (Test-Path -LiteralPath $ClaudeJson)) {
-  $rawJ = [IO.File]::ReadAllText($ClaudeJson); $cj = $null
-  try { $cj = $rawJ | ConvertFrom-Json } catch { Note 'ERROR' "could not parse $ClaudeJson (left unchanged)" }
-  if ($cj) {
-    $mcpChanges = @()
-    foreach ($m in $mcpRecs) {
-      $name = [string]$m.name
-      $scope = [string]$m.scope
-      $want = [string]$m.fingerprint
-      $container = $null; $entry = $null
-      if ($scope -eq 'local') {
-        if ($cj.PSObject.Properties['projects'] -and $cj.projects) {
-          foreach ($p in $cj.projects.PSObject.Properties) {
-            $pms = $null; if ($p.Value) { $pms = $p.Value.mcpServers }
-            if ($pms -and $pms.PSObject.Properties[$name]) { $container = $pms; $entry = $pms.$name; break }
-          }
-        }
-      } elseif ($cj.PSObject.Properties['mcpServers'] -and $cj.mcpServers -and $cj.mcpServers.PSObject.Properties[$name]) {
-        $container = $cj.mcpServers; $entry = $cj.mcpServers.$name
-      }
-      if (-not $entry) { Note 'INFO' "MCP $name already removed from $ClaudeJson"; continue }
-      $cur = Get-McpFingerprint $entry
-      if ($cur -ne $want) { Note 'WARN' "MCP $name in $ClaudeJson changed since install; left alone"; continue }
-      $container.PSObject.Properties.Remove($name); $mcpChanges += "remove MCP $name"
-    }
-    if ($mcpChanges.Count) {
-      $jbak = Get-FreePath "$ClaudeJson.bak-$Stamp"
-      Invoke-Change ("update $ClaudeJson (" + ($mcpChanges -join '; ') + "; backup $jbak)") { Write-JsonChecked $ClaudeJson $cj $rawJ $jbak }
-    } else { Note 'OK' "$ClaudeJson has nothing from install (or those MCP servers changed)" }
-  }
-} elseif ($mcpRecs.Count) { Note 'INFO' "no $ClaudeJson; MCP servers not present" }
-
-foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'claude-plugin' })) {
-  $qual = "$($m.name)@$($m.marketplace)"
-  $claudeCmd = Get-Command claude -ErrorAction SilentlyContinue | Select-Object -First 1
-  if (-not $claudeCmd) { Note 'WARN' "Claude Code CLI not found; plugin $qual not uninstalled (install recorded it)"; continue }
-  Invoke-Change "uninstall Claude Code plugin $qual (user scope)" {
-    $ErrorActionPreference = 'Continue'
-    & $claudeCmd.Source plugin uninstall $qual --scope user --yes 2>&1 | Out-Null
-    $ErrorActionPreference = 'Stop'
-  }
-}
-foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'claude-plugin-preexisting' })) {
-  Note 'OK' "plugin $($m.name)@$($m.marketplace) was already installed before this package; left as is"
-}
+# MCP servers and Claude Code plugins an older install recorded: listed, never removed (D-2026-11-26-no-third-party-installs).
+foreach ($m in @($ManifestJson | Where-Object { $_.kind -eq 'mcp-server' })) { Note 'OK' "MCP $($m.name) (an older install recorded it): left as is; not managed by this package any more" }
+foreach ($m in @($ManifestJson | Where-Object { $_.kind -like 'claude-plugin*' })) { Note 'OK' "plugin $($m.name)@$($m.marketplace) (an older install recorded it): left as is; not managed by this package any more" }
 
 # 2b. ~\.cursor\hooks.json: the handoff-at-80.py entries install added; the file itself if install created it
 if (Test-Path -LiteralPath $CursorHooksJson) {

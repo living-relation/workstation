@@ -201,23 +201,15 @@ if ($pyCmd) {
 }
 if ($PyOk) { Add-Finding 'OK' 'prereq' 'py launcher' "py -3 = Python $pyVer" }
 else { Add-Finding 'WARN' 'prereq' 'py launcher' ("py -3 (Python 3.7+) not available" + $(if ($pyVer) { " (got $pyVer)" } else { '' }) + '. install.ps1 skips the Cursor 80% handoff hook until Python is installed.') }
-# Claude Code version: AGENTS.md loading needs 2.1.281+; the read-both option's plugin id changed in 2.1.285.
+# Claude Code version: AGENTS.md loading needs 2.1.281+.
 $ClaudeVer = $null
 $claudeCmd = Get-Command claude -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($claudeCmd) {
   try { $cvOut = [string](& $claudeCmd.Source --version 2>$null | Select-Object -First 1); if ($cvOut -match '(\d+)\.(\d+)\.(\d+)') { $ClaudeVer = [version]"$($Matches[1]).$($Matches[2]).$($Matches[3])" } } catch { }
 }
-$AgentsPlugin = if ($ClaudeVer -and $ClaudeVer -lt [version]'2.1.285') { 'agents-md@builtin' } else { 'cc-plugin-agents-md@builtin' }
 if (-not $ClaudeVer) { Add-Finding 'WARN' 'prereq' 'Claude Code' ("not found" + $(if ($claudeCmd) { " (claude --version gave no version)" } else { '' }) + ". AGENTS.md loading needs Claude Code 2.1.281 or newer.") }
 elseif ($ClaudeVer -lt [version]'2.1.281') { Add-Finding 'WARN' 'prereq' 'Claude Code' "version $ClaudeVer is older than 2.1.281 and may not load AGENTS.md. Update Claude Code." }
-else { Add-Finding 'OK' 'prereq' 'Claude Code' "version $ClaudeVer (AGENTS.md loading needs 2.1.281+; read-both option plugin id: $AgentsPlugin)" }
-function Get-InstructionFiles($S, [string]$Plugin) {
-  if (-not $S -or -not $S.PSObject.Properties['pluginConfigs'] -or -not $S.pluginConfigs) { return $null }
-  $p = $S.pluginConfigs.PSObject.Properties[$Plugin]; if (-not $p -or -not $p.Value) { return $null }
-  $o = $p.Value.PSObject.Properties['options']; if (-not $o -or -not $o.Value) { return $null }
-  $f = $o.Value.PSObject.Properties['instructionFiles']; if (-not $f) { return $null }
-  return [string]$f.Value
-}
+else { Add-Finding 'OK' 'prereq' 'Claude Code' "version $ClaudeVer (AGENTS.md loading needs 2.1.281+)" }
 $isAdmin = $false
 try { $isAdmin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole((New-Object Security.Principal.SecurityIdentifier 'S-1-5-32-544')) } catch { $isAdmin = $false }
 if ($isAdmin) { Add-Finding 'WARN' 'prereq' 'elevation' 'this window is elevated. install.ps1 is meant for a normal PowerShell window.' }
@@ -404,18 +396,6 @@ function Test-ClaudeSettings([string]$Path, [bool]$IsUser) {
     elseif ($amFull -ieq $Store) { Add-Finding 'CONFLICT' 'claude' "$Path > autoMemoryDirectory" "points straight at the store ($am), not at the junction $AutoMemValue. install.ps1 refuses to wire the guard; see README Troubleshooting." }
     else { Add-Finding 'WARN' 'claude' "$Path > autoMemoryDirectory" "is '$am'; install.ps1 changes it to $AutoMemValue. Include the old folder in MIGRATION.md." }
   } elseif ($IsUser) { Add-Finding 'OK' 'claude' "$Path > autoMemoryDirectory" "not set; install.ps1 sets $AutoMemValue" }
-  # Project instructions (read CLAUDE.md and AGENTS.md): only the user settings file counts.
-  $ifNew = Get-InstructionFiles $s 'cc-plugin-agents-md@builtin'; $ifOld = Get-InstructionFiles $s 'agents-md@builtin'
-  if (-not $IsUser) {
-    if ($ifNew -or $ifOld) { Add-Finding 'WARN' 'claude' "$Path > pluginConfigs" 'sets Project instructions in a project settings file; Claude Code ignores it there (only ~\.claude\settings.json counts).' }
-  } else {
-    $cur = Get-InstructionFiles $s $AgentsPlugin
-    $tag = "$Path > pluginConfigs > $AgentsPlugin > instructionFiles"
-    $otherOk = ($ClaudeVer -and $ClaudeVer -ge [version]'2.1.285' -and $ifOld -eq 'claude-md-and-agents-md')
-    if ($cur -eq 'claude-md-and-agents-md' -or $otherOk) { Add-Finding 'ALREADY-INSTALLED' 'claude' $tag ('claude-md-and-agents-md' + $(if ($otherOk -and $cur -ne 'claude-md-and-agents-md') { ' (under agents-md@builtin, which this version also reads)' } else { '' })) }
-    elseif ($cur) { Add-Finding 'WARN' 'claude' $tag "is '$cur'; install.ps1 changes it to claude-md-and-agents-md (uninstall puts '$cur' back)" }
-    else { Add-Finding 'OK' 'claude' $tag 'not set (default: AGENTS.md is hidden wherever a CLAUDE.md or CLAUDE.local.md exists); install.ps1 sets claude-md-and-agents-md' }
-  }
 }
 Test-ClaudeSettings $SettingsPath $true
 $projSettings = @()
@@ -430,41 +410,8 @@ elseif (Test-Path -LiteralPath $rootAm) { Add-Finding 'OK' 'rules' $rootAm 'root
 else { Add-Finding 'OK' 'rules' $rootAm 'not there yet; install.ps1 creates it' }
 if (-not $projSettings.Count) { Add-Finding 'OK' 'claude' 'project .claude\settings*.json' "none under $ProjectsRoot (checked the root, its folders and active\*)" }
 
-# 6b. Claude Code MCP (~/.claude.json) from claude/mcp-servers.json
-$ClaudeJson = Join-Path $UserHome '.claude.json'
-$mcpSpecPath = Join-Path $PkgRoot 'claude\mcp-servers.json'
-if (Test-Path -LiteralPath $mcpSpecPath) {
-  $mcpSpec = $null
-  try { $mcpSpec = [IO.File]::ReadAllText($mcpSpecPath) | ConvertFrom-Json } catch { Add-Finding 'WARN' 'claude-mcp' $mcpSpecPath "does not parse ($($_.Exception.Message))" }
-  $cj = Read-JsonFile $ClaudeJson
-  if (-not $cj.Exists) { Add-Finding 'OK' 'claude-mcp' $ClaudeJson 'not found; install.ps1 merges MCP connectors into it' }
-  elseif (-not $cj.Ok) { Add-Finding 'CONFLICT' 'claude-mcp' $ClaudeJson "does not parse as JSON ($($cj.Err)); install.ps1 cannot merge into it. Fix it first." }
-  elseif ($mcpSpec) {
-    $foundNames = @{}
-    $ms = $cj.Obj.mcpServers
-    if ($ms) { foreach ($p in $ms.PSObject.Properties) { $foundNames[$p.Name] = "user" } }
-    $projects = $cj.Obj.projects
-    if ($projects) {
-      foreach ($pp in $projects.PSObject.Properties) {
-        $pms = $null; if ($pp.Value) { $pms = $pp.Value.mcpServers }
-        if ($pms) { foreach ($sp in $pms.PSObject.Properties) { if (-not $foundNames.ContainsKey($sp.Name)) { $foundNames[$sp.Name] = "local:$($pp.Name)" } } }
-      }
-    }
-    foreach ($s in @($mcpSpec.servers)) {
-      $n = [string]$s.name
-      if ($foundNames.ContainsKey($n)) { Add-Finding 'ALREADY-INSTALLED' 'claude-mcp' "$ClaudeJson > $n" "present ($($foundNames[$n])); install.ps1 leaves it alone" }
-      else { Add-Finding 'OK' 'claude-mcp' "$ClaudeJson > $n" 'not present; install.ps1 adds it (skipped if a required key is missing)' }
-    }
-  }
-}
-$pluginListPath = Join-Path $PkgRoot 'claude\plugins.json'
-if (Test-Path -LiteralPath $pluginListPath) {
-  try {
-    $pl = [IO.File]::ReadAllText($pluginListPath) | ConvertFrom-Json
-    $n = @($pl.plugins).Count
-    Add-Finding 'OK' 'claude-plugins' $pluginListPath "$n plugin(s) in the source-of-truth list; install.ps1 installs missing ones at user scope from $($pl.marketplaceName)"
-  } catch { Add-Finding 'WARN' 'claude-plugins' $pluginListPath "does not parse ($($_.Exception.Message))" }
-}
+# 6b. No third-party installs (D-2026-11-26-no-third-party-installs): install.ps1 adds no MCP servers to ~/.claude.json
+#     and installs no other Claude Code plugins, so nothing is checked for them here.
 
 # ---------------------------------------------------------------- 7. Cursor hooks.json (user + project)
 function Test-CursorHooks([string]$Path, [bool]$IsUser) {
@@ -732,7 +679,7 @@ if ($ReportPath) { Write-Host "Report: $ReportPath" } else { Write-Host 'Report 
 $result = [pscustomobject]@{
   Findings = $Findings.ToArray(); Conflicts = $conf; ReportPath = $ReportPath
   CursorStartup = $CursorStartup; CursorExe = $CursorExe; PyOk = $PyOk; StartupFolder = $StartupFolder
-  ClaudeVer = $ClaudeVer; AgentsPlugin = $AgentsPlugin
+  ClaudeVer = $ClaudeVer
 }
 if ($PassThru) { return $result }
 if ($conf) { exit 2 }

@@ -29,9 +29,6 @@ $settings = @{
         PreCompact = @(@{ hooks = @(@{ command = $pre }) })
         PostToolUse = @(@{ hooks = @(@{ command = $nudge }) })
     }
-    pluginConfigs = @{
-        'cc-plugin-agents-md@builtin' = @{ options = @{ instructionFiles = 'claude-md-and-agents-md' } }
-    }
 }
 ($settings | ConvertTo-Json -Depth 8) | Set-Content (Join-Path $userDir '.claude\settings.json')
 $state = Join-Path $local 'Workstation'
@@ -89,7 +86,7 @@ $out = & pwsh -NoProfile -ExecutionPolicy Bypass -File $status -NoPause 2>&1
 $code = $LASTEXITCODE
 $text = $out -join "`n"
 $bad = @($out | Where-Object { "$_" -match '\[(FAIL|WARN)\]' })
-foreach ($want in '[ OK ] Claude Code: workstation-core@workstation-plugins 0123456', '[ OK ] Cursor: workstation-core copy matches', '[STOP] Desktop Commander remote STOPPED', '[STOP] Cursor worker STOPPED', '[ -- ] claude.ai copy', '[ -- ] working-memory junction') {
+foreach ($want in '[ OK ] Claude Code: workstation-core@workstation-plugins 0123456', '[ OK ] Cursor: workstation-core copy matches', '[STOP] Cursor worker STOPPED', '[ -- ] claude.ai copy', '[ -- ] working-memory junction') {
     if (-not ($text.Contains($want))) { "missing line: $want"; $bad += $want }
 }
 if ($bad.Count -or $code -ne 0) {
