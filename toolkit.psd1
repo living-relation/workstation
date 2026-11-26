@@ -27,12 +27,17 @@
     @{ Name = 'Health check'; Script = 'health\workstation-status.ps1'; Icon = 23 }
     @{ Name = 'Start Cursor worker'; Script = 'cursor-worker\start-cursor-worker.ps1'; Icon = 137 }
     @{ Name = 'Stop Cursor worker';  Script = 'cursor-worker\stop-cursor-worker.ps1'; Icon = 131 }
+    @{ Name = 'Start Desktop Commander'; Script = 'desktop-commander-remote\start-dc-remote.ps1'; Args = '-Show'; Icon = 137 }
+    @{ Name = 'Stop Desktop Commander';  Script = 'desktop-commander-remote\stop-dc-remote.ps1'; Icon = 131 }
+    @{ Name = 'DC remote status';        Script = 'desktop-commander-remote\dc-remote-status.ps1'; Icon = 23 }
     @{ Name = 'Kill orphaned remote processes'; Script = 'kill-orphans.ps1'; Icon = 131 }
   )
 
   # No sign-in links. An old Startup link that still runs the start script is removed (backup first).
   StartupLinks        = @()
-  RetiredStartupLinks = @()
+  RetiredStartupLinks = @(
+    @{ Name = 'Desktop Commander Remote'; Script = 'start-dc-remote.ps1' }
+  )
 
   LegacyShortcutFolders = @('Bridge', 'Workstation')
   LegacyShortcutNames   = @('Bridge Start', 'Bridge Stop', 'Bridge Status')

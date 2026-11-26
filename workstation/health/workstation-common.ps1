@@ -211,6 +211,47 @@ function Show-Plugins {
     }
 }
 
+function Show-DcRemote {
+    Write-Host ''
+    Write-Host 'Desktop Commander remote' -ForegroundColor Cyan
+    $rows = @(Get-DcRemoteRows)
+    if ($rows.Count -eq 0) { Write-Stop 'Desktop Commander remote STOPPED (manual Start only; one copy serves all chats)' }
+    elseif ($rows.Count -eq 1) {
+        if ($rows[0].Verdict -eq 'online') { Write-Run "Desktop Commander remote RUNNING: one copy, pid $($rows[0].Pid) (one copy serves all chats)" }
+        else { Write-Warn "Desktop Commander remote: one copy, pid $($rows[0].Pid), is $($rows[0].Verdict) (its window or parent is gone). Use Stop Desktop Commander, then Start" }
+    }
+    else {
+        $keep = Get-DcRemoteKeep $rows
+        if ($keep) { Write-Warn "Desktop Commander remote RUNNING pid $($keep.Pid), plus $($rows.Count - 1) extra copy(ies). Start Desktop Commander stops the extras" }
+        else { Write-Warn "Desktop Commander remote: $($rows.Count) copies, none healthy. Use Stop Desktop Commander, then Start" }
+    }
+}
+
+function Show-DcAutostart {
+    $hits = @()
+    $startup = [Environment]::GetFolderPath('Startup')
+    if ($startup -and (Test-Path -LiteralPath $startup)) {
+        $wsh = $null
+        try { $wsh = New-Object -ComObject WScript.Shell } catch { $wsh = $null }
+        foreach ($l in @(Get-ChildItem -LiteralPath $startup -Filter *.lnk -ErrorAction SilentlyContinue)) {
+            $cmd = ''
+            if ($wsh) { try { $s = $wsh.CreateShortcut($l.FullName); $cmd = "$($s.TargetPath) $($s.Arguments)" } catch { $cmd = '' } }
+            if ($cmd -match 'start-dc-remote\.ps1') { $hits += $l.FullName }
+        }
+    }
+    foreach ($run in @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Run')) {
+        if (-not (Test-Path -LiteralPath $run)) { continue }
+        try { $props = Get-ItemProperty -LiteralPath $run -ErrorAction Stop } catch { continue }
+        foreach ($p in $props.PSObject.Properties) {
+            if ($p.Name -like 'PS*') { continue }
+            $v = [string]$p.Value
+            if ($v -match 'start-dc-remote\.ps1') { $hits += "Run:$($p.Name)" }
+        }
+    }
+    if ($hits) { Write-Warn ("Desktop Commander remote starts at sign-in: " + ($hits -join ', ')) }
+    else { Write-Ok 'Desktop Commander remote does not start at sign-in' }
+}
+
 function Show-CursorWorker {
     Write-Host ''
     Write-Host 'Cursor worker' -ForegroundColor Cyan

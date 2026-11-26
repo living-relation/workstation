@@ -45,8 +45,8 @@ hygiene, and reports in a few lines. Any repo.
    `State: no change`. A router line that names another PR-body field stays. A line that puts a handoff file or a `CLAUDE.md` in the repo does not.
 4. **Memory (notes only).** Find the store with `python <workstation>/scripts/state/state_paths.py` (`notes_dir`).
    - **Where you run decides how you reach it.** On the PC (Claude Code, Cursor): write
-     the files directly. In a cloud session or the Grok Bot: use a remote route to the PC (for
-     example Remote Control) to reach the PC folder. If no route works, don't create a memory anywhere else.
+     the files directly. In a cloud session or the Grok Bot: use Desktop Commander or Remote
+     Control to reach the PC folder. If no route works, don't create a memory anywhere else.
      Put the facts in the report under "to save" so the user or the next PC session saves them.
      (STATE is in the repo, so it never needs this route.) Claude desktop online Memory is not this store and is not synced.
    - Save new durable things the user said or that turned up this session: preferences,

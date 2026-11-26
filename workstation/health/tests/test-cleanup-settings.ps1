@@ -6,7 +6,7 @@ $rule = 'Merging pull requests in Daniel''s own GitHub repos (github.com/living-
 $root = Join-Path ([IO.Path]::GetTempPath()) ("cl-" + [guid]::NewGuid().ToString('N'))
 $userDir = Join-Path $root 'home'
 $state = Join-Path $root 'state'
-New-Item -ItemType Directory -Path (Join-Path $userDir '.claude'), $state, (Join-Path $state 'dashboard') | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $userDir '.claude'), $state, (Join-Path $state 'desktop-commander-remote'), (Join-Path $state 'dashboard') | Out-Null
 Set-Content (Join-Path $state 'dashboard\keep.txt') 'x'
 $settings = @{
     remoteControlAtStartup = $false
@@ -25,6 +25,7 @@ Check 'other rule kept' (@($s.autoMode.allow) -contains 'keep this other rule') 
 Check 'merge rule gone' (@($s.autoMode.allow) -contains $rule) False
 Check 'hook kept' ($s.hooks.Stop[0].hooks[0].command) 'context-guard.ps1'
 Check 'statusLine kept' $s.statusLine.command 'context-guard.ps1 statusline'
+Check 'phone remote state kept' (Test-Path (Join-Path $state 'desktop-commander-remote')) True
 Check 'old folder archived' (Test-Path (Join-Path $state 'dashboard')) False
 
 # Windows PowerShell 5.1 Join-Path accepts only two path arguments.

@@ -26,7 +26,7 @@
     uninstall removes only a block this install added.
   - Backs up ~\.claude\settings.json (timestamped .bak next to it) before changing it.
   - Installs nothing third-party (decision D-2026-11-26-no-third-party-installs): no MCP servers in ~\.claude.json,
-    no other Claude Code plugins, no Desktop Commander, and no pluginConfigs in ~\.claude\settings.json. Which
+    no other Claude Code plugins, and no pluginConfigs in ~\.claude\settings.json. Which
     plugins and MCP servers a PC has is the user's choice. Anything an older install added stays as it is.
   - Does not change Claude Code autoMode, and does not write a remote-control startup flag.
   - The Projects root guide is AGENTS.md (memory section appended there). Install does not create a root
@@ -36,7 +36,7 @@
     e.g. <clone>\workstation\). Writes %LOCALAPPDATA%\<StateFolder>\<ConfigFile> (projectsRoot) so the scripts find
     the Projects root; runtime files (worker logs and instance notes) also go under %LOCALAPPDATA%\<StateFolder>\,
     never into the clone. Then creates manual shortcuts (Health check, Start and Stop Cursor worker,
-    and the orphan tool) in this
+    Start, Stop, and status for Desktop Commander, and the orphan tool) in this
     package's shortcuts\ folder. Those links are gitignored.
     An empty shortcuts\rc folder left by the old per-project links is removed. A folder that still has
     files, or that is a link, is left alone. No Startup item and no Run key.
@@ -60,6 +60,7 @@
     copy skills into ~\.claude\skills. No zip upload. On a real run it opens the Plugins page and prints the clicks.
     Nothing is scheduled and nothing reinstalls in the background.
     An existing Cursor sign-in entry is only reported (WARN), never added or removed.
+    Desktop Commander is a manual shortcut only.
   - Everything it adds is listed in <Projects>\_claude\automation-installed-files.txt for uninstall.ps1.
   - Does NOT migrate old memory. See MIGRATION.md.
   - Ends by running Health check (-NoPause: read-only, never prompts) and printing its FAIL / WARN counts.
@@ -588,7 +589,7 @@ if ($settingsOk) {
 }
 
 # 7c. No third-party installs (decision D-2026-11-26-no-third-party-installs): no MCP servers, no other Claude Code
-#     plugins, no Desktop Commander and no pluginConfigs. What an older install added stays as it is.
+#     plugins and no pluginConfigs. What an older install added stays as it is.
 
 # 7b. ~\.cursor\hooks.json is not changed. The Cursor 80% handoff (handoff-at-80.py), the memory-link guard and the
 #     pr-closeout nudge come from the workstation-core Cursor plugin (hooks\cursor-hooks.json; decision
@@ -760,7 +761,7 @@ if ($attention.Count) {
 }
 Write-Host ''
 if ($WhatIf) { Write-Host 'Dry run only. Nothing was changed. Run again without -WhatIf to apply.' -ForegroundColor Cyan }
-else { Write-Host 'The Cursor worker runs only from its manual shortcuts. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
+else { Write-Host 'Desktop Commander and the Cursor worker run only from their manual shortcuts. On a PC that still has the old local setup, run cleanup-legacy.ps1 -WhatIf first.' -ForegroundColor White }
 Invoke-StatusCheck
 
 # Paste helper: one instruction file at a time. -Quiet skips it. A dry run and -UserHome only print the plan.

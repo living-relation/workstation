@@ -91,7 +91,7 @@ PHASES = (
             "Add -AcceptConflicts only if the remaining conflicts in phase 2 were accepted. It copies no "
             "toolkit files (the toolkit runs from the clone's workstation\\ folder); it writes "
             "%LOCALAPPDATA%\\Workstation\\workstation.json (the Projects root), creates the manual Health check, "
-            "Cursor worker and orphan tool shortcuts in the package's shortcuts\\ folder, installs no hooks "
+            "Cursor worker, Desktop Commander (Start, Stop, status) and orphan tool shortcuts in the package's shortcuts\\ folder, installs no hooks "
             "(the workstation-core plugin carries them), installs no third-party MCP servers or plugins and "
             "does not set pluginConfigs (D-2026-11-26-no-third-party-installs), and does not copy skills into ~\\.claude\\skills (the workstation-core "
             "plugin delivers them). On a real run it opens https://claude.ai/customize/plugins and prints "
@@ -214,7 +214,7 @@ PHASES = (
 
 ALWAYS = """\
 Notes:
-- App startup switches belong to the owner: never turn one on or off. Report them only.
+- App startup switches belong to the owner: never turn one on or off. Report them only. Desktop Commander must not start at sign-in.
 - Say which active projects have no git remote (pull/push is one repo at a time, by hand).
 
 Always:
