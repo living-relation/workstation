@@ -40,6 +40,7 @@ Regenerate with `python3 scripts/gen-code-index.py`; CI runs it with `--check`.
 | `handoff/claude/context-guard.ps1` | context-guard.ps1 — Claude Code context-pressure handoff + compaction backup. |
 | `handoff/claude/pr-closeout-nudge.ps1` | PostToolUse nudge (2026-10-28): after a shell call that ran `gh pr create` and printed a |
 | `handoff/cursor/handoff-at-80.py` | Arm the state-closeout (closeout mode) run when chat context is at or above 80%. |
+| `handoff/cursor/run-handoff-at-80.ps1` | Launcher for the Cursor plugin hook (hooks/cursor-hooks.json preCompact and stop). |
 
 ## hooks
 

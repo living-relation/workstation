@@ -3,6 +3,7 @@
 # on stdin. With no Python 3 it prints {} (Cursor treats an empty reply as invalid JSON) and exits 0.
 $ErrorActionPreference = 'Continue'
 $raw = [Console]::In.ReadToEnd()
+$OutputEncoding = New-Object Text.UTF8Encoding $false  # no BOM on the pipe to Python
 $py = Join-Path $PSScriptRoot 'handoff-at-80.py'
 $cands = @(@('py', '-3'), @('python3'), @('python'))
 foreach ($c in $cands) {

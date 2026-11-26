@@ -141,7 +141,7 @@ def handle_stop(payload: dict) -> dict:
 def main(argv: list[str] | None = None) -> int:
     from_plugin = "--from-plugin" in (sys.argv[1:] if argv is None else argv)
     try:
-        raw = sys.stdin.read()
+        raw = sys.stdin.read().lstrip("\ufeff")  # Windows PowerShell pipes add a BOM
         payload = json.loads(raw) if raw.strip() else {}
     except json.JSONDecodeError:
         _emit({})
