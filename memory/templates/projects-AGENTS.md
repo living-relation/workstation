@@ -56,7 +56,7 @@ Inside the store, `MEMORY.md` is the no-project index (general notes, one line p
 
 ## Workstation toolkit (`{{TOOLKIT_PATH}}\`)
 
-Operator scripts for this PC. **Git is the primary bridge** (commit + push remotely, then `git pull --ff-only` in that one repo on this PC). The scripts run straight from the workstation repo clone (keep that clone on `main`); there is no installed copy under the Projects root. Health check: `{{TOOLKIT_PATH}}\health\workstation-status.ps1`. Runtime files live in `%LOCALAPPDATA%\Workstation\`, never in the clone. Nothing auto-starts. See `{{TOOLKIT_PATH}}\README.md`.
+Operator scripts for this PC. **Git is the primary bridge** (commit + push remotely, then `git pull --ff-only` in that one repo on this PC). The scripts run straight from the workstation repo clone (keep that clone on `main`); there is no installed copy under the Projects root. Health check: `{{TOOLKIT_PATH}}\health\workstation-status.ps1`. Desktop Commander is manual only (one phone remote per PC, no sign-in item): Start, Stop, and status links in the clone's `shortcuts\` folder. Runtime files live in `%LOCALAPPDATA%\Workstation\`, never in the clone. Nothing auto-starts. See `{{TOOLKIT_PATH}}\README.md`.
 
 ```powershell
 powershell -File "{{TOOLKIT_PATH}}\{{TOOLKIT_STATUS}}"

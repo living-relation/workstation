@@ -12,8 +12,8 @@
   Since D-2026-11-26-hooks-in-plugin, install.ps1 no longer copies or wires the guard, context-guard,
   pr-closeout-nudge or handoff-at-80 hooks, a statusLine, or ~\.cursor\hooks.json (they ship in the
   workstation-core plugin). The hook, statusLine and hook-file items below are only what an OLDER install recorded.
-  Never removed (D-2026-11-26-no-third-party-installs): MCP servers in ~\.claude.json, other Claude Code plugins,
-  Desktop Commander, and pluginConfigs in ~\.claude\settings.json, even when an older install recorded adding
+  Never removed (D-2026-11-26-no-third-party-installs): MCP servers in ~\.claude.json, other Claude Code plugins
+  and pluginConfigs in ~\.claude\settings.json, even when an older install recorded adding
   them. Which plugins and MCP servers a PC has is the user's choice; uninstall only lists those records.
   From the manifest:
   - memory sections (between <!-- shared-memory:v1 --> markers) install created or appended; a file install created

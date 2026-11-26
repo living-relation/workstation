@@ -108,11 +108,15 @@ Regenerate with `python3 scripts/gen-code-index.py`; CI runs it with `--check`.
 | `workstation/cursor-worker/cursor-worker-lib.ps1` | Shared helpers for the manual Cursor worker. Dot-source only. |
 | `workstation/cursor-worker/start-cursor-worker.ps1` | Manual Start. Lists folders in <Projects>\active and starts one Cursor worker |
 | `workstation/cursor-worker/stop-cursor-worker.ps1` | Manual Stop. Lists Cursor workers this tool started and stops the one you pick, or all. |
+| `workstation/desktop-commander-remote/dc-remote-lib.ps1` | Shared rules for the Desktop Commander phone remote. Dot-source only. |
+| `workstation/desktop-commander-remote/dc-remote-status.ps1` | DC remote status. Read-only. One copy per PC serves every chat and project. |
+| `workstation/desktop-commander-remote/start-dc-remote.ps1` | Manual Start. One shortcut, no sign-in item. Does not launch or remove the desktop app. |
+| `workstation/desktop-commander-remote/stop-dc-remote.ps1` | Manual Stop. Stops every Desktop Commander remote copy. Does not add a sign-in item. |
 | `workstation/health/claude-ai-plugin.ps1` | Shared check: the workstation-core copy synced from claude.ai, and the copy Claude Code installed |
 | `workstation/health/claude-auth-status.ps1` | Parse helpers for `claude auth status`. Windows PowerShell 5.1 compatible. ASCII-only. |
 | `workstation/health/orphans.ps1` | Leftover-process list shared by Health check and kill-orphans.ps1. Dot-source only. |
 | `workstation/health/workstation-common.ps1` | Health check helpers. Dot-sourced by workstation-status.ps1. |
-| `workstation/health/workstation-status.ps1` | Health check (read-only): memory, hooks, skills, app locks, |
+| `workstation/health/workstation-status.ps1` | Health check (read-only): memory, hooks, skills, app locks, the phone remote, |
 | `workstation/kill-orphans.ps1` | Manual tool. Lists leftover processes and asks once per item before stopping any. |
 | `workstation/make-shortcuts.ps1` | Creates the manual shortcuts in -LinkDir. No Startup item, no Run key, no scheduled task. |
 | `workstation/paths.ps1` | Shared paths for the Workstation toolkit. Dot-sourced by health\workstation-common.ps1 |
