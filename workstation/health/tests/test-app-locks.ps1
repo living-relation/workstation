@@ -41,36 +41,36 @@ try {
     if (-not $env:ProgramFiles) { $env:ProgramFiles = Join-Path $root 'pf' }
     Remove-Item Env:WORKSTATION_LOCKCHECK_SCRIPT -ErrorAction SilentlyContinue
     . $common
-    $allow = [pscustomobject]@{ AccessControlType = 'Allow'; FileSystemRights = 'FullControl'; IdentityReference = 'PC\danie' }
-    $read = [pscustomobject]@{ AccessControlType = 'Allow'; FileSystemRights = 'ReadAndExecute'; IdentityReference = 'PC\danie' }
+    $allow = [pscustomobject]@{ AccessControlType = 'Allow'; FileSystemRights = 'FullControl'; IdentityReference = 'PC\alice' }
+    $read = [pscustomobject]@{ AccessControlType = 'Allow'; FileSystemRights = 'ReadAndExecute'; IdentityReference = 'PC\alice' }
     $usersRule = [pscustomobject]@{ AccessControlType = 'Allow'; FileSystemRights = 'Modify'; IdentityReference = 'BUILTIN\Users' }
-    $deny = [pscustomobject]@{ AccessControlType = 'Deny'; FileSystemRights = 'Write'; IdentityReference = 'PC\danie' }
-    Check 'acl allows profile user' (Test-AclAllowsWrite @($allow) 'danie' @()) $true
-    Check 'acl read is not write' (Test-AclAllowsWrite @($read) 'danie' @()) $false
+    $deny = [pscustomobject]@{ AccessControlType = 'Deny'; FileSystemRights = 'Write'; IdentityReference = 'PC\alice' }
+    Check 'acl allows profile user' (Test-AclAllowsWrite @($allow) 'alice' @()) $true
+    Check 'acl read is not write' (Test-AclAllowsWrite @($read) 'alice' @()) $false
     Check 'acl allows Users' (Test-AclAllowsWrite @($usersRule) 'someone' @()) $true
-    Check 'acl deny wins' (Test-AclAllowsWrite @($usersRule, $deny) 'danie' @()) $false
+    Check 'acl deny wins' (Test-AclAllowsWrite @($usersRule, $deny) 'alice' @()) $false
     Check 'rule text complete' (Test-LockRuleComplete $rule) $true
     Check 'rule text incomplete' (Test-LockRuleComplete $bad) $false
 
     Set-Content -LiteralPath (Join-Path $projects 'AGENTS.md') -Value $rule
     New-Item -ItemType Directory -Path (Join-Path $users 'emptyuser') | Out-Null
-    New-Profile 'danie' $rule -Cursor -Desktop
-    New-Profile 'Administrator' $bad
+    New-Profile 'alice' $rule -Cursor -Desktop
+    New-Profile 'bob' $bad
     $first = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1
     $firstText = $first -join "`n"
     Check 'doctor fails while a profile is missing harness.design' $LASTEXITCODE 1
-    Check 'doctor names the bad profile' ($firstText -like '*FAIL*Administrator Claude Code*harness.design*') $true
-    Check 'doctor passes the good profile' ($firstText -like '*PASS*danie Claude Code*') $true
-    Check 'doctor skips desktop when not file-based' ($firstText -like '*SKIP*danie Claude Desktop*') $true
+    Check 'doctor names the bad profile' ($firstText -like '*FAIL*bob Claude Code*harness.design*') $true
+    Check 'doctor passes the good profile' ($firstText -like '*PASS*alice Claude Code*') $true
+    Check 'doctor skips desktop when not file-based' ($firstText -like '*SKIP*alice Claude Desktop*') $true
     Check 'doctor skips Grok' ($firstText -like '*SKIP*Grok Bot*') $true
     Check 'doctor passes shared rules' ($firstText -like '*PASS*projects AGENTS.md (shared rules)*') $true
-    $adminPlugins = Join-Path (Join-Path (Join-Path $users 'Administrator') '.claude') 'plugins'
+    $adminPlugins = Join-Path (Join-Path (Join-Path $users 'bob') '.claude') 'plugins'
     $hookDir = Join-Path $adminPlugins 'cache-x'
     New-Item -ItemType Directory -Path $hookDir -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $hookDir 'rules-inject.ps1') -Value '# hook'
     $stray = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1
     $strayText = $stray -join "`n"
-    Check 'doctor fails a stray rules-inject.ps1 that is not an installed plugin' ($strayText -like '*FAIL*Administrator Claude Code*installed_plugins.json*') $true
+    Check 'doctor fails a stray rules-inject.ps1 that is not an installed plugin' ($strayText -like '*FAIL*bob Claude Code*installed_plugins.json*') $true
     Check 'doctor exit 1 with only a stray hook' $LASTEXITCODE 1
     $install = Join-Path $adminPlugins 'cache\workstation-plugins\workstation-core\abc1234'
     New-Item -ItemType Directory -Path (Join-Path $install 'hooks') -Force | Out-Null
@@ -79,18 +79,18 @@ try {
     Set-Content -LiteralPath (Join-Path $adminPlugins 'installed_plugins.json') -Value ($installed | ConvertTo-Json -Depth 8)
     $viaHook = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1
     $viaHookText = $viaHook -join "`n"
-    Check 'doctor passes a profile with an installed workstation-core that has the rules hook' ($viaHookText -like '*PASS*Administrator Claude Code gets the harness.design lock rule from the installed workstation-core SessionStart hook*') $true
+    Check 'doctor passes a profile with an installed workstation-core that has the rules hook' ($viaHookText -like '*PASS*bob Claude Code gets the harness.design lock rule from the installed workstation-core SessionStart hook*') $true
     Check 'doctor exit 0 with the installed plugin' $LASTEXITCODE 0
     Check 'doctor runs the lock script once per lock' (@($viaHook | Where-Object { "$_" -match 'lock script' }).Count) 2
     Check 'lock script line names harness.design' ($viaHookText -like '*PASS*harness.design lock script status runs (exit 0)*') $true
     Check 'lock script line names Fusion Desktop' ($viaHookText -like '*PASS*Fusion Desktop lock script status runs (exit 0)*') $true
-    $adminSettings = Join-Path (Join-Path (Join-Path $users 'Administrator') '.claude') 'settings.json'
+    $adminSettings = Join-Path (Join-Path (Join-Path $users 'bob') '.claude') 'settings.json'
     Set-Content -LiteralPath $adminSettings -Value '{"enabledPlugins":{"workstation-core@workstation-plugins":false}}'
     $offRun = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1
     Check 'doctor fails when the installed plugin is turned off' $LASTEXITCODE 1
     Remove-Item -LiteralPath $adminSettings -Force
     Remove-Item -LiteralPath $hookDir -Recurse -Force
-    Set-Content -LiteralPath (Join-Path (Join-Path $users 'Administrator') '.claude\CLAUDE.md') -Value $rule
+    Set-Content -LiteralPath (Join-Path (Join-Path $users 'bob') '.claude\CLAUDE.md') -Value $rule
     $second = & $pwsh -NoProfile -ExecutionPolicy Bypass -File $status -Locks 2>&1
     $secondText = $second -join "`n"
     Check 'doctor passes once every profile has the rule' $LASTEXITCODE 0

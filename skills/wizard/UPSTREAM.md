@@ -1,10 +1,10 @@
 # Upstream
 
-This skill is Dan's copy of [claude-wizard](https://github.com/vlad-ko/claude-wizard) `skill/`, based on `43756e1` (full `43756e1fe74672f35694ff2312847fc9aa037e04`).
+This skill is this repo's copy of [claude-wizard](https://github.com/vlad-ko/claude-wizard) `skill/`, based on `43756e1` (full `43756e1fe74672f35694ff2312847fc9aa037e04`).
 
 This repo is the source of truth. Skills get in only by installing the workstation-core plugin (see `INSTALL.md`). No zip upload.
 
-## Dan's changes
+## Local changes
 
 From pull request 57. Every other file under this folder matches that upstream commit.
 

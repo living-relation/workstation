@@ -154,13 +154,13 @@ WSL side (only if you want the Python helpers, e.g. the INVENTORY generator): `b
 - `workstation.lock.yaml` - pins and pointers only. `INVENTORY.md` is generated from it (`.venv/bin/python scripts/gen-inventory.py`).
 - No CAD code or models in this repo. `workstation.lock.yaml` does not pin any.
 - `skills/` - this repo's skills; skills live only in their repo. They get in from the `workstation-core` plugin: turned on from the `workstation-plugins` catalog on claude.ai for Claude desktop and Cowork, and installed from the same catalog with the `claude plugin` commands for Claude Code (see [INSTALL.md](INSTALL.md)). No zip upload. `install.ps1` does not copy them into `~\.claude\skills`.
-  `skills/EXCLUDE.txt` lists Claude-app-owned skills (harness-design, st185-*); those, and any SKILL.md with
+  `skills/EXCLUDE.txt` lists Claude-app-owned skills (the harness.design app's skills); those, and any SKILL.md with
   `source: harness-design-app`, are left alone, and `link-skills.ps1` never moves or removes their folders.
 
-  **This repo is the source of truth for Dan's skills** (all 18 are his). `wizard` is his copy of
+  **This repo is the source of truth for its skills** (all 18). `wizard` is this repo's copy of
   [claude-wizard](https://github.com/vlad-ko/claude-wizard) `skill/` at base `43756e1` (`skills/wizard/UPSTREAM.md`).
   `workstation\check-upstream.ps1` is manual. For a skill with `metadata.upstream` it fetches upstream, shows
-  `base..HEAD`, three-way merges into Dan's copy, bumps `upstream-base`, and opens a PR. No schedule and no
+  `base..HEAD`, three-way merges into this repo's copy, bumps `upstream-base`, and opens a PR. No schedule and no
   sign-in item. The same check can be started by hand from Actions: workflow **check-upstream**
   (`workflow_dispatch` only, no cron).
 - Ownership notes: `install.ps1` runs `ownership-notes.ps1`, which adds a README.md/AGENTS.md ("owned by the workstation repo")

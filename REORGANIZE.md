@@ -3,27 +3,27 @@
 Goal: make the Projects root match this layout. Projects root = the `-ProjectsRoot` given to
 `install.ps1` (default `%USERPROFILE%\Projects`).
 
-    active\     live AND finished projects (anything Dan may still use or look at), including the
+    active\     live AND finished projects (anything the user may still use or look at), including the
                 workstation repo clone: the Workstation toolkit runs straight from it
     _archive\   layout folder only (this cleanup adds nothing to it)
     _scratch\   temporary files (stays empty after setup, except retire records like bridge-retired-*)
     _claude\    shared memory, Cursor's copy, sync scripts
-    _refs\      optional: reference material, vendor docs, third-party clones (only if Dan wants it)
+    _refs\      optional: reference material, vendor docs, third-party clones (only if the user wants it)
     .cursor\    Cursor project settings at the Projects root (if present)
     AGENTS.md   the one root guide (a root CLAUDE.md is merged into it: step 5)
 
-Hard rules: move only after Dan approves; never overwrite (if a target name already exists in
+Hard rules: move only after the user approves; never overwrite (if a target name already exists in
 `active\` or elsewhere, stop and ask; do not merge blindly); never touch an old toolkit copy (`_workstation\`, `_bridge\`) during
 moves; never open, print or move secret files (keys, credentials, `.env` files) beyond moving the
 folder they are in; never commit memory to git; never run `git init`.
 
 The package organizes active projects into `active\`. A project with anything recent in it is
 active and is proposed for `active\`. Everything that is not an active project is listed and left
-for Dan to choose. Deletion of projects is totally manual. The agent never deletes a project, a
+for the user to choose. Deletion of projects is totally manual. The agent never deletes a project, a
 repo, or the files inside one.
 
 Nothing from this cleanup goes into `_archive`. Do not move old folders or leftover projects into
-`_archive`. Projects Dan may still use move into `active\` only after he approves that row.
+`_archive`. Projects the user may still use move into `active\` only after they approve that row.
 `_archive` stays as a layout folder so the root can match, but this cleanup adds nothing to it.
 
 Old organizational folders: a top-level folder that holds projects and is not one of `active`,
@@ -44,7 +44,7 @@ End state of the Projects root must be exactly: `active\`, `_archive\`, `_claude
 
 Git warning (show in the approval table, not as a prelude to deletion): if a folder still holds a
 git repo with uncommitted changes or unpushed commits, flag that row. The agent still never
-deletes a project or repo; Dan decides.
+deletes a project or repo; the user decides.
 
 ## Step 1 (ALWAYS first): inventory and plan. Move nothing.
 
@@ -55,32 +55,32 @@ deletes a project or repo; Dan decides.
 3. Sort each into one of:
    - **active** - live, finished, or anything with recent work. Propose `active\<name>`. When
      unsure, choose active.
-   - **list for Dan** - everything that is not an active project. Show it in the table and leave
-     it for him to choose. The agent never deletes it.
+   - **list for the user** - everything that is not an active project. Show it in the table and leave
+     it for them to choose. The agent never deletes it.
    - **_scratch** - loose temp files. Never put a project here.
-   - **_refs** (optional) - reference material or third-party clones, only if Dan wants that folder.
+   - **_refs** (optional) - reference material or third-party clones, only if the user wants that folder.
    - **leave as is** - layout folders (`active`, `_archive`, `_scratch`, `_claude`,
      `_refs`), root `AGENTS.md` (and a root `CLAUDE.md` until step 5 merges it), `.cursor\`, other dotfolders.
    - **old organizational folder** - a top-level folder that holds projects beside `active\` (not
      in the leave-as-is list), including names like `shipping`, `_shipping`, `docs`, `inbox`. Plan
-     to move projects Dan may still use into `active\` (each as its own approval row). Leftovers
-     stay listed for him. When the folder is empty, delete that empty folder (no second ask).
-4. Show Dan a table: current path -> proposed path, and why. Flag repos with uncommitted or
+     to move projects the user may still use into `active\` (each as its own approval row). Leftovers
+     stay listed for them. When the folder is empty, delete that empty folder (no second ask).
+4. Show the user a table: current path -> proposed path, and why. Flag repos with uncommitted or
    unpushed work, open editors, and running processes that could lock files. If a proposed
    `active\` name already exists, stop and ask; do not merge blindly. Every project that sits
    inside an old organizational folder (for example a repair-manual folder inside `shipping`) is
-   one row with a proposed destination (`active\` if he may still use it). It is not a permanent
+   one row with a proposed destination (`active\` if they may still use it). It is not a permanent
    exception that leaves the old organizational folder behind.
-5. Wait for Dan's approval. Apply his changes to the plan. Do nothing until he says go.
+5. Wait for the user's approval. Apply their changes to the plan. Do nothing until they say go.
 
 ## Step 2: move (after approval only)
 
-1. Close or ask Dan to close editors/terminals using the folders.
+1. Close or ask the user to close editors/terminals using the folders.
 2. Move one approved project at a time into `active\` with `Move-Item -LiteralPath`. Check the
    target does not exist first.
 3. After each move, check the folder opens. For a project that is a git repo, also check
    `git -C <path> status` still works (many projects are plain folders; never turn one into a repo).
-4. If anything fails, stop and tell Dan. Do not retry with force.
+4. If anything fails, stop and tell the user. Do not retry with force.
 5. Once an old organizational folder directly inside the Projects root is empty, delete that empty
    folder. Do not ask again. Do not delete it if it still contains anything. Do not delete
    projects. Never remove layout folders (`active`, `_archive`, `_claude`, `_refs`, `_scratch`,
@@ -91,7 +91,7 @@ deletes a project or repo; Dan decides.
 Do this only after old automations are off and Start Cursor workers works from the workstation repo clone
 (`active\workstation\shortcuts\`). For `_workstation`, first run Stop Cursor workers so no worker runs from it, and
 re-point anything that still names it (Health check and preflight list what is left). The steps below use
-`_bridge`; for `_workstation` move it to `_archive\<yyyy-MM-dd>\_workstation` instead (Dan's yes first).
+`_bridge`; for `_workstation` move it to `_archive\<yyyy-MM-dd>\_workstation` instead (the user's yes first).
 
 1. Copy the live `_bridge` folder to `_scratch\bridge-retired-<yyyyMMdd>` as a record only.
 2. Then delete the live `_bridge` folder.
@@ -118,9 +118,9 @@ are not a letter or digit becomes `-` (for example `My Project.v2` -> `my-projec
    - the pointer line in the project's `AGENTS.md` if it still uses the old path;
    - any scheduled task whose action still points at the old path.
    List each path you changed.
-4. Old paths inside Cursor or Claude settings (recent folders, workspaces) may break; list them for Dan.
-5. Tell Dan what moved, which empty organizational folders were removed, that `_bridge` was
-   retired to `_scratch\bridge-retired-<yyyyMMdd>`, and anything left for him to choose.
+4. Old paths inside Cursor or Claude settings (recent folders, workspaces) may break; list them for the user.
+5. Tell the user what moved, which empty organizational folders were removed, that `_bridge` was
+   retired to `_scratch\bridge-retired-<yyyyMMdd>`, and anything left for them to choose.
    Confirm the Projects root matches the end-state list above.
 
 ## Step 5: one AGENTS.md (CLAUDE.md merged into it)
@@ -132,7 +132,7 @@ Project instructions setting (D-2026-11-26-no-third-party-installs).
 
 1. Projects root (do this yourself, no approval needed, because the root is not a git repo):
    - First check that the root is not a git repo (`git -C <Projects> rev-parse --is-inside-work-tree`
-     fails). If it IS a repo, change nothing and tell Dan.
+     fails). If it IS a repo, change nothing and tell the user.
    - Back up the root `CLAUDE.md` and `AGENTS.md` to `<Projects>\_scratch\agents-md-merge-<yyyyMMdd-HHmm>\`.
    - Merge both into `AGENTS.md`. Keep every rule once, with no duplicate text. Copy the
      `<!-- shared-memory:v1 -->` ... `<!-- /shared-memory:v1 -->` block unchanged (exactly one copy).
@@ -148,5 +148,5 @@ Project instructions setting (D-2026-11-26-no-third-party-installs).
    exact duplicates), then delete the CLAUDE file. That fold is pre-approved. Every rule is kept.
    A layout difference is not a blocker or a reason to stop. The rules and decisions in those
    files still bind. Show the merged text before writing over
-   `AGENTS.md`. In a repo, Dan makes the commit himself, and nothing is pushed.
+   `AGENTS.md`. In a repo, the user makes the commit themselves, and nothing is pushed.
 3. Do not create a `CLAUDE.md` or `CLAUDE.local.md` in a repo or at the Projects root. The memory pointer goes in the project's `AGENTS.md`. Leave `%USERPROFILE%\.claude\CLAUDE.md` alone.

@@ -35,7 +35,7 @@ $state = Join-Path $local 'Workstation'
 New-Item -ItemType Directory -Path $state | Out-Null
 (@{ projectsRoot = $projects; toolkit = (Join-Path $repo 'workstation') } | ConvertTo-Json) | Set-Content (Join-Path $state 'workstation.json')
 Set-Content (Join-Path $projects 'AGENTS.md') $rule
-$profile = Join-Path $users 'danie'
+$profile = Join-Path $users 'alice'
 New-Item -ItemType Directory -Path (Join-Path $profile '.claude') -Force | Out-Null
 Set-Content (Join-Path $profile '.claude\CLAUDE.md') $rule
 $pstate = Join-Path $profile 'AppData\Local\Workstation'

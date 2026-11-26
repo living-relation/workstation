@@ -13,7 +13,7 @@ function Invoke-ProjectsRootReport {
   $stray = @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue | Where-Object { $allowed -notcontains $_.Name } | ForEach-Object { $_.Name })
   if ($stray.Count -eq 0) { exit 0 }
   $list = ($stray | ForEach-Object { (Join-Path $display $_) }) -join ', '
-  $msg = "projects-root-report: these entries are in the projects root but are not allowed there: $list. If you made them this session, move them into $display\active\<project>\ (or that project's _scratch\). If you did not make them, tell Dan instead of moving them. See $display\AGENTS.md."
+  $msg = "projects-root-report: these entries are in the projects root but are not allowed there: $list. If you made them this session, move them into $display\active\<project>\ (or that project's _scratch\). If you did not make them, tell the user instead of moving them. See $display\AGENTS.md."
   $cursor = [bool]$env:CURSOR_VERSION
   if ((-not $cursor) -and $In -and $In.cursor_version) { $cursor = $true }
   if ($cursor) {

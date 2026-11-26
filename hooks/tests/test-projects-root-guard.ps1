@@ -51,7 +51,7 @@ function Report($Payload, $Env) { Invoke-Hook $report $Payload $Env }
 
 # --- path forms (no disk root required) ---
 $reC = Get-ProjectsRootRegex 'C:\projects'
-$reU = Get-ProjectsRootRegex 'C:\Users\Administrator\projects'
+$reU = Get-ProjectsRootRegex 'C:\Users\alice\projects'
 foreach ($sample in @(
   'C:\projects\nope',
   'C:/projects/nope',
@@ -60,19 +60,19 @@ foreach ($sample in @(
 )) {
   Check "C:\projects regex matches $sample" ([regex]::IsMatch($sample, $reC))
 }
-Check 'user-profile regex matches /mnt/c form' ([regex]::IsMatch('/mnt/c/Users/Administrator/projects/nope', $reU))
-Check 'user-profile regex matches /c form' ([regex]::IsMatch('/c/Users/Administrator/projects/nope', $reU))
-Check 'user-profile regex matches Windows form' ([regex]::IsMatch('C:\Users\Administrator\projects\nope', $reU))
+Check 'user-profile regex matches /mnt/c form' ([regex]::IsMatch('/mnt/c/Users/alice/projects/nope', $reU))
+Check 'user-profile regex matches /c form' ([regex]::IsMatch('/c/Users/alice/projects/nope', $reU))
+Check 'user-profile regex matches Windows form' ([regex]::IsMatch('C:\Users\alice\projects\nope', $reU))
 Check 'user-profile regex does not match C:\projects' (-not [regex]::IsMatch('C:\projects\nope', $reU))
-Check 'C:\projects regex does not match the user-profile root' (-not [regex]::IsMatch('C:\Users\Administrator\projects\nope', $reC))
+Check 'C:\projects regex does not match the user-profile root' (-not [regex]::IsMatch('C:\Users\alice\projects\nope', $reC))
 
 $why = Find-ProjectsRootViolation -Root 'C:\projects' -Text '/mnt/c/projects/nope\file.txt' -Tool 'Write'
 Check 'deny /mnt/c/projects bad entry' ($why -match 'not an allowed projects root entry')
 $why = Find-ProjectsRootViolation -Root 'C:\projects' -Text '/c/projects/active/ok.txt' -Tool 'Write'
 Check 'allow /c/projects/active' ([string]::IsNullOrEmpty($why))
-$why = Find-ProjectsRootViolation -Root 'C:\Users\Administrator\projects' -Text '/mnt/c/Users/Administrator/projects/secret' -Tool 'Edit'
+$why = Find-ProjectsRootViolation -Root 'C:\Users\alice\projects' -Text '/mnt/c/Users/alice/projects/secret' -Tool 'Edit'
 Check 'deny user-profile /mnt/c bad entry' ($why -match 'not an allowed')
-$why = Find-ProjectsRootViolation -Root 'C:\Users\Administrator\projects' -Text 'C:\projects\secret' -Tool 'Write'
+$why = Find-ProjectsRootViolation -Root 'C:\Users\alice\projects' -Text 'C:\projects\secret' -Tool 'Write'
 Check 'C:\projects text is not judged against the user-profile root' ([string]::IsNullOrEmpty($why))
 $why = Find-ProjectsRootViolation -Root 'C:\projects' -Text 'C:\projects\notes.md' -Tool 'Write'
 Check 'loose file name is not an allowed root entry' ($why -match 'not an allowed projects root entry')
@@ -89,8 +89,8 @@ $why = Find-ProjectsRootViolation -Root 'C:\projects' -Text 'mkdir foo' -Cwd '/m
 Check 'relative create in /mnt/c/projects cwd is denied' ($why -match 'projects root')
 $why = Find-ProjectsRootViolation -Root 'C:\projects' -Text 'mkdir C:\projects\active\bar' -Cwd 'C:\projects' -Tool 'Bash'
 Check 'absolute create under active is allowed' ([string]::IsNullOrEmpty($why))
-$why = Find-ProjectsRootViolation -Root 'C:\Users\Administrator\projects' -Text 'mkdir stuff' -Cwd '/c/Users/Administrator/projects' -Tool 'Shell'
-Check 'Shell relative create uses the user-profile root' ($why -match 'C:\\Users\\Administrator\\projects\\active')
+$why = Find-ProjectsRootViolation -Root 'C:\Users\alice\projects' -Text 'mkdir stuff' -Cwd '/c/Users/alice/projects' -Tool 'Shell'
+Check 'Shell relative create uses the user-profile root' ($why -match 'C:\\Users\\alice\\projects\\active')
 
 # --- process: allow, deny, missing root, env override ---
 $allowEnv = @{ WORKSTATION_PROJECTS_ROOT = $rootA; USERPROFILE = $profile }

@@ -6,15 +6,15 @@ into the ONE shared store that `install.ps1` (workstation setup) set up:
     <Projects>\_claude\Claude Projects\Working Memory\memory\
 
 (`<Projects>` = the `-ProjectsRoot` used for install.ps1, default `%USERPROFILE%\Projects`.)
-Notes from other accounts also go into this store unless Dan says otherwise.
+Notes from other accounts also go into this store unless the user says otherwise.
 
 Hard rules
 - Back up first (step a). Nothing else changes before the backup is verified.
-- Never overwrite a note. Never delete an original until Dan says OK.
+- Never overwrite a note. Never delete an original until the user says OK.
 - Every note and index line you add is signed: `-- Grok Bot (from <source>), yyyy-MM-dd`.
 - Follow pointers one step only.
 - Never copy, print or move secrets (keys, credentials, `.env`, anything that looks like an API key).
-  If a note contains one, leave that part out and tell Dan where it is.
+  If a note contains one, leave that part out and tell the user where it is.
 - Memory stays local. Never commit memory or pointer files to git.
 - Skip `node_modules`, `_workstation` and `_bridge` (old installed toolkit copies), `extensions`, `plugins` folders everywhere.
 
@@ -31,8 +31,8 @@ Cowork notes).
     Get-CimInstance Win32_UserProfile | Where-Object { -not $_.Special } | Select-Object LocalPath, LastUseTime
 
 For each account below, `~` = that account's `LocalPath`. Reading another account's folders
-needs admin. If access is denied, give Dan a ready-to-paste command for an admin PowerShell
-(read and copy only, into the backup folder) and wait for him.
+needs admin. If access is denied, give the user a ready-to-paste command for an admin PowerShell
+(read and copy only, into the backup folder) and wait for them.
 
 ## a. Back up every working-memory folder (memory folders only, not rule files)
 
@@ -59,7 +59,7 @@ file count and total size match:
     (Get-ChildItem -LiteralPath <src> -Recurse -File -Force | Measure-Object Length -Sum)
     (Get-ChildItem -LiteralPath <dst> -Recurse -File -Force | Measure-Object Length -Sum)
 
-Write `BACKUP-LIST.md` in the backup folder (source -> backup, counts). Show Dan the totals.
+Write `BACKUP-LIST.md` in the backup folder (source -> backup, counts). Show the user the totals.
 Stop if any count does not match.
 
 ## b. Scan (read only)
@@ -87,10 +87,10 @@ Tips
   every non-letter/digit as `-`; `workspace.json` holds a `file:///` folder URI. A project that moved
   or was renamed during REORGANIZE.md maps to its new `active\` name. Unknown -> `_unassigned`.
 
-## c. Show Dan the plan
+## c. Show the user the plan
 
 One table per target project folder: note -> source -> target file -> new / already there / conflict.
-Say which notes you will skip as duplicates or stale. Wait for Dan's OK.
+Say which notes you will skip as duplicates or stale. Wait for the user's OK.
 
 ## d. Merge (after approval only)
 
@@ -100,9 +100,9 @@ Say which notes you will skip as duplicates or stale. Wait for Dan's OK.
   `## Projects` in `MEMORY.md`.
 - Never overwrite: if a file name exists, pick a new name.
 - Sign every new note and index line: `-- Grok Bot (from <source>), yyyy-MM-dd`.
-- Keep all originals where they are until Dan OKs cleanup.
+- Keep all originals where they are until the user OKs cleanup.
 - If `~\.claude\projects\<key>\memory` was a real folder (install.ps1 warned about it): after its notes are
-  merged and Dan agrees, rename it to `memory.pre-migration-<yyyy-MM-dd>` (do not delete), then re-run
+  merged and the user agrees, rename it to `memory.pre-migration-<yyyy-MM-dd>` (do not delete), then re-run
   `install.ps1` to create the junction (the guard hook comes from the workstation-core plugin).
 - Add a pointer line to each `active\` project (template: `memory\templates\project-pointer-line.txt`,
   `{{PROJECT_SLUG}}` = the project's slug). The line names the store
@@ -116,11 +116,11 @@ Say which notes you will skip as duplicates or stale. Wait for Dan's OK.
 ## e. Transcript-only findings
 
 List facts found ONLY in transcripts or chat databases (not in any memory file), grouped by project,
-with the source. Do not save them until Dan picks which ones to keep.
+with the source. Do not save them until the user picks which ones to keep.
 
 ## f. Claude instructions (pasted by hand) and the memory split
 
-The package folder `instructions\` holds the paste texts (see `instructions\README.md`). Dan pastes them; you never
+The package folder `instructions\` holds the paste texts (see `instructions\README.md`). The user pastes them; you never
 edit them or Claude's files.
 
 Memory split (personal account, verified 2026-11-03, Store app 4.4212.0.0, Unified Claude; **work account unverified**):
@@ -135,17 +135,17 @@ Memory split (personal account, verified 2026-11-03, Store app 4.4212.0.0, Unifi
   uninstall.ps1 does not remove it either.
 - Stranded local Cowork notes (step a) can be copied into the store or brought in with the app's Import memory button.
 
-Walk Dan through ONE step at a time and wait for his OK after each:
+Walk the user through ONE step at a time and wait for their OK after each:
 1. `instructions\instructions-for-claude.md` (as is): Claude desktop > Settings > **Instructions for Claude**,
-   if that box is still there. Account-level. Not checkable on disk, so ask Dan to confirm it is saved.
+   if that box is still there. Account-level. Not checkable on disk, so ask the user to confirm it is saved.
 2. `instructions\cowork-global-instructions.md` only if a Global instructions box is still there. It no longer
    tells the app to use a local folder. Preflight does not check it.
 3. Optional: old per-project Cowork lines that pointed at `~\.claude\working-memory\<slug>\INDEX.md` are obsolete.
-   Dan can remove them. Do not point a Cowork files location at the store; the desktop app does not use that folder.
+   The user can remove them. Do not point a Cowork files location at the store; the desktop app does not use that folder.
 
 Claude Code projects keep their per-project pointer line from step d.
 
 ## Done
 
-Tell Dan: what was backed up (and where), what was merged, what was skipped, transcript-only
-findings waiting for him, and which originals can be cleaned up once he OKs it.
+Tell the user: what was backed up (and where), what was merged, what was skipped, transcript-only
+findings waiting for them, and which originals can be cleaned up once they OK it.
