@@ -179,3 +179,15 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** keeping a curated MCP server and plugin list; removing our own Desktop Commander shortcuts and scripts (first version of this entry; Dan reversed it); removing what older installs added (that stays the user's call).
 - **Supersedes:** the 2026-10-29 rule (BACKLOG.md, 2026-10-29) that install makes Claude Code MCP connectors and official-marketplace plugins match `claude\mcp-servers.json` and `claude\plugins.json`; the `pluginConfigs` part of D-2026-11-26-hooks-in-plugin (install no longer sets Project instructions to claude-md-and-agents-md).
 - **Reopen if:** workstation-core itself needs an MCP server or another plugin to work.
+
+## D-2026-11-27-agents-pointer-claude-md: a pure `@AGENTS.md` CLAUDE.md is allowed
+- **Status:** accepted, 2026-11-27 (Dan)
+- **Source:** Dan's choice in the ST185 Link ECU Config project session, 2026-11-27: add an exception for files a repo keeps on purpose by decision.
+- **Context:** the SessionStart hook `hooks/agents-md-only-warn.ps1` warned on every CLAUDE file, and session-start and repo-cleanup said to fold and delete every one. A project repo keeps a one-line root `CLAUDE.md` whose only content is `@AGENTS.md`, by its own decision, so Claude Code loads the `AGENTS.md` router (install no longer sets Project instructions, D-2026-11-26-no-third-party-installs). The hook flagged it every session.
+- **Decision:**
+  - A `CLAUDE.md` or `.claude/CLAUDE.md` whose whole content, ignoring whitespace, is exactly `@AGENTS.md` is an import pointer that adds no rules. The hook does not warn on it, and session-start and repo-cleanup leave it alone when a repo decision keeps it.
+  - `CLAUDE.local.md` is never exempt. A CLAUDE file with any other content still warns and is still folded and deleted.
+  - The `no-claude-md` CI job and `scripts/check_no_claude_md.py` stay as they are: they guard only this repo, which has no such pointer.
+- **Rejected:** a per-repo allow list file; exempting any CLAUDE file a repo names in its decisions (too wide, the hook cannot read decisions).
+- **Supersedes:** none; narrows the "AGENTS.md is the only instruction file" rule in session-start and repo-cleanup.
+- **Reopen if:** Claude Code reads `AGENTS.md` on its own, so the pointer is no longer needed.
