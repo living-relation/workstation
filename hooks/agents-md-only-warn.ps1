@@ -1,6 +1,9 @@
 # SessionStart hook. Warns when CLAUDE.md, .claude/CLAUDE.md, or CLAUDE.local.md
 # is in the session directory or any parent up to the drive root.
 # Ignores ~/.claude/CLAUDE.md (USERPROFILE, HOME, and the OS user profile).
+# Ignores a CLAUDE.md or .claude/CLAUDE.md whose only content is `@AGENTS.md`
+# (an import pointer a repo keeps on purpose by decision). CLAUDE.local.md is
+# never exempt.
 # Warn only: plain text on stdout. Never deletes, edits, or blocks.
 # Exit 0 on every error. Windows PowerShell 5.1 and pwsh (POSIX) safe.
 
@@ -153,6 +156,24 @@ function Get-SessionDir {
   return $full
 }
 
+function Test-PointerOnlyClaudeMd {
+  # True for a CLAUDE.md (root or .claude/) whose whole content, ignoring
+  # whitespace, is exactly `@AGENTS.md`: an import pointer that adds no rules,
+  # kept on purpose by a repo decision. Never true for CLAUDE.local.md.
+  param([string]$Path)
+  if (-not $Path) { return $false }
+  $name = [IO.Path]::GetFileName($Path)
+  if ($name -cne 'CLAUDE.md') { return $false }
+  try {
+    $len = (Get-Item -LiteralPath $Path -ErrorAction Stop).Length
+    if ($len -gt 1024) { return $false }
+    $text = [IO.File]::ReadAllText($Path)
+  } catch { return $false }
+  if ($null -eq $text) { return $false }
+  $text = $text.TrimStart([char]0xFEFF)
+  return (($text -replace '\s', '') -ceq '@AGENTS.md')
+}
+
 function Find-InstructionFiles {
   param([Parameter(Mandatory = $true)][string]$StartDir)
   $ignore = Get-IgnoreKeySet
@@ -168,6 +189,7 @@ function Find-InstructionFiles {
       $exists = $false
       try { $exists = Test-Path -LiteralPath $candidate -PathType Leaf -ErrorAction SilentlyContinue } catch { $exists = $false }
       if (-not $exists) { continue }
+      if (Test-PointerOnlyClaudeMd $candidate) { continue }
       $display = Get-DisplayPath $candidate
       if (-not $display) { continue }
       $keySet = @{}

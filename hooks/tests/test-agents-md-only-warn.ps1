@@ -185,6 +185,34 @@ Check 'clean directory exits 0' ($quiet.Code -eq 0)
 Check 'clean directory adds no file of its own' (@($qListed | Where-Object { $_.StartsWith((Get-FullPathSafe $clean) + $sep, [StringComparison]::OrdinalIgnoreCase) }).Count -eq 0)
 Check 'a clean directory still warns about a parent file' ($qListed -contains (Show $baseClaude))
 
+$ptr = Join-Path $tmp 'ptr'
+$mixed = Join-Path $tmp 'mixed'
+New-Item -ItemType Directory -Force -Path (Join-Path $ptr '.claude'), $mixed | Out-Null
+$ptrClaude = Join-Path $ptr 'CLAUDE.md'
+$ptrDot = Join-Path (Join-Path $ptr '.claude') 'CLAUDE.md'
+$ptrLocal = Join-Path $ptr 'CLAUDE.local.md'
+$mixedClaude = Join-Path $mixed 'CLAUDE.md'
+[IO.File]::WriteAllText($ptrClaude, "@AGENTS.md`n")
+[IO.File]::WriteAllText($ptrDot, "  @AGENTS.md  `r`n`r`n")
+[IO.File]::WriteAllText($ptrLocal, "@AGENTS.md`n")
+[IO.File]::WriteAllText($mixedClaude, "@AGENTS.md`nAlways run the tests.`n")
+Check 'pointer-only CLAUDE.md is exempt' (Test-PointerOnlyClaudeMd $ptrClaude)
+Check 'pointer-only .claude/CLAUDE.md is exempt' (Test-PointerOnlyClaudeMd $ptrDot)
+Check 'pointer-only CLAUDE.local.md is not exempt' (-not (Test-PointerOnlyClaudeMd $ptrLocal))
+Check 'CLAUDE.md with other content is not exempt' (-not (Test-PointerOnlyClaudeMd $mixedClaude))
+$before = FileSnap @($ptrClaude, $ptrDot, $ptrLocal, $mixedClaude)
+$r = Invoke-Hook @{ cwd = $ptr } $envMap $clean
+$after = FileSnap @($ptrClaude, $ptrDot, $ptrLocal, $mixedClaude)
+$listed = @(Listed $r.Out)
+Check 'pointer run exits 0' ($r.Code -eq 0)
+Check 'pointer-only CLAUDE.md gets no warning' ($listed -notcontains (Show $ptrClaude))
+Check 'pointer-only .claude/CLAUDE.md gets no warning' ($listed -notcontains (Show $ptrDot))
+Check 'pointer-only CLAUDE.local.md still warns' ($listed -contains (Show $ptrLocal))
+Check 'pointer run still warns about a parent file' ($listed -contains (Show $baseClaude))
+Check 'pointer files are unchanged' ($before -eq $after)
+$r = Invoke-Hook @{ cwd = $mixed } $envMap $clean
+Check 'CLAUDE.md with other content warns' (@(Listed $r.Out) -contains (Show $mixedClaude))
+
 $lonely = Join-Path ([IO.Path]::GetTempPath()) ("agents-md-quiet-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
 New-Item -ItemType Directory -Force -Path $lonely | Out-Null
 $alone = Invoke-Hook @{ cwd = $lonely } $envMap $lonely
