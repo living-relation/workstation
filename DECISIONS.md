@@ -191,3 +191,16 @@ Append only. A change is a new entry that names the one it supersedes. Newest at
 - **Rejected:** a per-repo allow list file; exempting any CLAUDE file a repo names in its decisions (too wide, the hook cannot read decisions).
 - **Supersedes:** none; narrows the "AGENTS.md is the only instruction file" rule in session-start and repo-cleanup.
 - **Reopen if:** Claude Code reads `AGENTS.md` on its own, so the pointer is no longer needed.
+
+## D-2026-11-28-rec-marker: every recommended choice is marked with ⭐, and the question rule loads in every session
+- **Status:** accepted, 2026-11-28 (Dan)
+- **Source:** Claude Code cloud chat session_01LBrZysuHzUuaj22cwXLigG, 2026-11-28: "Workstation core needs to enforce questions that get asked using 2 character ids, 1 letter, and 1 number. Never more. Each multiple choice answer uses a lower case letter. No normal numbered questions, and no numbers used in combination with the 2 character question id."; "every recommended answer for questions needs to be marked with the same emoji"; answers A1a (enforce it in workstation-core) and A2b (Claude Code opens the PR).
+- **Context:** D-2026-11-25-question-ids put the ID rule in coordinator-kit and the paste files only. The concise skill had no ID rule (its examples used `w3`, `p1`) and marked the recommendation with `(rec)`, so agents drifted to IDs such as `q10`. `state_lint.py` accepted any `Question_Counter` value (its test used `Q22`).
+- **Decision:**
+  - The recommended choice is marked with ⭐ right after it, every time and only there. No other marker replaces it.
+  - The question rule (`memory/templates/questions.md`, marker `questions:v1`) is printed at every session start by `hooks/rules-inject.ps1` and `hooks/rules_fallback.py`, next to the memory and app-lock blocks, so it applies in every Claude Code, Cowork and Cursor session with the plugin.
+  - The concise skill, coordinator-kit, repo-cleanup's fallback and both paste files state the same rule.
+  - `state_lint.py` fails a `- Question_Counter:` value that is not exactly one capital letter and one digit 1-9.
+- **Rejected:** a different emoji per agent; leaving the rule in coordinator-kit only.
+- **Supersedes:** the "with your recommendation" / `(rec)` wording in the concise skill, coordinator-kit and the paste files (D-2026-11-25-question-ids stays for the ID format).
+- **Reopen if:** an app cannot show ⭐.

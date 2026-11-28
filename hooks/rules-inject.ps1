@@ -1,8 +1,9 @@
-# SessionStart hook. Prints the workstation memory-store rules and the app lock rules (harness.design, Fusion Desktop) from this
+# SessionStart hook. Prints the workstation memory-store rules, the app lock rules (harness.design, Fusion Desktop) and the
+# question-format rule (questions.md) from this
 # plugin's memory\templates, so they load from the workstation-core plugin instead of text appended to
 # ~\.claude\CLAUDE.md or ~\.cursor\rules\*.mdc (owner decision 2026-11-22, E3).
-# Claude Code / Cowork: claude-global-memory-section.md + app-locks.md as plain text on stdout.
-# Cursor (sessionStart): claude-shared-memory.mdc (without front matter) + app-locks.md as one
+# Claude Code / Cowork: claude-global-memory-section.md + app-locks.md + questions.md as plain text on stdout.
+# Cursor (sessionStart): claude-shared-memory.mdc (without front matter) + app-locks.md + questions.md as one
 # {"additional_context": ...} line.
 # A part is skipped when the user's own rule file already has that marked block (older installs appended
 # it), so nothing is loaded twice. Placeholders are filled from the projects root saved by install.ps1
@@ -68,7 +69,7 @@ function Format-RulesInjection {
     $own = @((Join-Path (Join-Path $UserHome '.claude') 'CLAUDE.md'))
   }
   $parts = New-Object 'System.Collections.Generic.List[string]'
-  foreach ($pair in @(@($memName, 'shared-memory'), @('app-locks.md', 'app-locks'))) {
+  foreach ($pair in @(@($memName, 'shared-memory'), @('app-locks.md', 'app-locks'), @('questions.md', 'questions'))) {
     if (Test-FileHasMarker $own $pair[1]) { continue }
     $path = Join-Path $TemplatesDir $pair[0]
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
@@ -78,7 +79,7 @@ function Format-RulesInjection {
     [void]$parts.Add(($block -replace "`r`n", "`n"))
   }
   if (-not $parts.Count) { return $null }
-  $head = 'rules-inject: workstation-core rules (memory store and app locks). They apply to this session.'
+  $head = 'rules-inject: workstation-core rules (memory store, app locks and question format). They apply to this session.'
   return (($head, ($parts -join "`n`n")) -join "`n")
 }
 
