@@ -1,0 +1,19 @@
+{
+  "client_id": "https://raw.githubusercontent.com/living-relation/workstation/chore/fusion-oauth-client-doc/instructions/oauth/mcp-remote-client.json",
+  "client_name": "Claude Desktop (mcp-remote) on a workstation PC",
+  "redirect_uris": [
+    "http://localhost:3334/oauth/callback",
+    "http://localhost:3335/oauth/callback",
+    "http://localhost/oauth/callback"
+  ],
+  "grant_types": [
+    "authorization_code",
+    "refresh_token"
+  ],
+  "response_types": [
+    "code"
+  ],
+  "token_endpoint_auth_method": "none",
+  "application_type": "native",
+  "scope": "mcp:read mcp:write offline_access"
+}
