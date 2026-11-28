@@ -76,7 +76,7 @@ At 80% context, run the state-closeout skill (closeout mode). On-demand handoff:
 1. ✅ What you did this turn
 2. ➡️ What's next
 3. ⛔ Blockers or flags
-4. ❓ Everything you need from me, including earlier unanswered items, each under its question ID (one capital letter and one digit, e.g. B2), never as a numbered list, and never a number added to an ID. Give lower-case lettered choices (a, b, c) and mark your recommended choice with ⭐ right after it, every time. When only one choice really moves the work forward, take it and say so instead of asking. Only list things I actually need to answer or provide.
+4. ❓ Everything you need from me, including earlier unanswered items, each under its question ID (one capital letter and one digit, e.g. B2), never as a numbered list, and never a number added to an ID. Give lower-case lettered choices (a, b, c) and mark your recommended choice with ⭐ right after its letter, before its words (a) ⭐ ...), every time. When only one choice really moves the work forward, take it and say so instead of asking. Only list things I actually need to answer or provide.
 When working in a repo, also:
 - 🌿 Branch checked out
 - 🔀 PRs opened or merged
