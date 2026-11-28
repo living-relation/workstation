@@ -53,7 +53,15 @@ class LintTextTests(unittest.TestCase):
 
     def test_optional_pointer_lines_are_allowed(self):
         text = VALID_STATE.rstrip("\n") + ("\n- Last_Cleanup: 2026-11-18 @ abc1234\n"
-                                           "- Kept_Branches: feat/x (2026-11-18)\n- Question_Counter: Q22\n")
+                                           "- Kept_Branches: feat/x (2026-11-18)\n- Question_Counter: Q2\n")
+        self.assertEqual(state_lint.lint_text(text), [])
+
+    def test_question_counter_must_be_two_characters(self):
+        for bad in ("Q22", "A0", "a1", "1", "AB1", "A10"):
+            text = VALID_STATE.rstrip("\n") + "\n- Question_Counter: %s\n" % bad
+            problems = state_lint.lint_text(text)
+            self.assertTrue(any("Question_Counter" in p for p in problems), (bad, problems))
+        text = VALID_STATE.rstrip("\n") + "\n- Question_Counter: B7\n"
         self.assertEqual(state_lint.lint_text(text), [])
 
     def test_unknown_pointer_line_is_a_violation(self):

@@ -23,6 +23,7 @@ Check 'claude: lock commands use app-lock.ps1' ($r.Out -match 'workstation\\app-
 Check 'claude: placeholders filled from workstation.json' ($r.Out -match [regex]::Escape('C:\Test Projects\_claude') -and $r.Out -notmatch '\{\{')
 Check 'claude: project key filled' ($r.Out -match 'C--Test-Projects')
 Check 'claude: no retired Fusion rule line' ($r.Out -notmatch 'official Fusion MCP')
+Check 'claude: prints the question-format rule' ($r.Out -match 'questions:v1' -and $r.Out -match 'one capital letter and one digit' -and $r.Out -match 'lower-case letter')
 Check 'claude: prints the Fusion Desktop lock rule' ($r.Out -match 'acquire -Name fusion-desktop' -and $r.Out -match 'checkin -Name fusion-desktop' -and $r.Out -match 'release -Name fusion-desktop')
 
 Write-TestFile (Join-Path $home1 '.claude\CLAUDE.md') "# mine`n<!-- shared-memory:v1 -->`nold`n<!-- /shared-memory:v1 -->`n"
@@ -30,7 +31,10 @@ $r = Start-Session
 Check 'claude: memory part skipped when CLAUDE.md already has it' ($r.Out -notmatch 'shared-memory:v1' -and $r.Out -match 'app-locks:v1')
 Write-TestFile (Join-Path $home1 '.claude\CLAUDE.md') "<!-- shared-memory:v1 -->`n<!-- /shared-memory:v1 -->`n<!-- app-locks:v1 -->`n<!-- /app-locks:v1 -->`n"
 $r = Start-Session
-Check 'claude: silent when CLAUDE.md has both blocks' ($r.Out.Trim() -eq '' -and $r.Code -eq 0)
+Check 'claude: only the question rule when CLAUDE.md has the memory and lock blocks' ($r.Out -match 'questions:v1' -and $r.Out -notmatch 'app-locks:v1' -and $r.Out -notmatch 'shared-memory:v1')
+Write-TestFile (Join-Path $home1 '.claude\CLAUDE.md') "<!-- shared-memory:v1 -->`n<!-- /shared-memory:v1 -->`n<!-- app-locks:v1 -->`n<!-- /app-locks:v1 -->`n<!-- questions:v1 -->`n<!-- /questions:v1 -->`n"
+$r = Start-Session
+Check 'claude: silent when CLAUDE.md has all three blocks' ($r.Out.Trim() -eq '' -and $r.Code -eq 0)
 
 $cursorPayload = @{ hook_event_name = 'sessionStart'; workspace_roots = @($t) }
 $r = Start-Session @{ CURSOR_VERSION = '1.7.0' } $cursorPayload
@@ -38,9 +42,10 @@ $j = $null; try { $j = $r.Out.Trim() | ConvertFrom-Json } catch { }
 Check 'cursor: one additional_context JSON line' ($j -and $j.additional_context)
 Check 'cursor: uses the Cursor memory text' ($j -and $j.additional_context -match 'Shared Claude memory' -and $j.additional_context -notmatch 'alwaysApply')
 Check 'cursor: includes the lock rule' ($j -and $j.additional_context -match 'app-locks:v1')
-Write-TestFile (Join-Path $home1 '.cursor\rules\claude-shared-memory.mdc') "---`nalwaysApply: true`n---`n<!-- shared-memory:v1 -->`nx`n<!-- /shared-memory:v1 -->`n<!-- app-locks:v1 -->`n<!-- /app-locks:v1 -->`n"
+Check 'cursor: includes the question rule' ($j -and $j.additional_context -match 'questions:v1')
+Write-TestFile (Join-Path $home1 '.cursor\rules\claude-shared-memory.mdc') "---`nalwaysApply: true`n---`n<!-- shared-memory:v1 -->`nx`n<!-- /shared-memory:v1 -->`n<!-- app-locks:v1 -->`n<!-- /app-locks:v1 -->`n<!-- questions:v1 -->`n<!-- /questions:v1 -->`n"
 $r = Start-Session @{ CURSOR_VERSION = '1.7.0' } $cursorPayload
-Check 'cursor: silent when the rule file has both blocks' ($r.Out.Trim() -eq '' -and $r.Code -eq 0)
+Check 'cursor: silent when the rule file has all three blocks' ($r.Out.Trim() -eq '' -and $r.Code -eq 0)
 
 $r = Start-Session @{ LOCALAPPDATA = (Join-Path $t 'no-local') }
 Check 'no projects root: silent exit 0' ($r.Out.Trim() -eq '' -and $r.Code -eq 0)

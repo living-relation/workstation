@@ -276,6 +276,7 @@ def test_python_fallback_loads_the_rules(tmp_path):
         assert result.stdout.startswith("rules-inject: workstation-core rules")
         assert "<!-- shared-memory:v1 -->" in result.stdout
         assert "<!-- app-locks:v1 -->" in result.stdout
+        assert "<!-- questions:v1 -->" in result.stdout
         assert "{{" not in result.stdout
         assert "<Projects>" in result.stdout
         assert "WORKSTATION RULES NOT LOADED" not in result.stdout

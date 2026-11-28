@@ -6,7 +6,8 @@ and only on SessionStart or SubagentStart:
     python3 hooks/rules_fallback.py <rules-inject|state-inject|subagent-rules>  < hook payload JSON
 
 It prints the same text as the PowerShell hook of that name, built from the same sources:
-- rules-inject: the marked blocks in memory/templates (claude-global-memory-section.md, app-locks.md).
+- rules-inject: the marked blocks in memory/templates (claude-global-memory-section.md, app-locks.md,
+  questions.md).
   A block is skipped when ~/.claude/CLAUDE.md already has it. Placeholders come from
   WORKSTATION_PROJECTS_ROOT or LOCALAPPDATA/Workstation/workstation.json; with neither (a cloud
   session), they stay as labels such as <Projects>, so the rules still load.
@@ -101,7 +102,8 @@ def rules_text(templates=TEMPLATES, projects_root=None, user_home=None):
         }
     own = Path(user_home) / ".claude" / "CLAUDE.md"
     parts = []
-    for file_name, marker in (("claude-global-memory-section.md", "shared-memory"), ("app-locks.md", "app-locks")):
+    for file_name, marker in (("claude-global-memory-section.md", "shared-memory"), ("app-locks.md", "app-locks"),
+                              ("questions.md", "questions")):
         if _file_has_marker(own, marker):
             continue
         path = Path(templates) / file_name
@@ -115,7 +117,7 @@ def rules_text(templates=TEMPLATES, projects_root=None, user_home=None):
         parts.append(block.replace("\r\n", "\n"))
     if not parts:
         return None
-    head = "rules-inject: workstation-core rules (memory store and app locks). They apply to this session."
+    head = "rules-inject: workstation-core rules (memory store, app locks and question format). They apply to this session."
     if not projects_root:
         head += " No projects root on this machine (cloud session): <Projects> stands for the owner's projects folder."
     return head + "\n" + "\n\n".join(parts)

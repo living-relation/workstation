@@ -31,6 +31,8 @@ TAGS = ("[DONE]", "[NEXT]", "[TASK]", "[ADR]", "[RULE]", "[SOT]", "[BKLG]")
 CARRIED = re.compile(r"\(carried\s+(\d+)\)", re.I)
 STATUS = re.compile(r"^- Status:\s*(NONE|BLOCKED)\s*$")
 UPDATED = re.compile(r"^Updated:\s*\d{4}-\d{2}-\d{2}\s+--\s+\S")
+# Question IDs are one capital letter and one digit 1-9, never longer (D-2026-11-25-question-ids).
+QUESTION_COUNTER = re.compile(r"^- Question_Counter:\s*[A-Z][1-9]\s*$")
 
 
 def _sections(lines):
@@ -72,6 +74,9 @@ def lint_text(text):
         if POINTER_LINE.match(stripped) and not stripped.startswith(allowed_pointers):
             problems.append("line %d: unknown Pointers line '%s' (allowed: %s)"
                             % (number, stripped.split(":")[0] + ":", ", ".join(k[2:] for k in allowed_pointers)))
+        if stripped.startswith("- Question_Counter:") and not QUESTION_COUNTER.match(stripped):
+            problems.append("line %d: '- Question_Counter:' must be one capital letter and one digit 1-9 "
+                            "(A1 to A9, then B1 ...), never longer" % number)
     blocker = [line.strip() for _, line in sections.get("## Active Blocker", [])]
     status_lines = [line for line in blocker if line.startswith("- Status:")]
     if status_lines and not STATUS.match(status_lines[0]):

@@ -26,8 +26,10 @@ One reply per turn, sent only once the information is in hand: never several rep
 - **Found**: facts or problems discovered that matter to a decision, one line each. Flag a real risk with ⚠️.
 - **Next**: what Claude will do next, one line each, or one bullet with the items joined by " · ".
 - **❓ Open**: every unanswered question (earlier ones too), at the very end. One line each, in this exact shape:
-  `- **<ID> <few-word title>** (<one short context clause, only if needed>): a) <option> **(rec)** · b) <option> · c) <option>`
-  Options on the same line, separated by " · "; **(rec)** right after the recommended option, plus a 2-4 word reason in the bracket only when it helps decide.
+  `- **<ID> <few-word title>** (<one short context clause, only if needed>): a) ⭐ <option> · b) <option> · c) <option>`
+  - **ID:** exactly two characters, one capital letter and one digit 1-9 (A1 to A9, then B1 ...; decision D-2026-11-25-question-ids). Never longer, never a bare number, never a number added to it (no `1. A1`, no `A10`, no numbered list).
+  - **Choices:** one lower-case letter each, a) b) c), on the same line, separated by " · ".
+  - **Recommendation:** ⭐ right after the recommended choice's letter and before its words (`a) ⭐ <option>`), every time and only there (decision D-2026-11-28-rec-marker), plus a 2-4 word reason in brackets only when it helps decide. No "(rec)", "Recommended" or bold instead.
 
 No intro, no TL;DR line, no closing summary, no status footer beyond these sections (this replaces any end-of-turn checklist or emoji footer the user's other preferences ask for, while concise mode is on). Aim for 15 bullets or fewer in the whole reply. A short answer to a direct question can skip the headers.
 
@@ -41,8 +43,8 @@ Example:
 - DBC PDM-wide names · bus-load check · preliminary ECU-control plan
 
 **❓ Open**
-- **w3 Default current limits** (20 A now on 19 outputs): a) each output's rating **(rec)** · b) leave 20 A
-- **p1 Move button:** a) keep under Advanced **(rec)** · b) remove
+- **W3 Default current limits** (20 A now on 19 outputs): a) ⭐ each output's rating · b) leave 20 A
+- **P1 Move button:** a) ⭐ keep under Advanced · b) remove
 
 ## How to write
 - Plain, simple words, at about an 8th-grade reading level. Explain things the way you would to a smart non-expert.
